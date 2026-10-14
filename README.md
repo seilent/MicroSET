@@ -7,6 +7,10 @@ read, change and watch them over D-Bus.
   `net.seilent.MicroSet1` (`data/net.seilent.MicroSet1.xml`). State in `/var/lib/microset/settings.json`.
 - `libmicroset`: Qt client `MicroSet::Client`, CMake package `MicroSet`.
 - `microset`: CLI with `get`, `set`, `list`, `schema` and `watch`.
+- `microset-recovery`: Qt Quick screen of the MicroOS recovery session. Shows the failing session and the last 40
+  lines of its journal; tries that session again, switches to Steam, boots the previous image (hold A) or powers off.
+  `--screenshot <png> --state <name>` renders a fixture. Look and components from MicroDAP, font Selawik (OFL 1.1,
+  `MICROSET_FONT_DIR`).
 - Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other
   file only keys under its owner name (`microdap.*`, `microemu.*`).
 
@@ -15,7 +19,8 @@ changes Steam makes there.
 
 ## Build
 
-Qt 6.11 (Core, DBus), CMake 3.22, a C++20 compiler.
+Qt 6.11 (Core, DBus; Gui, Qml, Quick for `microset-recovery`, off with `-DMICROSET_RECOVERY=OFF`), CMake 3.22, a C++20
+compiler. `-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik faces adds the screenshot tests.
 
 ```
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr

@@ -77,6 +77,11 @@ install(FILES data/net.seilent.MicroSet.conf DESTINATION ${MICROSET_DBUS_POLICY_
 install(FILES data/net.seilent.MicroSet1.xml DESTINATION ${MICROSET_DBUS_INTERFACES_DIR})
 install(FILES data/microset.conf DESTINATION ${MICROSET_SYSUSERS_DIR})
 
+option(MICROSET_RECOVERY "Build microset-recovery" ON)
+if(MICROSET_RECOVERY)
+    add_subdirectory(recovery)
+endif()
+
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
