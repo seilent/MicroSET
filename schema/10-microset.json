@@ -1,0 +1,63 @@
+{
+  "owner": "microset",
+  "keys": {
+    "power.profile": {
+      "type": "s",
+      "default": "balanced",
+      "enum": ["low-power", "balanced", "performance"],
+      "applier": "power",
+      "group": "power",
+      "label": "Performance profile"
+    },
+    "power.gpu_level": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "manual"],
+      "applier": "power",
+      "group": "power",
+      "label": "GPU clock control"
+    },
+    "power.gpu_clock": {
+      "type": "u",
+      "default": 587,
+      "min": 305,
+      "max": 587,
+      "applier": "power",
+      "group": "power",
+      "label": "Manual GPU clock (MHz)"
+    },
+    "power.governor": {
+      "type": "s",
+      "default": "schedutil",
+      "enum": ["ondemand", "performance", "schedutil"],
+      "applier": "power",
+      "group": "power",
+      "label": "CPU governor"
+    },
+    "power.tdp": {
+      "type": "u",
+      "default": 10,
+      "min": 3,
+      "max": 10,
+      "applier": "power",
+      "group": "power",
+      "label": "TDP limit (W)"
+    },
+    "meta.imported_power": {
+      "type": "b",
+      "default": false,
+      "writable": false,
+      "applier": null,
+      "group": null,
+      "label": "Power settings imported from powerd"
+    },
+    "session.default": {
+      "type": "s",
+      "default": "steam",
+      "enum_from": "sessions",
+      "applier": null,
+      "group": "system",
+      "label": "Boot into"
+    }
+  }
+}
