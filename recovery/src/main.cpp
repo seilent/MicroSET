@@ -1,3 +1,4 @@
+#include "gamescope.h"
 #include "recovery.h"
 
 #include <QCommandLineParser>
@@ -195,6 +196,7 @@ int main(int argc, char *argv[])
     }
 
     if (!screenshot) {
+        microset::claimGamescopeFocus(window);
         recovery.load();
         return QCoreApplication::exec();
     }

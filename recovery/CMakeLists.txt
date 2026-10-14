@@ -1,4 +1,6 @@
 find_package(Qt6 6.11 REQUIRED COMPONENTS Gui Qml Quick)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb)
 
 set(MICROSET_RECOVERY_FONT_DIR "${CMAKE_INSTALL_FULL_DATADIR}/fonts/microset" CACHE PATH "Selawik font dir")
 
@@ -40,8 +42,9 @@ target_include_directories(microset_recovery_ui PRIVATE src)
 target_compile_definitions(microset_recovery_ui PRIVATE MICROSET_RECOVERY_FONT_DIR="${MICROSET_RECOVERY_FONT_DIR}")
 target_link_libraries(microset_recovery_ui PUBLIC Qt6::Gui Qt6::Qml Qt6::Quick)
 
-qt_add_executable(microset-recovery src/main.cpp)
-target_link_libraries(microset-recovery PRIVATE microset_recovery_core microset_recovery_uiplugin Qt6::Gui Qt6::Qml Qt6::Quick)
+qt_add_executable(microset-recovery src/main.cpp src/gamescope.cpp src/gamescope.h)
+target_link_libraries(microset-recovery PRIVATE microset_recovery_core microset_recovery_uiplugin Qt6::Gui Qt6::Qml Qt6::Quick
+    PkgConfig::XCB)
 
 install(TARGETS microset-recovery DESTINATION ${CMAKE_INSTALL_BINDIR})
 
