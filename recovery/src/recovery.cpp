@@ -96,9 +96,11 @@ bool validInvocation(const QString &id)
 
 QStringList journalArgs(const QString &unit, const QString &invocation, int limit)
 {
-    QStringList args{u"--user"_s, u"-b"_s, u"-u"_s, unit};
+    QStringList args{u"--user"_s, u"-b"_s};
     if (validInvocation(invocation))
-        args.append(u"_SYSTEMD_INVOCATION_ID="_s + invocation);
+        args << u"_SYSTEMD_INVOCATION_ID="_s + invocation << u"+"_s << u"USER_INVOCATION_ID="_s + invocation;
+    else
+        args << u"-u"_s << unit;
     args << u"-n"_s << QString::number(limit) << u"-o"_s << u"cat"_s << u"--no-pager"_s;
     return args;
 }

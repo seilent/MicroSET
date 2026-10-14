@@ -156,8 +156,8 @@ private slots:
         QCOMPARE(r.actions().size(), 4);
         QCOMPARE(r.actions().at(0).toMap().value(u"title"_s).toString(), u"try MicroDAP again"_s);
         QVERIFY(calls().contains(u"systemctl --user show -p InvocationID --value gamescope-session-plus@microdap.service"_s));
-        QVERIFY(calls().contains(u"journalctl --user -b -u gamescope-session-plus@microdap.service "
-                                 "_SYSTEMD_INVOCATION_ID=0123456789abcdef0123456789abcdef -n 40 -o cat"_s));
+        QVERIFY(calls().contains(u"journalctl --user -b _SYSTEMD_INVOCATION_ID=0123456789abcdef0123456789abcdef + "
+                                 "USER_INVOCATION_ID=0123456789abcdef0123456789abcdef -n 40 -o cat"_s));
     }
 
     void loadRequested()
@@ -173,7 +173,7 @@ private slots:
         QCOMPARE(r.failingUnit(), u"gamescope-session-plus@microdap.service"_s);
         QCOMPARE(r.actions().at(0).toMap().value(u"name"_s).toString(), u"microdap"_s);
         QVERIFY(journal.wait(5000));
-        QVERIFY(calls().contains(u"-u gamescope-session-plus@microdap.service"_s));
+        QVERIFY(calls().contains(u"systemctl --user show -p InvocationID --value gamescope-session-plus@microdap.service"_s));
     }
 
     void loadThreeFields()
@@ -216,6 +216,10 @@ private slots:
         QVERIFY(!journalArgs(u, u"0123456789abcdef0123456789abcdeF"_s, 40).join(u' ').contains(u"INVOCATION"_s));
         QCOMPARE(journalArgs(u, {}, 40),
                  (QStringList{u"--user"_s, u"-b"_s, u"-u"_s, u, u"-n"_s, u"40"_s, u"-o"_s, u"cat"_s, u"--no-pager"_s}));
+        const QString id = u"0123456789abcdef0123456789abcdef"_s;
+        QCOMPARE(journalArgs(u, id, 40),
+                 (QStringList{u"--user"_s, u"-b"_s, u"_SYSTEMD_INVOCATION_ID="_s + id, u"+"_s, u"USER_INVOCATION_ID="_s + id,
+                              u"-n"_s, u"40"_s, u"-o"_s, u"cat"_s, u"--no-pager"_s}));
     }
 
     void defaultFailedWithoutPrevious()
