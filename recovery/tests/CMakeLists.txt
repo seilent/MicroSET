@@ -9,6 +9,13 @@ target_link_libraries(tst_hold PRIVATE microset_recovery_core microset_recovery_
 add_test(NAME recovery-hold COMMAND tst_hold)
 set_tests_properties(recovery-hold PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+find_program(DBUS_DAEMON dbus-daemon REQUIRED)
+add_executable(tst_pad tst_pad.cpp)
+target_link_libraries(tst_pad PRIVATE microset_recovery_core microset_recovery_uiplugin Qt6::Quick Qt6::Test)
+target_compile_definitions(tst_pad PRIVATE DBUS_DAEMON="${DBUS_DAEMON}")
+add_test(NAME recovery-pad COMMAND tst_pad)
+set_tests_properties(recovery-pad PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 set(MICROSET_TEST_FONT_DIR "" CACHE PATH "Selawik dir for the screenshot tests, empty skips them")
 if(NOT MICROSET_TEST_FONT_DIR)
     return()

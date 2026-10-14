@@ -9,8 +9,9 @@ read, change and watch them over D-Bus.
 - `microset`: CLI with `get`, `set`, `list`, `schema` and `watch`.
 - `microset-recovery`: Qt Quick screen of the MicroOS recovery session. Shows the failing session and the last 40
   lines of its journal; tries that session again, switches to Steam, boots the previous image (hold A) or powers off.
-  `--screenshot <png> --state <name>` renders a fixture. Look and components from MicroDAP, font Selawik (OFL 1.1,
-  `MICROSET_FONT_DIR`).
+  Pad input comes from InputPlumber's D-Bus target while the MicroOS intercept arbiter (`net.seilent.MicroOs.Intercept`)
+  holds it for the app; arrow keys, Return and Escape work too. `--screenshot <png> --state <name>` renders a fixture
+  (960x640 by default). Look and components from MicroDAP, font Selawik (OFL 1.1, `MICROSET_FONT_DIR`).
 - Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other
   file only keys under its owner name (`microdap.*`, `microemu.*`).
 

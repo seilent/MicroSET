@@ -5,6 +5,7 @@ Window {
     id: root
 
     required property QtObject recovery
+    property QtObject pad: null
     property bool screenshot: false
     property int shotWidth: Screen.width
     property int shotHeight: Screen.height
@@ -61,6 +62,7 @@ Window {
 
         anchors.fill: parent
         stack: stack
+        pad: root.pad
         modal: screen.dialog
         focus: true
     }

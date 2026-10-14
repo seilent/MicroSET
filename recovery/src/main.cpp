@@ -1,7 +1,9 @@
+#include "dbuspad.h"
 #include "gamescope.h"
 #include "recovery.h"
 
 #include <QCommandLineParser>
+#include <QDBusConnection>
 #include <QDir>
 #include <QFileInfo>
 #include <QFont>
@@ -14,6 +16,8 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QtQml/qqmlextensionplugin.h>
+
+#include <memory>
 
 Q_IMPORT_QML_PLUGIN(MicroSetRecoveryPlugin)
 
@@ -146,7 +150,7 @@ int main(int argc, char *argv[])
     QCommandLineParser parser;
     parser.addHelpOption();
     const QCommandLineOption screenshotOption(u"screenshot"_s, u"Render offscreen to <png> and exit."_s, u"png"_s);
-    const QCommandLineOption sizeOption(u"size"_s, u"Window size for --screenshot."_s, u"WxH"_s, u"640x960"_s);
+    const QCommandLineOption sizeOption(u"size"_s, u"Window size for --screenshot."_s, u"WxH"_s, u"960x640"_s);
     const QCommandLineOption stateOption(u"state"_s, u"Fixture state for --screenshot, default browse."_s,
                                          u"name"_s, u"browse"_s);
     const QCommandLineOption focusOption(u"focus"_s, u"Focused action index for --screenshot."_s, u"index"_s,
@@ -172,6 +176,10 @@ int main(int argc, char *argv[])
         applyFixture(recovery, parser.value(stateOption));
     }
 
+    std::unique_ptr<DbusPad> pad;
+    if (!screenshot)
+        pad = std::make_unique<DbusPad>(QDBusConnection::sessionBus(), QDBusConnection::systemBus());
+
     QQmlApplicationEngine engine;
     bool warned = false;
     QObject::connect(&engine, &QQmlApplicationEngine::warnings, &engine, [&warned](const QList<QQmlError> &list) {
@@ -181,6 +189,7 @@ int main(int argc, char *argv[])
     });
     engine.setInitialProperties({
         {u"recovery"_s, QVariant::fromValue(static_cast<QObject *>(&recovery))},
+        {u"pad"_s, QVariant::fromValue(static_cast<QObject *>(pad.get()))},
         {u"screenshot"_s, screenshot},
         {u"shotWidth"_s, width},
         {u"shotHeight"_s, height},

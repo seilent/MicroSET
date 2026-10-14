@@ -16,6 +16,7 @@ Item {
     property real journalAnchor: 0
     readonly property real journalEnd: Math.max(0, journal.contentHeight - journal.height, screen.journalAnchor)
     readonly property bool dialogUp: dialog.shown || dialog.animating
+    readonly property real columnW: Ui.landscape ? Ui.px(Ui.detailColumn) : screen.width
     property alias list: list
     property alias journal: journal
     property alias dialog: dialog
@@ -152,9 +153,9 @@ Item {
     FocusList {
         id: list
 
-        x: 0
+        x: Ui.landscape ? Ui.px(Ui.detailListX) : 0
         y: Ui.px(Ui.contentTop)
-        width: screen.width
+        width: screen.width - list.x
         height: list.count * list.rowPitch
         rowPitch: Ui.px(Ui.settingsPitch)
         model: screen.actions
@@ -204,6 +205,7 @@ Item {
         id: focusBar
 
         visible: list.count > 0
+        x: list.x + Ui.px(Ui.hubEdge - Ui.focusBarOffset)
         rowY: list.y + list.focusY
         rowHeight: list.rowPitch
         opacity: 1 - dialog.scrim.opacity
@@ -214,17 +216,18 @@ Item {
         id: journalLabel
 
         x: 0
-        y: list.y + list.height
-        width: screen.width
-        height: Ui.px(Ui.rowHeight)
+        y: Ui.landscape ? Ui.px(Ui.contentTop) : list.y + list.height
+        width: screen.columnW
+        height: Ui.landscape ? Ui.px(Ui.detailRowsTop - Ui.contentTop) : Ui.px(Ui.rowHeight)
         visible: screen.recovery !== null && screen.recovery.failingUnit !== ""
 
         Text {
             id: unitText
 
             x: Ui.px(Ui.hubEdge)
-            y: journalLabel.height - Ui.px(Ui.settingsLabelBaselineInset) - unitText.baselineOffset
-            width: journalLabel.width - 2 * Ui.px(Ui.hubEdge)
+            y: (Ui.landscape ? Ui.px(Ui.detailLabelBaseline) - journalLabel.y
+                : journalLabel.height - Ui.px(Ui.settingsLabelBaselineInset)) - unitText.baselineOffset
+            width: journalLabel.width - (Ui.landscape ? 1 : 2) * Ui.px(Ui.hubEdge)
             text: screen.recovery === null ? "" : screen.recovery.failingUnit
             textFormat: Text.PlainText
             color: Ui.white(Ui.sectionLabel.alpha)
@@ -238,7 +241,7 @@ Item {
 
         x: 0
         y: journalLabel.y + journalLabel.height
-        width: screen.width
+        width: screen.columnW
         height: Math.max(0, Math.floor((screen.height - journal.y) / screen.linePitch) * screen.linePitch)
         contentWidth: journal.width
         contentHeight: lines.height
@@ -247,8 +250,8 @@ Item {
         clip: true
         visible: journalLabel.visible
 
-        onHeightChanged: screen.showJournalEnd()
-        onContentHeightChanged: screen.showJournalEnd()
+        onHeightChanged: Qt.callLater(screen.showJournalEnd)
+        onContentHeightChanged: Qt.callLater(screen.showJournalEnd)
 
         function stopScroll(): void {
             journalScroll.stop()
@@ -265,7 +268,7 @@ Item {
             id: lines
 
             x: Ui.px(Ui.hubEdge)
-            width: journal.width - 2 * Ui.px(Ui.hubEdge)
+            width: journal.width - (Ui.landscape ? 1 : 2) * Ui.px(Ui.hubEdge)
 
             Repeater {
                 model: screen.journalLines

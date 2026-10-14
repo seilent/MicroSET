@@ -4,7 +4,7 @@ pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb)
 
 set(MICROSET_RECOVERY_FONT_DIR "${CMAKE_INSTALL_FULL_DATADIR}/fonts/microset" CACHE PATH "Selawik font dir")
 
-add_library(microset_recovery_core STATIC src/recovery.cpp src/recovery.h)
+add_library(microset_recovery_core STATIC src/recovery.cpp src/recovery.h src/dbuspad.cpp src/dbuspad.h)
 target_include_directories(microset_recovery_core PUBLIC src)
 target_link_libraries(microset_recovery_core PUBLIC Qt6::Core Qt6::DBus)
 
