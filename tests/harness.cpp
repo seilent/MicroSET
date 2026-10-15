@@ -178,6 +178,8 @@ QProcessEnvironment Harness::environment() const
     env.insert(u"MICROSET_POWER_CONF"_s, path(u"power.conf"_s));
     env.insert(u"MICROSET_SESSIONS_ROOT"_s, path(u"root"_s));
     env.insert(u"MICROOS_PROC"_s, path(u"proc"_s));
+    env.insert(u"MICROSET_ALSA_CARD"_s, u"MicroSetTest"_s);
+    env.insert(u"MICROSET_ALSA_DEVICES"_s, path(u"dev/snd"_s));
     return env;
 }
 

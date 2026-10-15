@@ -58,6 +58,46 @@
       "applier": null,
       "group": "system",
       "label": "Boot into"
+    },
+    "audio.output": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "speaker", "headphones", "usb", "bt"],
+      "applier": null,
+      "group": "audio",
+      "label": "Output"
+    },
+    "audio.hp_gain": {
+      "type": "s",
+      "default": "high",
+      "enum": ["low", "normal", "high"],
+      "applier": "alsa",
+      "group": "audio",
+      "label": "Headphone gain"
+    },
+    "audio.hp_amp": {
+      "type": "s",
+      "default": "lohifi",
+      "enum": ["lohifi", "ulp", "hifi"],
+      "applier": "alsa",
+      "group": "audio",
+      "label": "Headphone amp"
+    },
+    "audio.speaker_gain": {
+      "type": "u",
+      "default": 102,
+      "enum": [84, 90, 96, 99, 102, 105, 108],
+      "applier": "alsa",
+      "group": "audio",
+      "label": "Speaker digital gain"
+    },
+    "audio.volume_step": {
+      "type": "u",
+      "default": 5,
+      "enum": [2, 5, 10],
+      "applier": null,
+      "group": "audio",
+      "label": "Volume step"
     }
   }
 }

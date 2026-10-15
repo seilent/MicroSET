@@ -311,7 +311,7 @@ private slots:
         h->writeState(R"({"future.key": 1, "power.gpu_clock": 9999, "session.default": "gone"})");
         QVERIFY(up());
         const QVariantMap all = qdbus_cast<QVariantMap>(h->call(u"List"_s, {QString()}).arguments().value(0));
-        QCOMPARE(all.size(), 7);
+        QCOMPARE(all.size(), 12);
         QVERIFY(!all.contains(u"future.key"_s));
         QCOMPARE(all.value(u"power.gpu_clock"_s), QVariant(587u));
         QCOMPARE(all.value(u"session.default"_s), QVariant(u"steam"_s));
@@ -323,6 +323,17 @@ private slots:
         QCOMPARE(values.value("power.tdp"_L1).toInt(), 5);
         const QVariantMap power = qdbus_cast<QVariantMap>(h->call(u"List"_s, {u"power"_s}).arguments().value(0));
         QCOMPARE(power.size(), 5);
+    }
+
+    void audioStoredWithoutCard()
+    {
+        QVERIFY(up());
+        QTRY_VERIFY(h->daemonLog().contains("alsa: no card MicroSetTest, waiting for it"_L1));
+        QCOMPARE(set(u"audio.hp_gain"_s, u"low"_s), QString());
+        QCOMPARE(get(u"audio.hp_gain"_s), QVariant(u"low"_s));
+        QCOMPARE(set(u"audio.speaker_gain"_s, 100u), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        QCOMPARE(set(u"audio.hp_amp"_s, u"CLS_H_HIFI"_s), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        QVERIFY(h->readState().contains("\"audio.hp_gain\": \"low\""));
     }
 
     void auth()

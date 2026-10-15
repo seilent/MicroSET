@@ -18,10 +18,14 @@ read, change and watch them over D-Bus.
 Power settings are applied by MicroOS `microos-powerd`; `microsetd` pushes the stored values to it and records the
 changes Steam makes there.
 
+Headphone gain, headphone amp mode and speaker gain go straight to the ALSA controls of card `PocketMICRO2`.
+`microsetd` writes them at start, on every change and 5 s after the card appears, and writes them again when a readback
+differs.
+
 ## Build
 
-Qt 6.11 (Core, DBus; Gui, Qml, Quick for `microset-recovery`, off with `-DMICROSET_RECOVERY=OFF`), CMake 3.22, a C++20
-compiler. `-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik faces adds the screenshot tests.
+Qt 6.11 (Core, DBus; Gui, Qml, Quick for `microset-recovery`, off with `-DMICROSET_RECOVERY=OFF`), alsa-lib, CMake
+3.22, a C++20 compiler. `-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik faces adds the screenshot tests.
 
 ```
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr

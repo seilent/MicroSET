@@ -1,3 +1,5 @@
+#include "alsaapplier.h"
+#include "alsalibcontrol.h"
 #include "auth.h"
 #include "powerbridge.h"
 #include "schema.h"
@@ -24,6 +26,7 @@ int main(int argc, char **argv)
     SessionsProvider sessions(qEnvironmentVariable("MICROSET_SESSIONS_ROOT"));
     Schema schema;
     schema.addApplier(u"power"_s);
+    schema.addApplier(u"alsa"_s);
     schema.addProvider(u"sessions"_s, [&sessions] { return sessions.defaults(); });
     schema.load(qEnvironmentVariable("MICROSET_SCHEMA_DIR", QStringLiteral(MICROSET_SCHEMA_DIR)));
 
@@ -44,5 +47,8 @@ int main(int argc, char **argv)
         return 1;
     }
     bridge.start();
+    AlsaLibControl control(qEnvironmentVariable("MICROSET_ALSA_CARD", u"PocketMICRO2"_s));
+    AlsaApplier alsa(bus, settings, control, qEnvironmentVariable("MICROSET_ALSA_DEVICES", u"/dev/snd"_s));
+    alsa.start();
     return app.exec();
 }

@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 6.11 REQUIRED COMPONENTS Core DBus)
+find_package(ALSA REQUIRED)
 qt_standard_project_setup()
 
 include(GNUInstallDirs)
@@ -18,6 +19,8 @@ set(MICROSET_DBUS_INTERFACES_DIR "${CMAKE_INSTALL_FULL_DATADIR}/dbus-1/interface
 set(MICROSET_SCHEMA_DIR "${CMAKE_INSTALL_FULL_DATADIR}/microset/schema.d" CACHE PATH "schema.d dir")
 
 add_library(microsetd_core STATIC
+    daemon/alsaapplier.cpp
+    daemon/alsalibcontrol.cpp
     daemon/auth.cpp
     daemon/powerbridge.cpp
     daemon/schema.cpp
@@ -27,7 +30,7 @@ add_library(microsetd_core STATIC
     daemon/store.cpp
 )
 target_include_directories(microsetd_core PUBLIC daemon)
-target_link_libraries(microsetd_core PUBLIC Qt6::Core Qt6::DBus)
+target_link_libraries(microsetd_core PUBLIC Qt6::Core Qt6::DBus ALSA::ALSA)
 
 add_executable(microsetd daemon/main.cpp)
 target_link_libraries(microsetd PRIVATE microsetd_core)

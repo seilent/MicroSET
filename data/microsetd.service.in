@@ -1,6 +1,6 @@
 [Unit]
 Description=MicroSET settings
-After=microos-powerd.service alsa-restore.service sound.target
+After=microos-powerd.service alsa-restore.service alsa-state.service sound.target
 Before=display-manager.service
 StartLimitIntervalSec=120
 StartLimitBurst=30
@@ -25,6 +25,7 @@ PrivateTmp=yes
 PrivateNetwork=yes
 RestrictAddressFamilies=AF_UNIX
 DevicePolicy=closed
+DeviceAllow=char-alsa rw
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectKernelLogs=yes

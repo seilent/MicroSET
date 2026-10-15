@@ -25,6 +25,7 @@ private:
         Fixture()
         {
             schema.addApplier(u"power"_s);
+            schema.addApplier(u"alsa"_s);
             schema.addProvider(u"sessions"_s, [] { return QStringList{u"steam"_s}; });
             schema.load(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
         }
