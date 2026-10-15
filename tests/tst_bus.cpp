@@ -14,6 +14,8 @@
 
 #include <memory>
 
+#include <unistd.h>
+
 using namespace Qt::StringLiterals;
 
 class BusTest : public QObject
@@ -116,7 +118,7 @@ private slots:
         QFile xml(QStringLiteral(MICROSET_SOURCE_DIR) + u"/data/net.seilent.MicroSet1.xml"_s);
         QVERIFY(xml.open(QIODevice::ReadOnly));
         const QStringList shipped = members(QString::fromUtf8(xml.readAll()));
-        QCOMPARE(shipped.size(), 5);
+        QCOMPARE(shipped.size(), 7);
         QCOMPARE(members(reply.arguments().value(0).toString()), shipped);
     }
 
@@ -311,7 +313,7 @@ private slots:
         h->writeState(R"({"future.key": 1, "power.gpu_clock": 9999, "session.default": "gone"})");
         QVERIFY(up());
         const QVariantMap all = qdbus_cast<QVariantMap>(h->call(u"List"_s, {QString()}).arguments().value(0));
-        QCOMPARE(all.size(), 12);
+        QCOMPARE(all.size(), 18);
         QVERIFY(!all.contains(u"future.key"_s));
         QCOMPARE(all.value(u"power.gpu_clock"_s), QVariant(587u));
         QCOMPARE(all.value(u"session.default"_s), QVariant(u"steam"_s));
@@ -334,6 +336,36 @@ private slots:
         QCOMPARE(set(u"audio.speaker_gain"_s, 100u), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
         QCOMPARE(set(u"audio.hp_amp"_s, u"CLS_H_HIFI"_s), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
         QVERIFY(h->readState().contains("\"audio.hp_gain\": \"low\""));
+    }
+
+    void displayAndRgb()
+    {
+        QVERIFY(up());
+        const QString invalid = u"net.seilent.MicroSet1.Error.InvalidValue"_s;
+        QCOMPARE(get(u"display.rotation"_s), QVariant(u"portrait"_s));
+        QCOMPARE(set(u"display.rotation"_s, u"landscape"_s), u"net.seilent.MicroSet1.Error.ReadOnly"_s);
+        QCOMPARE(set(u"display.orientation"_s, u"sideways"_s), invalid);
+        MicroSet::Client client(h->client());
+        QSignalSpy spy(&client, &MicroSet::Client::changed);
+        QCOMPARE(set(u"display.orientation"_s, u"landscape"_s), QString());
+        QCOMPARE(get(u"display.rotation"_s), QVariant(u"landscape"_s));
+        QTRY_COMPARE(spy.count(), 2);
+        QCOMPARE(spy.at(1).at(0).toString(), u"display.rotation"_s);
+        QCOMPARE(spy.at(1).at(1), QVariant(u"landscape"_s));
+        QCOMPARE(set(u"rgb.brightness"_s, 256u), invalid);
+        QCOMPARE(set(u"rgb.brightness"_s, 255), invalid);
+        QCOMPARE(set(u"rgb.color"_s, 0x1000000u), invalid);
+        QCOMPARE(set(u"rgb.enabled"_s, 1u), invalid);
+        QCOMPARE(set(u"rgb.color"_s, 0xff8000u), QString());
+        QCOMPARE(set(u"rgb.brightness"_s, 255u), QString());
+        QCOMPARE(get(u"rgb.color"_s), QVariant(0xff8000u));
+        QCOMPARE(errorOf(h->call(u"Subscribe"_s, {u"audio.output"_s})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
+        QCOMPARE(errorOf(h->call(u"Subscribe"_s, {u"nope.key"_s})), u"net.seilent.MicroSet1.Error.UnknownKey"_s);
+        h->writeCgroup(QCoreApplication::applicationPid(), Harness::GameCgroup);
+        QCOMPARE(errorOf(h->call(u"Subscribe"_s, {u"display.rotation"_s})), u"org.freedesktop.DBus.Error.AccessDenied"_s);
+        h->writeCgroup(QCoreApplication::applicationPid(), Harness::RootCgroup);
+        QTRY_COMPARE(h->daemonLog().count("rgb: cannot open "_L1 + h->path(u"dev/ttyHS2"_s)), 1);
+        QVERIFY(!h->readState().contains("display.rotation"));
     }
 
     void auth()
@@ -393,9 +425,44 @@ private slots:
         QTest::qWait(1000);
         QCOMPARE(set(u"power.tdp"_s, 4u), QString());
         QCOMPARE(set(u"session.default"_s, u"microdap"_s), QString());
-        QTRY_COMPARE(QString::fromUtf8(watch.peek(1024)), u"session.default\tmicrodap\n"_s);
+        QTRY_COMPARE(QString::fromUtf8(watch.peek(1024)), u"session.default\tsteam\nsession.default\tmicrodap\n"_s);
         watch.kill();
         watch.waitForFinished();
+    }
+
+    void cliWatchSubscribesLive()
+    {
+        QVERIFY(up());
+        const QJsonObject display =
+            QJsonDocument::fromJson(h->call(u"Schema"_s, {u"display"_s}).arguments().value(0).toString().toUtf8()).object();
+        QCOMPARE(display.value("display.rotation"_L1).toObject().value("live"_L1), QJsonValue(true));
+        QVERIFY(!display.value("display.orientation"_L1).toObject().contains("live"_L1));
+        QProcess watch;
+        h->startCli(watch, {u"watch"_s, u"display"_s});
+        QVERIFY(watch.waitForStarted());
+        QTRY_COMPARE(QString::fromUtf8(watch.peek(1024)),
+                     u"display.auto_rotate\tfalse\ndisplay.orientation\tportrait\ndisplay.rotation\tportrait\n"_s);
+        QTRY_VERIFY(h->daemonLog().contains("ssc: subscribed"_L1));
+        QVERIFY(h->daemonLog().contains("subscribe display.rotation by :"_L1));
+        watch.kill();
+        watch.waitForFinished();
+        QTRY_VERIFY(h->daemonLog().contains("ssc: no subscriber"_L1));
+        QVERIFY(h->daemonLog().contains("unsubscribe display.rotation by :"_L1));
+    }
+
+    void subscribeAndUnsubscribe()
+    {
+        QVERIFY(up());
+        const QString name = h->client().baseService();
+        QCOMPARE(errorOf(h->call(u"Subscribe"_s, {u"display.rotation"_s})), QString());
+        QTRY_VERIFY(h->daemonLog().contains("ssc: subscribed\n"_L1));
+        QVERIFY(h->daemonLog().contains(u"subscribe display.rotation by %1 uid %2\n"_s.arg(name).arg(::getuid())));
+        QCOMPARE(errorOf(h->call(u"Subscribe"_s, {u"display.rotation"_s})), QString());
+        QCOMPARE(h->daemonLog().count("subscribe display.rotation by "_L1), 1);
+        QCOMPARE(errorOf(h->call(u"Unsubscribe"_s, {u"display.rotation"_s})), QString());
+        QTRY_VERIFY(h->daemonLog().contains("ssc: no subscriber\n"_L1));
+        QVERIFY(h->daemonLog().contains(u"unsubscribe display.rotation by %1\n"_s.arg(name)));
+        QCOMPARE(h->daemonLog().count("ssc: subscribed"_L1), 1);
     }
 
     void importAndPush()

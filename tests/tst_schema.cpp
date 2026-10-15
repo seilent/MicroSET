@@ -19,6 +19,8 @@ private:
         Schema schema;
         schema.addApplier(u"power"_s);
         schema.addApplier(u"alsa"_s);
+        schema.addApplier(u"ssc"_s);
+        schema.addApplier(u"rgb"_s);
         schema.addProvider(u"sessions"_s, [this] { return m_sessions; });
         schema.load(dir);
         return schema;
@@ -34,9 +36,11 @@ private slots:
     {
         const Schema schema = make(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
         QCOMPARE(schema.keys({}), (QStringList{u"audio.hp_amp"_s, u"audio.hp_gain"_s, u"audio.output"_s,
-                                               u"audio.speaker_gain"_s, u"audio.volume_step"_s, u"meta.imported_power"_s,
+                                               u"audio.speaker_gain"_s, u"audio.volume_step"_s, u"display.auto_rotate"_s,
+                                               u"display.orientation"_s, u"display.rotation"_s, u"meta.imported_power"_s,
                                                u"power.governor"_s, u"power.gpu_clock"_s, u"power.gpu_level"_s,
-                                               u"power.profile"_s, u"power.tdp"_s, u"session.default"_s}));
+                                               u"power.profile"_s, u"power.tdp"_s, u"rgb.brightness"_s, u"rgb.color"_s,
+                                               u"rgb.enabled"_s, u"session.default"_s}));
         QCOMPARE(schema.keys(u"power"_s).size(), 5);
         QCOMPARE(schema.key(u"power.profile"_s)->defaultValue, QVariant(u"balanced"_s));
         QCOMPARE(schema.key(u"power.gpu_clock"_s)->defaultValue, QVariant(587u));
@@ -58,6 +62,23 @@ private slots:
         QCOMPARE(schema.key(u"audio.hp_gain"_s)->defaultValue, QVariant(u"high"_s));
         QCOMPARE(schema.key(u"audio.hp_amp"_s)->defaultValue, QVariant(u"lohifi"_s));
         QCOMPARE(schema.key(u"audio.speaker_gain"_s)->defaultValue, QVariant(102u));
+        for (const QString &key : schema.keys(u"display"_s))
+            QCOMPARE(schema.key(key)->applier, u"ssc"_s);
+        for (const QString &key : schema.keys(u"rgb"_s))
+            QCOMPARE(schema.key(key)->applier, u"rgb"_s);
+        QCOMPARE(schema.key(u"display.orientation"_s)->defaultValue, QVariant(u"portrait"_s));
+        QCOMPARE(schema.key(u"display.auto_rotate"_s)->defaultValue, QVariant(false));
+        QCOMPARE(schema.key(u"display.rotation"_s)->defaultValue, QVariant(u"portrait"_s));
+        QVERIFY(!schema.key(u"display.rotation"_s)->writable);
+        QCOMPARE(schema.key(u"display.rotation"_s)->enumValues, schema.key(u"display.orientation"_s)->enumValues);
+        QCOMPARE(schema.key(u"rgb.enabled"_s)->defaultValue, QVariant(false));
+        QCOMPARE(schema.key(u"rgb.color"_s)->defaultValue, QVariant(0xffffffu));
+        QCOMPARE(schema.key(u"rgb.brightness"_s)->defaultValue, QVariant(64u));
+        QVERIFY(schema.accepts(*schema.key(u"rgb.color"_s), 0xffffffu));
+        QVERIFY(!schema.accepts(*schema.key(u"rgb.color"_s), 0x1000000u));
+        QVERIFY(schema.accepts(*schema.key(u"rgb.brightness"_s), 255u));
+        QVERIFY(!schema.accepts(*schema.key(u"rgb.brightness"_s), 256u));
+        QVERIFY(!schema.accepts(*schema.key(u"rgb.brightness"_s), 64));
         QCOMPARE(schema.key(u"audio.volume_step"_s)->defaultValue, QVariant(5u));
         QCOMPARE(schema.key(u"audio.speaker_gain"_s)->enumValues,
                  (QVariantList{84u, 90u, 96u, 99u, 102u, 105u, 108u}));
@@ -210,7 +231,7 @@ private slots:
         QCOMPARE(clock.value("type"_L1).toString(), u"u"_s);
         QCOMPARE(schema.describe(u"power.tdp"_s).size(), 1);
         QCOMPARE(schema.describe(u"powe"_s).size(), 0);
-        QCOMPARE(schema.describe({}).size(), 12);
+        QCOMPARE(schema.describe({}).size(), 18);
         QCOMPARE(schema.describe(u"audio"_s).size(), 5);
         QVERIFY(schema.describe(u"meta"_s).value("meta.imported_power"_L1).toObject().value("group"_L1).isNull());
     }

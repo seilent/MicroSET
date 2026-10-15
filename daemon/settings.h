@@ -19,6 +19,7 @@ public:
     bool isStored(const QString &key) const;
     Result store(const QString &key, const QVariant &value);
     Result store(const QVariantMap &values);
+    void setLive(const QString &key, const QVariant &value);
 
 signals:
     void changed(const QString &key, const QVariant &value);
@@ -26,4 +27,5 @@ signals:
 private:
     const Schema &m_schema;
     Store &m_store;
+    QVariantMap m_live;
 };

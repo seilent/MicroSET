@@ -17,6 +17,8 @@ QVariant Settings::value(const QString &name) const
     const Key *key = m_schema.key(name);
     if (!key)
         return {};
+    if (m_live.contains(name))
+        return m_live.value(name);
     const QVariant stored = Schema::fromJson(key->type, m_store.value(name));
     return stored.isValid() && m_schema.accepts(*key, stored) ? stored : key->defaultValue;
 }
@@ -52,4 +54,12 @@ Settings::Result Settings::store(const QVariantMap &values)
         }
     }
     return result;
+}
+
+void Settings::setLive(const QString &key, const QVariant &value)
+{
+    const QVariant before = this->value(key);
+    m_live.insert(key, value);
+    if (before != value)
+        emit changed(key, value);
 }

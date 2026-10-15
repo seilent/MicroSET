@@ -2,10 +2,15 @@
 #include "alsalibcontrol.h"
 #include "auth.h"
 #include "powerbridge.h"
+#include "qrtrlink.h"
+#include "rgbapplier.h"
 #include "schema.h"
 #include "service.h"
 #include "sessionsprovider.h"
 #include "settings.h"
+#include "sleepinhibitor.h"
+#include "sscapplier.h"
+#include "sscrotation.h"
 #include "store.h"
 
 #include <QCoreApplication>
@@ -27,6 +32,8 @@ int main(int argc, char **argv)
     Schema schema;
     schema.addApplier(u"power"_s);
     schema.addApplier(u"alsa"_s);
+    schema.addApplier(u"ssc"_s);
+    schema.addApplier(u"rgb"_s);
     schema.addProvider(u"sessions"_s, [&sessions] { return sessions.defaults(); });
     schema.load(qEnvironmentVariable("MICROSET_SCHEMA_DIR", QStringLiteral(MICROSET_SCHEMA_DIR)));
 
@@ -37,7 +44,16 @@ int main(int argc, char **argv)
 
     PowerBridge bridge(bus, settings);
     Auth auth(bus, qEnvironmentVariable("MICROOS_PROC", u"/proc"_s));
-    Service service(settings, auth, bridge);
+    Service service(bus, settings, auth, bridge);
+    service.addLive(u"display.rotation"_s);
+    SleepInhibitor sleep(bus, u"stop the rotation sensor and the stick LEDs"_s);
+    SscRotation rotation(new QrtrLink, &sleep);
+    SscApplier ssc(settings, rotation);
+    QObject::connect(&service, &Service::subscribersChanged, &ssc, [&ssc](const QString &key, bool held) {
+        if (key == "display.rotation"_L1)
+            ssc.setSubscribed(held);
+    });
+    ssc.start();
     if (!bus.registerObject(u"/net/seilent/MicroSet"_s, &service, QDBusConnection::ExportScriptableContents)) {
         qCritical("cannot export /net/seilent/MicroSet: %s", qPrintable(bus.lastError().message()));
         return 1;
@@ -50,5 +66,8 @@ int main(int argc, char **argv)
     AlsaLibControl control(qEnvironmentVariable("MICROSET_ALSA_CARD", u"PocketMICRO2"_s));
     AlsaApplier alsa(bus, settings, control, qEnvironmentVariable("MICROSET_ALSA_DEVICES", u"/dev/snd"_s));
     alsa.start();
+    RgbApplier rgb(settings, &sleep, qEnvironmentVariable("MICROSET_RGB_DEVICE", u"/dev/ttyHS2"_s));
+    rgb.start();
+    sleep.take();
     return app.exec();
 }

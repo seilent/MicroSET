@@ -39,6 +39,8 @@ public:
     QDBusMessage call(const QString &method, const QVariantList &arguments) const;
     int cli(const QStringList &arguments, const QStringList &as = {}, const QByteArray &cgroup = RootCgroup,
             QString *output = nullptr) const;
+    void startCli(QProcess &process, const QStringList &arguments, const QStringList &as = {},
+                  const QByteArray &cgroup = RootCgroup) const;
 
 private:
     QTemporaryDir m_dir;

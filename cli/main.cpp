@@ -132,6 +132,19 @@ int main(int argc, char **argv)
             if (matches(name, key))
                 out() << name << '\t' << format(value) << Qt::endl;
         });
+        const QJsonObject keys = QJsonDocument::fromJson(client.schema(key, &error).toUtf8()).object();
+        if (!error.ok())
+            return fail(error, client);
+        const QVariantMap values = client.list(key, &error);
+        if (!error.ok())
+            return fail(error, client);
+        for (auto it = keys.constBegin(); it != keys.constEnd(); ++it) {
+            if (it.value().toObject().value("live"_L1).toBool())
+                client.subscribe(it.key());
+        }
+        for (auto it = values.cbegin(); it != values.cend(); ++it)
+            out() << it.key() << '\t' << format(it.value()) << '\n';
+        out().flush();
         return app.exec();
     }
 

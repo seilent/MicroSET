@@ -180,6 +180,7 @@ QProcessEnvironment Harness::environment() const
     env.insert(u"MICROOS_PROC"_s, path(u"proc"_s));
     env.insert(u"MICROSET_ALSA_CARD"_s, u"MicroSetTest"_s);
     env.insert(u"MICROSET_ALSA_DEVICES"_s, path(u"dev/snd"_s));
+    env.insert(u"MICROSET_RGB_DEVICE"_s, path(u"dev/ttyHS2"_s));
     return env;
 }
 
@@ -225,13 +226,19 @@ QDBusMessage Harness::call(const QString &method, const QVariantList &arguments)
     return client().call(message, QDBus::BlockWithGui, 10000);
 }
 
-int Harness::cli(const QStringList &arguments, const QStringList &as, const QByteArray &cgroup, QString *output) const
+void Harness::startCli(QProcess &process, const QStringList &arguments, const QStringList &as,
+                       const QByteArray &cgroup) const
 {
-    QProcess process;
     process.setProcessEnvironment(environment());
     const QString script = u"mkdir -p \"$MICROOS_PROC/$$\" && printf '%s\\n' \"$0\" > \"$MICROOS_PROC/$$/cgroup\" && exec \"$@\""_s;
     process.start(u"sh"_s, QStringList{u"-c"_s, script, QString::fromUtf8(cgroup)} + as
                                + QStringList{QStringLiteral(MICROSET_CLI)} + arguments);
+}
+
+int Harness::cli(const QStringList &arguments, const QStringList &as, const QByteArray &cgroup, QString *output) const
+{
+    QProcess process;
+    startCli(process, arguments, as, cgroup);
     if (!waitFor([&] { return process.state() == QProcess::NotRunning; }))
         process.kill();
     process.waitForFinished();

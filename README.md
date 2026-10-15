@@ -22,6 +22,13 @@ Headphone gain, headphone amp mode and speaker gain go straight to the ALSA cont
 `microsetd` writes them at start, on every change and 5 s after the card appears, and writes them again when a readback
 differs.
 
+`display.rotation` is live. While a caller holds it with `Subscribe` and `display.auto_rotate` is on, `microsetd`
+streams the SSC `device_orient` sensor over QRTR and follows it; otherwise it equals `display.orientation`. The stream
+stops before suspend and starts again after.
+
+`rgb.enabled`, `rgb.color` (`0xRRGGBB`) and `rgb.brightness` (0 to 255) go to the stick LED MCU on `/dev/ttyHS2`. The
+LEDs are off during suspend.
+
 ## Build
 
 Qt 6.11 (Core, DBus; Gui, Qml, Quick for `microset-recovery`, off with `-DMICROSET_RECOVERY=OFF`), alsa-lib, CMake

@@ -98,6 +98,55 @@
       "applier": null,
       "group": "audio",
       "label": "Volume step"
+    },
+    "display.orientation": {
+      "type": "s",
+      "default": "portrait",
+      "enum": ["portrait", "portrait-flipped", "landscape", "landscape-flipped"],
+      "applier": "ssc",
+      "group": "display",
+      "label": "Orientation"
+    },
+    "display.auto_rotate": {
+      "type": "b",
+      "default": false,
+      "applier": "ssc",
+      "group": "display",
+      "label": "Auto rotate"
+    },
+    "display.rotation": {
+      "type": "s",
+      "default": "portrait",
+      "enum": ["portrait", "portrait-flipped", "landscape", "landscape-flipped"],
+      "writable": false,
+      "applier": "ssc",
+      "group": null,
+      "label": "Current rotation"
+    },
+    "rgb.enabled": {
+      "type": "b",
+      "default": false,
+      "applier": "rgb",
+      "group": "rgb",
+      "label": "Stick LEDs"
+    },
+    "rgb.color": {
+      "type": "u",
+      "default": 16777215,
+      "min": 0,
+      "max": 16777215,
+      "applier": "rgb",
+      "group": "rgb",
+      "label": "Stick LED color (0xRRGGBB)"
+    },
+    "rgb.brightness": {
+      "type": "u",
+      "default": 64,
+      "min": 0,
+      "max": 255,
+      "applier": "rgb",
+      "group": "rgb",
+      "label": "Stick LED brightness"
     }
   }
 }

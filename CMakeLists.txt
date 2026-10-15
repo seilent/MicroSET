@@ -23,10 +23,17 @@ add_library(microsetd_core STATIC
     daemon/alsalibcontrol.cpp
     daemon/auth.cpp
     daemon/powerbridge.cpp
+    daemon/qrtrlink.cpp
+    daemon/rgbapplier.cpp
     daemon/schema.cpp
     daemon/service.cpp
     daemon/sessionsprovider.cpp
     daemon/settings.cpp
+    daemon/sleepinhibitor.cpp
+    daemon/sscapplier.cpp
+    daemon/ssclink.h
+    daemon/sscrotation.cpp
+    daemon/sscwire.cpp
     daemon/store.cpp
 )
 target_include_directories(microsetd_core PUBLIC daemon)
