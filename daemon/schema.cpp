@@ -6,6 +6,7 @@
 #include <QJsonDocument>
 #include <QRegularExpression>
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -18,6 +19,12 @@ const QString PrivilegedOwner = u"microset"_s;
 const QStringList Reserved = {u"microset"_s, u"power"_s, u"meta"_s, u"session"_s,
                                u"audio"_s, u"display"_s, u"rgb"_s, u"system"_s};
 const QStringList Types = {u"s"_s, u"b"_s, u"u"_s, u"i"_s, u"d"_s, u"as"_s};
+const QStringList Validators = {u"eq_filters"_s};
+const QStringList FilterTypes = {u"peak"_s,    u"lowshelf"_s, u"highshelf"_s, u"bandpass"_s,
+                                 u"lowpass"_s, u"highpass"_s, u"allpass"_s};
+constexpr int MaxBands = 10;
+constexpr int MaxItems = 1024;
+constexpr int MaxNumberLength = 16;
 
 bool isNumeric(const QString &type)
 {
@@ -31,6 +38,29 @@ bool hasType(const QString &type, const QVariant &value)
         {u"i"_s, QMetaType::Int},     {u"d"_s, QMetaType::Double}, {u"as"_s, QMetaType::QStringList},
     };
     return ids.contains(type) && value.typeId() == ids.value(type);
+}
+
+bool inRange(const QString &text, double low, double high)
+{
+    static const QRegularExpression pattern(u"^-?[0-9]+(\\.[0-9]+)?$"_s);
+    if (text.size() > MaxNumberLength || !pattern.match(text).hasMatch())
+        return false;
+    const double number = text.toDouble();
+    return number >= low && number <= high;
+}
+
+bool eqFilters(const QStringList &items)
+{
+    if (items.isEmpty() || items.size() > MaxBands + 1)
+        return false;
+    const QStringList preamp = items.first().split(u' ');
+    if (preamp.size() != 2 || preamp.at(0) != "preamp"_L1 || !inRange(preamp.at(1), -24, 0))
+        return false;
+    return std::all_of(items.cbegin() + 1, items.cend(), [](const QString &item) {
+        const QStringList band = item.split(u' ');
+        return band.size() == 4 && FilterTypes.contains(band.at(0)) && inRange(band.at(1), 20, 20000)
+            && inRange(band.at(2), -24, 12) && inRange(band.at(3), 0.1, 10);
+    });
 }
 
 }
@@ -229,12 +259,29 @@ std::optional<Key> Schema::parseKey(const QString &name, const QString &owner, c
     }
     const QJsonValue maxLength = object.value("max_len"_L1);
     if (!maxLength.isUndefined()) {
-        if (key.type != "s"_L1 || !maxLength.isDouble() || maxLength.toDouble() < 1
+        if ((key.type != "s"_L1 && key.type != "as"_L1) || !maxLength.isDouble() || maxLength.toDouble() < 1
             || maxLength.toDouble() > 65536 || maxLength.toDouble() != std::floor(maxLength.toDouble())) {
             *why = u"bad max_len"_s;
             return {};
         }
         key.maxLength = maxLength.toInt();
+    }
+    const QJsonValue maxItems = object.value("max_items"_L1);
+    if (!maxItems.isUndefined()) {
+        if (key.type != "as"_L1 || !maxItems.isDouble() || maxItems.toDouble() < 1 || maxItems.toDouble() > MaxItems
+            || maxItems.toDouble() != std::floor(maxItems.toDouble())) {
+            *why = u"bad max_items"_s;
+            return {};
+        }
+        key.maxItems = maxItems.toInt();
+    }
+    const QJsonValue validator = object.value("validator"_L1);
+    if (!validator.isUndefined()) {
+        if (key.type != "as"_L1 || !Validators.contains(validator.toString())) {
+            *why = u"unknown validator"_s;
+            return {};
+        }
+        key.validator = validator.toString();
     }
     const QJsonValue writable = object.value("writable"_L1);
     if (!writable.isUndefined() && !writable.isBool()) {
@@ -249,6 +296,16 @@ std::optional<Key> Schema::parseKey(const QString &name, const QString &owner, c
             return {};
         }
         key.applier = applier.toString();
+    }
+    const QJsonValue overridable = object.value("override"_L1);
+    if (!overridable.isUndefined() && !overridable.isBool()) {
+        *why = u"bad override"_s;
+        return {};
+    }
+    key.overridable = overridable.toBool(false);
+    if (key.overridable && (!key.writable || key.applier == "power"_L1)) {
+        *why = u"override on a read only or power key"_s;
+        return {};
     }
     const QJsonValue group = object.value("group"_L1);
     const QJsonValue label = object.value("label"_L1);
@@ -293,6 +350,15 @@ bool Schema::accepts(const Key &key, const QVariant &value) const
         return false;
     if (key.type == "s"_L1 && value.toString().size() > key.maxLength)
         return false;
+    if (key.type == "as"_L1) {
+        const QStringList items = value.toStringList();
+        if (key.maxItems && items.size() > *key.maxItems)
+            return false;
+        if (std::any_of(items.cbegin(), items.cend(), [&](const QString &item) { return item.size() > key.maxLength; }))
+            return false;
+        if (key.validator == "eq_filters"_L1 && !eqFilters(items))
+            return false;
+    }
     if (!key.enumFrom.isEmpty())
         return provided(key).contains(value.toString());
     if (!key.enumValues.isEmpty()) {
@@ -341,6 +407,7 @@ QJsonObject Schema::describe(const QString &prefix) const
             {u"type"_s, key.type},
             {u"default"_s, toJson(key.defaultValue)},
             {u"writable"_s, key.writable},
+            {u"override"_s, key.overridable},
             {u"applier"_s, key.applier.isEmpty() ? QJsonValue() : QJsonValue(key.applier)},
             {u"group"_s, key.group.isEmpty() ? QJsonValue() : QJsonValue(key.group)},
             {u"label"_s, key.label},
@@ -354,8 +421,12 @@ QJsonObject Schema::describe(const QString &prefix) const
                 values << toJson(value);
             entry.insert(u"enum"_s, values);
         }
-        if (key.type == "s"_L1)
+        if (key.type == "s"_L1 || key.type == "as"_L1)
             entry.insert(u"max_len"_s, key.maxLength);
+        if (key.maxItems)
+            entry.insert(u"max_items"_s, *key.maxItems);
+        if (!key.validator.isEmpty())
+            entry.insert(u"validator"_s, key.validator);
         if (key.min)
             entry.insert(u"min"_s, *key.min);
         if (key.max)

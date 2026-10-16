@@ -3,6 +3,7 @@
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusVariant>
+#include <QMap>
 #include <QObject>
 #include <QSet>
 #include <QVariant>
@@ -31,6 +32,11 @@ public:
     QVariant get(const QString &key, Error *error = nullptr) const;
     void set(const QString &key, const QVariant &value, std::function<void(const Error &)> done = {});
     QVariantMap list(const QString &prefix = {}, Error *error = nullptr) const;
+    QVariantMap stored(const QString &prefix = {}, Error *error = nullptr) const;
+    using Imported = std::function<void(const QStringList &taken, const QMap<QString, QString> &refused, const Error &)>;
+    void import(const QVariantMap &values, Imported done = {});
+    void override(const QString &key, const QVariant &value, std::function<void(const Error &)> done = {});
+    void clearOverride(const QString &key, std::function<void(const Error &)> done = {});
     QString schema(const QString &prefix = {}, Error *error = nullptr) const;
     void watch(const QString &key);
     void subscribe(const QString &key);
@@ -51,6 +57,7 @@ private:
     QDBusConnection m_bus;
     QSet<QString> m_watched;
     QSet<QString> m_subscribed;
+    QVariantMap m_overrides;
 };
 
 }

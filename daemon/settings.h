@@ -3,6 +3,7 @@
 #include "schema.h"
 #include "store.h"
 
+#include <QHash>
 #include <QObject>
 
 class Settings : public QObject
@@ -16,16 +17,32 @@ public:
 
     const Schema &schema() const;
     QVariant value(const QString &key) const;
+    QVariant stored(const QString &key) const;
     bool isStored(const QString &key) const;
     Result store(const QString &key, const QVariant &value);
     Result store(const QVariantMap &values);
     void setLive(const QString &key, const QVariant &value);
+    void setOverride(const QString &key, const QString &owner, const QVariant &value);
+    bool clearOverride(const QString &key, const QString &owner);
+    QStringList dropOverrides(const QString &owner);
+    bool holdsOverride(const QString &owner) const;
 
 signals:
     void changed(const QString &key, const QVariant &value);
 
 private:
+    struct Override
+    {
+        QString owner;
+        QVariant value;
+    };
+
+    QVariant base(const QString &key) const;
+    void emitIfMoved(const QString &key, const QVariant &before);
+    bool removeOverride(const QString &key, const QString &owner);
+
     const Schema &m_schema;
     Store &m_store;
     QVariantMap m_live;
+    QHash<QString, QList<Override>> m_overrides;
 };

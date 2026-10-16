@@ -23,6 +23,13 @@ Error errorOf(const QDBusMessage &reply)
             reply.errorMessage()};
 }
 
+bool refused(const Error &error)
+{
+    return error.name.startsWith("net.seilent.MicroSet1.Error."_L1)
+        || error.name == "org.freedesktop.DBus.Error.AccessDenied"_L1
+        || error.name == "org.freedesktop.DBus.Error.InvalidArgs"_L1;
+}
+
 }
 
 Client::Client(QObject *parent)
@@ -34,6 +41,7 @@ Client::Client(const QDBusConnection &bus, QObject *parent)
     : QObject(parent)
     , m_bus(bus)
 {
+    qDBusRegisterMetaType<QMap<QString, QString>>();
     m_bus.connect(Service, Path, Interface, u"Changed"_s, this, SLOT(onChanged(QString, QDBusVariant)));
     auto *watcher = new QDBusServiceWatcher(Service, m_bus, QDBusServiceWatcher::WatchForOwnerChange, this);
     connect(watcher, &QDBusServiceWatcher::serviceOwnerChanged, this, &Client::onOwnerChanged);
@@ -82,6 +90,51 @@ QVariantMap Client::list(const QString &prefix, Error *error) const
     return qdbus_cast<QVariantMap>(reply.arguments().value(0));
 }
 
+QVariantMap Client::stored(const QString &prefix, Error *error) const
+{
+    const QDBusMessage reply = call(u"Stored"_s, {prefix}, error);
+    return qdbus_cast<QVariantMap>(reply.arguments().value(0));
+}
+
+void Client::import(const QVariantMap &values, Imported done)
+{
+    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(method(u"Import"_s, {values})), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [watcher, done = std::move(done)] {
+        watcher->deleteLater();
+        if (!done)
+            return;
+        const QDBusMessage reply = watcher->reply();
+        done(reply.arguments().value(0).toStringList(), qdbus_cast<QMap<QString, QString>>(reply.arguments().value(1)),
+             errorOf(reply));
+    });
+}
+
+void Client::override(const QString &key, const QVariant &value, std::function<void(const Error &)> done)
+{
+    m_overrides.insert(key, value);
+    auto *watcher = new QDBusPendingCallWatcher(
+        m_bus.asyncCall(method(u"Override"_s, {key, QVariant::fromValue(QDBusVariant(value))})), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, key, value, done = std::move(done)] {
+        watcher->deleteLater();
+        const Error error = errorOf(watcher->reply());
+        if (refused(error) && m_overrides.value(key) == value)
+            m_overrides.remove(key);
+        if (done)
+            done(error);
+    });
+}
+
+void Client::clearOverride(const QString &key, std::function<void(const Error &)> done)
+{
+    m_overrides.remove(key);
+    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(method(u"ClearOverride"_s, {key})), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [watcher, done = std::move(done)] {
+        watcher->deleteLater();
+        if (done)
+            done(errorOf(watcher->reply()));
+    });
+}
+
 QString Client::schema(const QString &prefix, Error *error) const
 {
     return call(u"Schema"_s, {prefix}, error).arguments().value(0).toString();
@@ -128,6 +181,8 @@ void Client::onOwnerChanged(const QString &, const QString &, const QString &new
         return;
     for (const QString &key : std::as_const(m_subscribed))
         m_bus.asyncCall(method(u"Subscribe"_s, {key}));
+    for (auto it = m_overrides.cbegin(); it != m_overrides.cend(); ++it)
+        m_bus.asyncCall(method(u"Override"_s, {it.key(), QVariant::fromValue(QDBusVariant(it.value()))}));
     for (const QString &key : m_watched | m_subscribed)
         refresh(key);
 }

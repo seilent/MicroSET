@@ -22,7 +22,10 @@ struct Key
     std::optional<double> min;
     std::optional<double> max;
     int maxLength = 256;
+    std::optional<int> maxItems;
+    QString validator;
     bool writable = true;
+    bool overridable = false;
     QString applier;
     QString group;
     QString label;

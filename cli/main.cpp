@@ -1,6 +1,7 @@
 #include <microset/client.h>
 
 #include <QCoreApplication>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTextStream>
@@ -25,7 +26,8 @@ QTextStream &err()
 
 int usage()
 {
-    err() << "usage: microset get <key> | set <key> <value> | list [prefix] | schema [prefix] | watch [prefix]\n";
+    err() << "usage: microset get <key> | set <key> <value> | list [prefix] | stored [prefix] | schema [prefix] | "
+             "watch [prefix]\n";
     return Other;
 }
 
@@ -44,7 +46,8 @@ int fail(const MicroSet::Error &error, const MicroSet::Client &client)
 QString format(const QVariant &value)
 {
     if (value.typeId() == QMetaType::QStringList)
-        return value.toStringList().join(u',');
+        return QString::fromUtf8(
+            QJsonDocument(QJsonArray::fromStringList(value.toStringList())).toJson(QJsonDocument::Compact));
     if (value.typeId() == QMetaType::Bool)
         return value.toBool() ? u"true"_s : u"false"_s;
     return value.toString();
@@ -57,8 +60,19 @@ QVariant parse(const QString &type, const QString &text)
         return text;
     if (type == "b"_L1)
         return text == "true"_L1 ? QVariant(true) : text == "false"_L1 ? QVariant(false) : QVariant();
-    if (type == "as"_L1)
-        return text.isEmpty() ? QStringList() : text.split(u',');
+    if (type == "as"_L1) {
+        QJsonParseError error;
+        const QJsonDocument document = QJsonDocument::fromJson(text.toUtf8(), &error);
+        if (error.error != QJsonParseError::NoError || !document.isArray())
+            return {};
+        QStringList items;
+        for (const QJsonValue &item : document.array()) {
+            if (!item.isString())
+                return {};
+            items << item.toString();
+        }
+        return items;
+    }
     if (type == "u"_L1) {
         const uint n = text.toUInt(&ok);
         return ok ? QVariant(n) : QVariant();
@@ -91,7 +105,7 @@ int main(int argc, char **argv)
         return usage();
     const QString verb = args.takeFirst();
     const bool known = (verb == "get"_L1 && args.size() == 1) || (verb == "set"_L1 && args.size() == 2)
-        || ((verb == "list"_L1 || verb == "schema"_L1 || verb == "watch"_L1) && args.size() <= 1);
+        || (QStringList{u"list"_s, u"stored"_s, u"schema"_s, u"watch"_s}.contains(verb) && args.size() <= 1);
     if (!known)
         return usage();
     const QString key = args.value(0);
@@ -110,8 +124,8 @@ int main(int argc, char **argv)
         out() << format(value) << Qt::endl;
         return Ok;
     }
-    if (verb == "list"_L1) {
-        const QVariantMap values = client.list(key, &error);
+    if (verb == "list"_L1 || verb == "stored"_L1) {
+        const QVariantMap values = verb == "list"_L1 ? client.list(key, &error) : client.stored(key, &error);
         if (!error.ok())
             return fail(error, client);
         for (auto it = values.cbegin(); it != values.cend(); ++it)

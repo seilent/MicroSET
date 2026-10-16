@@ -266,6 +266,29 @@ private slots:
         QCOMPARE(f.sleep->takeCount(), 2);
     }
 
+    void overrideOffInSleep()
+    {
+        Fixture f;
+        f.h.writeState(R"({"rgb.color": 16711680})");
+        f.start();
+        f.expect(Off);
+        const QByteArray red = RgbApplier::frame(0xff0000, 64);
+        f.settings.setOverride(u"rgb.enabled"_s, u":1.42"_s, true);
+        f.expect(red, 33);
+        QTest::qWait(100);
+        QCOMPARE(f.logind->open(), 1);
+        f.logind->prepareForSleep(true);
+        f.expect(Off, 66);
+        QTRY_VERIFY(!f.sleep->held());
+        f.logind->prepareForSleep(false);
+        f.expect(red, 99);
+        QTRY_VERIFY(f.sleep->held());
+        f.settings.dropOverrides(u":1.42"_s);
+        f.expect(Off, 132);
+        QTest::qWait(200);
+        QCOMPARE(f.received().size(), 165);
+    }
+
     void darkSleepWritesNothing()
     {
         Fixture f;

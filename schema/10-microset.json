@@ -99,6 +99,110 @@
       "group": "audio",
       "label": "Volume step"
     },
+    "audio.eq.headphones.on": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "audio",
+      "label": "Headphones EQ"
+    },
+    "audio.eq.headphones.name": {
+      "type": "s",
+      "default": "",
+      "max_len": 256,
+      "applier": null,
+      "group": "audio",
+      "label": "Headphones EQ profile"
+    },
+    "audio.eq.headphones.filters": {
+      "type": "as",
+      "default": ["preamp 0"],
+      "max_items": 11,
+      "validator": "eq_filters",
+      "applier": null,
+      "group": "audio",
+      "label": "Headphones EQ filters"
+    },
+    "audio.eq.speaker.on": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "audio",
+      "label": "Speaker EQ"
+    },
+    "audio.eq.speaker.name": {
+      "type": "s",
+      "default": "",
+      "max_len": 256,
+      "applier": null,
+      "group": "audio",
+      "label": "Speaker EQ profile"
+    },
+    "audio.eq.speaker.filters": {
+      "type": "as",
+      "default": ["preamp 0"],
+      "max_items": 11,
+      "validator": "eq_filters",
+      "applier": null,
+      "group": "audio",
+      "label": "Speaker EQ filters"
+    },
+    "audio.eq.usb.on": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "audio",
+      "label": "USB EQ"
+    },
+    "audio.eq.usb.name": {
+      "type": "s",
+      "default": "",
+      "max_len": 256,
+      "applier": null,
+      "group": "audio",
+      "label": "USB EQ profile"
+    },
+    "audio.eq.usb.filters": {
+      "type": "as",
+      "default": ["preamp 0"],
+      "max_items": 11,
+      "validator": "eq_filters",
+      "applier": null,
+      "group": "audio",
+      "label": "USB EQ filters"
+    },
+    "audio.eq.bt.on": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "audio",
+      "label": "Bluetooth EQ"
+    },
+    "audio.eq.bt.name": {
+      "type": "s",
+      "default": "",
+      "max_len": 256,
+      "applier": null,
+      "group": "audio",
+      "label": "Bluetooth EQ profile"
+    },
+    "audio.eq.bt.filters": {
+      "type": "as",
+      "default": ["preamp 0"],
+      "max_items": 11,
+      "validator": "eq_filters",
+      "applier": null,
+      "group": "audio",
+      "label": "Bluetooth EQ filters"
+    },
+    "audio.bt_codec": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "aptx", "aac", "ldac", "sbc"],
+      "applier": null,
+      "group": "audio",
+      "label": "Bluetooth codec"
+    },
     "display.orientation": {
       "type": "s",
       "default": "portrait",
@@ -124,6 +228,7 @@
       "label": "Current rotation"
     },
     "rgb.enabled": {
+      "override": true,
       "type": "b",
       "default": false,
       "applier": "rgb",
@@ -131,6 +236,7 @@
       "label": "Stick LEDs"
     },
     "rgb.color": {
+      "override": true,
       "type": "u",
       "default": 16777215,
       "min": 0,
@@ -140,6 +246,7 @@
       "label": "Stick LED color (0xRRGGBB)"
     },
     "rgb.brightness": {
+      "override": true,
       "type": "u",
       "default": 64,
       "min": 0,

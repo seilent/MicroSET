@@ -9,6 +9,7 @@
 #include <QDBusServiceWatcher>
 #include <QDBusVariant>
 #include <QHash>
+#include <QMap>
 #include <QObject>
 #include <QSet>
 
@@ -28,6 +29,10 @@ public slots:
     Q_SCRIPTABLE QDBusVariant Get(const QString &key);
     Q_SCRIPTABLE void Set(const QString &key, const QDBusVariant &value);
     Q_SCRIPTABLE QVariantMap List(const QString &prefix);
+    Q_SCRIPTABLE QVariantMap Stored(const QString &prefix);
+    Q_SCRIPTABLE QStringList Import(const QVariantMap &values, QMap<QString, QString> &refused);
+    Q_SCRIPTABLE void Override(const QString &key, const QDBusVariant &value);
+    Q_SCRIPTABLE void ClearOverride(const QString &key);
     Q_SCRIPTABLE QString Schema(const QString &prefix);
     Q_SCRIPTABLE void Subscribe(const QString &key);
     Q_SCRIPTABLE void Unsubscribe(const QString &key);
@@ -38,6 +43,9 @@ signals:
 
 private:
     bool live(const QString &key);
+    const Key *overridable(const QString &name, const char *verb, qint64 *uid);
+    bool watch(const QString &name);
+    void unwatch(const QString &name);
     void drop(const QString &key, const QString &name);
     void gone(const QString &name);
 

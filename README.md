@@ -6,7 +6,8 @@ read, change and watch them over D-Bus.
 - `microsetd`: system service on `net.seilent.MicroSet`, object `/net/seilent/MicroSet`, interface
   `net.seilent.MicroSet1` (`data/net.seilent.MicroSet1.xml`). State in `/var/lib/microset/settings.json`.
 - `libmicroset`: Qt client `MicroSet::Client`, CMake package `MicroSet`.
-- `microset`: CLI with `get`, `set`, `list`, `schema` and `watch`.
+- `microset`: CLI with `get`, `set`, `list`, `stored`, `schema` and `watch`. `as` values are JSON arrays
+  (`microset set audio.eq.usb.filters '["preamp -3","peak 1000 -2 1.41"]'`).
 - `microset-recovery`: Qt Quick screen of the MicroOS recovery session. Shows the failing session and the last 40
   lines of its journal; tries that session again, switches to Steam, boots the previous image (hold A) or powers off.
   Pad input comes from InputPlumber's D-Bus target while the MicroOS intercept arbiter (`net.seilent.MicroOs.Intercept`)
@@ -14,6 +15,20 @@ read, change and watch them over D-Bus.
   (960x640 by default). Look and components from MicroDAP, font Selawik (OFL 1.1, `MICROSET_FONT_DIR`).
 - Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other
   file only keys under its owner name (`microdap.*`, `microemu.*`).
+
+`Get`, `List` and `Changed` give the effective value; `Stored` gives only the keys stored under a prefix, with their
+stored values. `Import` stores every key that has no stored value yet in one write and returns the keys it took and the
+refused ones with a reason; stored keys are left as they are. `Set`, `Import`, `Override` and `ClearOverride` need uid
+0 or `wheel`, and are refused from a game.
+
+Keys marked `"override": true` (`rgb.*`) take an `Override`: one per caller bus name per key, the newest wins, dropped
+on `ClearOverride` or when the caller leaves the bus. Overrides live in memory; `libmicroset` sends them again when
+`microsetd` restarts. Under an override `Set` still stores its value, and it shows once the override is gone.
+
+`as` keys can set `max_items` and a `validator`. `eq_filters` takes `preamp <dB>` (-24 to 0) first, then up to 10
+`<type> <Hz> <dB> <Q>` with type `peak`, `lowshelf`, `highshelf`, `bandpass`, `lowpass`, `highpass` or `allpass`, 20 to
+20000 Hz, -24 to 12 dB, Q 0.1 to 10. `audio.eq.<slot>.on`, `.name` and `.filters` exist for `headphones`, `speaker`,
+`usb` and `bt`; `audio.bt_codec` is `auto`, `aptx`, `aac`, `ldac` or `sbc`.
 
 Power settings are applied by MicroOS `microos-powerd`; `microsetd` pushes the stored values to it and records the
 changes Steam makes there.
