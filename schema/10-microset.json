@@ -213,7 +213,7 @@
     },
     "display.auto_rotate": {
       "type": "b",
-      "default": false,
+      "default": true,
       "applier": "ssc",
       "group": "display",
       "label": "Auto rotate"

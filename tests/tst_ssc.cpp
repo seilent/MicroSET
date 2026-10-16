@@ -967,7 +967,6 @@ private slots:
         QTRY_VERIFY(m_sleep->held());
         make();
         QCOMPARE(d.settings.store(Orientation, u"landscape"_s), Settings::Changed);
-        QCOMPARE(d.settings.store(AutoRotate, true), Settings::Changed);
         d.start(*m_rotation);
         QCOMPARE(Daemon::call(d.h.client(), u"Subscribe"_s, Rotation), QString());
         serve();
@@ -1165,7 +1164,6 @@ private slots:
     {
         Daemon d;
         make();
-        QCOMPARE(d.settings.store(AutoRotate, true), Settings::Changed);
         d.start(*m_rotation);
         QCOMPARE(d.settings.store(Orientation, u"landscape"_s), Settings::Changed);
         QTest::qWait(shortMs);
@@ -1178,6 +1176,7 @@ private slots:
     {
         Daemon d;
         make();
+        QCOMPARE(d.settings.store(AutoRotate, false), Settings::Changed);
         d.start(*m_rotation);
         QCOMPARE(Daemon::call(d.h.client(), u"Subscribe"_s, Rotation), QString());
         QVERIFY(d.service->held(Rotation));
@@ -1200,7 +1199,6 @@ private slots:
     {
         Daemon d;
         make();
-        QCOMPARE(d.settings.store(AutoRotate, true), Settings::Changed);
         d.start(*m_rotation);
         QDBusConnection sub = d.caller(u"sub-1"_s);
         QCOMPARE(Daemon::call(sub, u"Subscribe"_s, Rotation), QString());
@@ -1225,7 +1223,6 @@ private slots:
     {
         Daemon d;
         make();
-        QCOMPARE(d.settings.store(AutoRotate, true), Settings::Changed);
         d.start(*m_rotation);
         QCOMPARE(Daemon::call(d.caller(u"sub-1"_s), u"Subscribe"_s, Rotation), QString());
         QCOMPARE(Daemon::call(d.caller(u"sub-2"_s), u"Subscribe"_s, Rotation), QString());
@@ -1246,7 +1243,6 @@ private slots:
     {
         Daemon d;
         make();
-        QCOMPARE(d.settings.store(AutoRotate, true), Settings::Changed);
         d.start(*m_rotation);
         {
             QDBusConnection sub = d.caller(u"sub-3"_s);
@@ -1285,7 +1281,6 @@ private slots:
         Daemon d;
         make();
         QCOMPARE(d.settings.store(Orientation, u"landscape"_s), Settings::Changed);
-        QCOMPARE(d.settings.store(AutoRotate, true), Settings::Changed);
         d.start(*m_rotation);
         QCOMPARE(d.rotation(), u"landscape"_s);
         QSignalSpy changed(&d.settings, &Settings::changed);

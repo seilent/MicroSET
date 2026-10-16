@@ -479,7 +479,7 @@ private slots:
         h->startCli(watch, {u"watch"_s, u"display"_s});
         QVERIFY(watch.waitForStarted());
         QTRY_COMPARE(QString::fromUtf8(watch.peek(1024)),
-                     u"display.auto_rotate\tfalse\ndisplay.orientation\tportrait\ndisplay.rotation\tportrait\n"_s);
+                     u"display.auto_rotate\ttrue\ndisplay.orientation\tportrait\ndisplay.rotation\tportrait\n"_s);
         QTRY_VERIFY(h->daemonLog().contains("ssc: subscribed"_L1));
         QVERIFY(h->daemonLog().contains("subscribe display.rotation by :"_L1));
         watch.kill();

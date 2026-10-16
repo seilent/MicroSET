@@ -72,7 +72,7 @@ private slots:
         for (const QString &key : schema.keys(u"rgb"_s))
             QCOMPARE(schema.key(key)->applier, u"rgb"_s);
         QCOMPARE(schema.key(u"display.orientation"_s)->defaultValue, QVariant(u"portrait"_s));
-        QCOMPARE(schema.key(u"display.auto_rotate"_s)->defaultValue, QVariant(false));
+        QCOMPARE(schema.key(u"display.auto_rotate"_s)->defaultValue, QVariant(true));
         QCOMPARE(schema.key(u"display.rotation"_s)->defaultValue, QVariant(u"portrait"_s));
         QVERIFY(!schema.key(u"display.rotation"_s)->writable);
         QCOMPARE(schema.key(u"display.rotation"_s)->enumValues, schema.key(u"display.orientation"_s)->enumValues);
