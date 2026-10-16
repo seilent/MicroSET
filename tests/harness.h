@@ -13,6 +13,10 @@ public:
         "0::/user.slice/user-1000.slice/user@1000.service/app.slice/steamos-manager.service";
     static inline const QByteArray GameCgroup =
         "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-steam-app1145360-1.scope";
+    static inline const QByteArray EmuCgroup =
+        "0::/user.slice/user-1000.slice/user@1000.service/app.slice/microemu-game.scope";
+    static inline const QByteArray EmuLookalikeCgroup =
+        "0::/user.slice/user-1000.slice/user@1000.service/app.slice/microemu-game.scope-x.service";
     static uint user();
     static QStringList wheel();
     static QStringList noWheel();

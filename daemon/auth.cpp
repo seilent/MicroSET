@@ -69,7 +69,8 @@ QString Auth::refusal(const QString &sender, qint64 *uid) const
     QFile cgroup(m_proc + u'/' + QString::number(pid) + u"/cgroup"_s);
     if (!cgroup.open(QIODevice::ReadOnly))
         return u"cannot read the cgroup of pid %1"_s.arg(pid);
-    if (cgroup.readAll().contains("/app-steam-app"))
+    const QByteArray path = cgroup.readAll().trimmed();
+    if (path.contains("/app-steam-app") || path.endsWith("/microemu-game.scope") || path.contains("/microemu-game.scope/"))
         return u"called from a game"_s;
     return {};
 }
