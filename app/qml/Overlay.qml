@@ -178,10 +178,17 @@ Window {
     Window {
         id: toastWindow
 
+        readonly property int stripWidth: Ui.turn % 2 === 1 ? root.stripDepth : root.width
+        readonly property int stripHeight: Ui.turn % 2 === 1 ? root.height : root.stripDepth
+
         x: Ui.turn === 1 ? root.width - root.stripDepth : 0
         y: Ui.turn === 2 ? root.height - root.stripDepth : 0
-        width: Ui.turn % 2 === 1 ? root.stripDepth : root.width
-        height: Ui.turn % 2 === 1 ? root.height : root.stripDepth
+        width: toastWindow.stripWidth
+        height: toastWindow.stripHeight
+        minimumWidth: toastWindow.stripWidth
+        maximumWidth: toastWindow.stripWidth
+        minimumHeight: toastWindow.stripHeight
+        maximumHeight: toastWindow.stripHeight
         flags: Qt.FramelessWindowHint
         transientParent: null
         color: Ui.black

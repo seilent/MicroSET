@@ -11,6 +11,8 @@ NoNewPrivileges=yes
 WatchdogSec=15
 Environment=DISPLAY=:0
 Environment=QT_QPA_PLATFORM=xcb
+Environment=QT_QUICK_BACKEND=software
+Environment=QT_XCB_GL_INTEGRATION=none
 ExecStartPre=/usr/libexec/microset/microset-wait-x
 ExecStart=/usr/bin/microset-settings --overlay
 Restart=on-failure

@@ -4,6 +4,7 @@
 #include "settingsmodel.h"
 
 #include <QElapsedTimer>
+#include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QScopeGuard>
 #include <QQuickWindow>
@@ -12,6 +13,7 @@
 #include <QtQml/qqmlextensionplugin.h>
 
 #include <memory>
+#include <xcb/xcb.h>
 
 Q_IMPORT_QML_PLUGIN(MicroSetPlugin)
 Q_IMPORT_QML_PLUGIN(MicroSetOverlayPlugin)
@@ -113,6 +115,23 @@ class OverlayQmlTest : public QObject
     QObject *toast() const { return qvariant_cast<QObject *>(m_view->property("toast")); }
 
     QString title() const { return page()->property("title").toString(); }
+
+    static constexpr uint32_t minMaxSize = (1 << 4) | (1 << 5);
+
+    static QList<int> sizeHints(QWindow *window)
+    {
+        auto *x11 = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
+        xcb_connection_t *connection = x11->connection();
+        const auto id = static_cast<xcb_window_t>(window->winId());
+        const xcb_get_property_cookie_t cookie
+            = xcb_get_property(connection, 0, id, XCB_ATOM_WM_NORMAL_HINTS, XCB_ATOM_WM_SIZE_HINTS, 0, 18);
+        xcb_get_property_reply_t *reply = xcb_get_property_reply(connection, cookie, nullptr);
+        const auto freeReply = qScopeGuard([reply] { free(reply); });
+        if (!reply || reply->format != 32 || xcb_get_property_value_length(reply) < 9 * 4)
+            return {};
+        const auto *v = static_cast<const uint32_t *>(xcb_get_property_value(reply));
+        return {int(v[0] & minMaxSize), int(v[5]), int(v[6]), int(v[7]), int(v[8])};
+    }
 
 private slots:
     void init()
@@ -233,6 +252,46 @@ private slots:
         overlay.setHint(false);
         QTRY_VERIFY(!overlay.hintShown());
         QVERIFY(!strip->handle());
+    }
+
+    void stripSizeHintsFollowTheTurn()
+    {
+        auto *strip = qvariant_cast<QWindow *>(m_window->property("toastWindow"));
+        QVERIFY(strip);
+        const int depth = int(m_window->property("stripDepth").toReal());
+        const bool x11 = QGuiApplication::platformName() == "xcb"_L1;
+        const struct {
+            int width;
+            int height;
+            QString rotation;
+            QSize strip;
+        } turns[] = {
+            {960, 640, u"landscape"_s, {960, depth}},
+            {640, 960, u"landscape"_s, {depth, 960}},
+            {640, 960, u"portrait"_s, {640, depth}},
+            {640, 960, u"landscape-flipped"_s, {depth, 960}},
+            {640, 960, u"portrait-flipped"_s, {640, depth}},
+            {960, 640, u"landscape-flipped"_s, {960, depth}},
+        };
+        for (const auto &turn : turns) {
+            const QString row = u"%1x%2 %3"_s.arg(turn.width).arg(turn.height).arg(turn.rotation);
+            m_model->setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}),
+                                {{u"display.rotation"_s, turn.rotation}}, {});
+            m_window->setProperty("shotWidth", turn.width);
+            m_window->setProperty("shotHeight", turn.height);
+            QTRY_COMPARE(strip->size(), turn.strip);
+            QVERIFY2(strip->minimumSize() == turn.strip && strip->maximumSize() == turn.strip, qPrintable(row));
+            const QList<int> hints{int(minMaxSize), turn.strip.width(), turn.strip.height(), turn.strip.width(),
+                                   turn.strip.height()};
+            if (x11 && strip->handle())
+                QCOMPARE(sizeHints(strip), hints);
+            strip->show();
+            QVERIFY(QTest::qWaitForWindowExposed(strip));
+            QCOMPARE(strip->size(), turn.strip);
+            if (x11)
+                QCOMPARE(sizeHints(strip), hints);
+            strip->hide();
+        }
     }
 
     void backReleaseAfterHolderLossDoesNotHide()

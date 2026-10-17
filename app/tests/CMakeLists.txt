@@ -7,9 +7,19 @@ set_tests_properties(overlay PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(tst_overlayqml tst_overlayqml.cpp)
 target_link_libraries(tst_overlayqml PRIVATE microset_overlay_core microset_page_fixtures microset_overlay_uiplugin
-    microset_uiplugin microset_ui Qt6::Quick Qt6::Test)
+    microset_uiplugin microset_ui Qt6::Quick Qt6::Test PkgConfig::XCB)
 add_test(NAME overlay-qml COMMAND tst_overlayqml)
 set_tests_properties(overlay-qml PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+find_program(XVFB_RUN xvfb-run)
+if(XVFB_RUN)
+    add_test(NAME overlay-qml-x
+        COMMAND ${XVFB_RUN} -a -s "-screen 0 960x640x24" $<TARGET_FILE:tst_overlayqml> stripSizeHintsFollowTheTurn)
+    set_tests_properties(overlay-qml-x PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=xcb;QT_QUICK_BACKEND=software;QT_XCB_GL_INTEGRATION=none")
+else()
+    message(WARNING "xvfb-run not found, overlay-qml-x is not registered")
+endif()
 
 add_test(NAME overlay-wait-x COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/wait-x.sh ${PROJECT_SOURCE_DIR}/data/libexec/microset-wait-x)
 
