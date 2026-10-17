@@ -31,9 +31,9 @@ class SettingsModel : public QObject
     Q_PROPERTY(QString updatesGroup READ updatesGroup CONSTANT)
 
 public:
-    static constexpr uint ColorMax = 0xffffff;
     static inline const QString UpdatesGroup = QStringLiteral("updates");
     static inline const QString AccentKey = QStringLiteral("microdap.accent_hue");
+    static inline const QString LedHueKey = QStringLiteral("rgb.hue");
     static inline const QString SetFailed = QStringLiteral("set failed");
     static inline const QString NotAvailable = QStringLiteral("not available");
 
@@ -56,13 +56,11 @@ public:
     Q_INVOKABLE QVariant next(const QString &key, const QVariant &from, int delta) const;
     Q_INVOKABLE QString text(const QString &key, const QVariant &value) const;
     Q_INVOKABLE bool set(const QString &key, const QVariant &value);
-    Q_INVOKABLE uint colorFor(int hue) const;
     Q_INVOKABLE void reloadUpdates();
     Q_INVOKABLE void enter(const QString &group);
     Q_INVOKABLE void leave(const QString &group);
 
     static int normalizeHue(int hue);
-    static int hueOf(uint rgb);
     static QString toastText(const QString &error);
 
 signals:

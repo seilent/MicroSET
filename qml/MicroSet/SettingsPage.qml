@@ -176,7 +176,7 @@ Page {
         }
         if (r.widget === "hue") {
             const hue = Ui.stepHue(r.hue < 0 ? Ui.accentHueDefault : r.hue, delta)
-            return page.model.set(r.key, r.swatch !== "" ? page.model.colorFor(hue) : hue)
+            return page.model.set(r.key, hue)
         }
         return page.model.set(r.key, page.model.next(r.key, r.current, delta))
     }

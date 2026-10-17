@@ -36,14 +36,14 @@ add_library(microsetd_core STATIC
     daemon/sscwire.cpp
     daemon/store.cpp
 )
-target_include_directories(microsetd_core PUBLIC daemon)
+target_include_directories(microsetd_core PUBLIC daemon lib)
 target_link_libraries(microsetd_core PUBLIC Qt6::Core Qt6::DBus ALSA::ALSA)
 
 add_executable(microsetd daemon/main.cpp)
 target_link_libraries(microsetd PRIVATE microsetd_core)
 target_compile_definitions(microsetd PRIVATE MICROSET_SCHEMA_DIR="${MICROSET_SCHEMA_DIR}")
 
-add_library(libmicroset SHARED lib/client.cpp lib/microset/client.h)
+add_library(libmicroset SHARED lib/client.cpp lib/microset/client.h lib/microset/color.h)
 add_library(MicroSet::MicroSet ALIAS libmicroset)
 set_target_properties(libmicroset PROPERTIES
     OUTPUT_NAME microset
@@ -69,7 +69,7 @@ install(TARGETS microset-cli DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(TARGETS libmicroset EXPORT MicroSetTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
-install(FILES lib/microset/client.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/microset)
+install(FILES lib/microset/client.h lib/microset/color.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/microset)
 install(EXPORT MicroSetTargets NAMESPACE MicroSet:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MicroSet)
 configure_package_config_file(cmake/MicroSetConfig.cmake.in MicroSetConfig.cmake
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MicroSet

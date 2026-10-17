@@ -197,7 +197,7 @@ private slots:
 
         second->refuseOverride = true;
         result.reset();
-        client.override(u"rgb.color"_s, 255u, [&](const MicroSet::Error &e) { result = e; });
+        client.override(u"rgb.hue"_s, 255u, [&](const MicroSet::Error &e) { result = e; });
         QTRY_VERIFY(result.has_value());
         QCOMPARE(result->name, u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         second.reset();

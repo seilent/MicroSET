@@ -62,6 +62,9 @@ Harness::Harness()
     QDir(m_dir.path()).mkpath(u"state"_s);
     QDir(m_dir.path()).mkpath(u"proc"_s);
     ::chmod(QFile::encodeName(path(u"state"_s)).constData(), 0700);
+    writeFile(u"backlight/max_brightness"_s, "4095\n");
+    writeFile(u"backlight/actual_brightness"_s, "4095\n");
+    writeFile(u"backlight/bl_power"_s, "0\n");
 }
 
 Harness::~Harness()
@@ -181,6 +184,7 @@ QProcessEnvironment Harness::environment() const
     env.insert(u"MICROSET_ALSA_CARD"_s, u"MicroSetTest"_s);
     env.insert(u"MICROSET_ALSA_DEVICES"_s, path(u"dev/snd"_s));
     env.insert(u"MICROSET_RGB_DEVICE"_s, path(u"dev/ttyHS2"_s));
+    env.insert(u"MICROSET_BACKLIGHT"_s, path(u"backlight"_s));
     return env;
 }
 

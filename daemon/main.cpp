@@ -66,7 +66,8 @@ int main(int argc, char **argv)
     AlsaLibControl control(qEnvironmentVariable("MICROSET_ALSA_CARD", u"PocketMICRO2"_s));
     AlsaApplier alsa(bus, settings, control, qEnvironmentVariable("MICROSET_ALSA_DEVICES", u"/dev/snd"_s));
     alsa.start();
-    RgbApplier rgb(settings, &sleep, qEnvironmentVariable("MICROSET_RGB_DEVICE", u"/dev/ttyHS2"_s));
+    RgbApplier rgb(settings, &sleep, qEnvironmentVariable("MICROSET_RGB_DEVICE", u"/dev/ttyHS2"_s),
+                   qEnvironmentVariable("MICROSET_BACKLIGHT", u"/sys/class/backlight/backlight"_s));
     rgb.start();
     sleep.take();
     return app.exec();

@@ -82,7 +82,8 @@ private slots:
         QCOMPARE(keysOf(m->rows(u"display"_s, 0)),
                  (QStringList{u"label-microset"_s, u"display.orientation"_s, u"display.auto_rotate"_s}));
         QCOMPARE(keysOf(m->rows(u"stick leds"_s, 0)),
-                 (QStringList{u"label-microset"_s, u"rgb.enabled"_s, u"rgb.color"_s, u"rgb.brightness"_s}));
+                 (QStringList{u"label-microset"_s, u"rgb.enabled"_s, u"rgb.hue"_s, u"rgb.saturation"_s,
+                              u"rgb.brightness"_s}));
         QCOMPARE(keysOf(m->rows(u"system"_s, 0)), (QStringList{u"label-microset"_s, u"session.default"_s}));
         QCOMPARE(keysOf(m->rows(u"group with a long title"_s, 0)),
                  (QStringList{u"label-fixture"_s, u"fixture.long"_s, u"fixture.locked"_s, u"fixture.count"_s,
@@ -147,11 +148,12 @@ private slots:
         QVERIFY(rowOf(power, u"power.gpu_clock"_s).value(u"readOnly"_s).toBool());
         QVERIFY(!m->next(u"power.gpu_clock"_s, {}, 1).isValid());
         const QVariantList leds = m->rows(u"stick leds"_s, 0);
-        for (const QString &key : {u"rgb.color"_s, u"rgb.brightness"_s}) {
+        for (const QString &key : {u"rgb.hue"_s, u"rgb.saturation"_s, u"rgb.brightness"_s}) {
             QCOMPARE(value(leds, key), u"off"_s);
             QVERIFY(rowOf(leds, key).value(u"readOnly"_s).toBool());
         }
-        QCOMPARE(rowOf(leds, u"rgb.color"_s).value(u"widget"_s).toString(), QString());
+        QCOMPARE(rowOf(leds, u"rgb.hue"_s).value(u"widget"_s).toString(), QString());
+        QCOMPARE(rowOf(leds, u"rgb.hue"_s).value(u"swatch"_s).toString(), QString());
     }
 
     void liveWhileEntered()
@@ -174,45 +176,30 @@ private slots:
 
     void storedUnderOverride()
     {
-        fake->setValues({{u"rgb.color"_s, 0xff0000u}, {u"rgb.enabled"_s, true}});
+        fake->setValues({{u"rgb.hue"_s, 120u}, {u"rgb.saturation"_s, 60u}, {u"rgb.enabled"_s, true}});
         fake->setStored({{u"rgb.enabled"_s, true}});
         auto m = model();
-        QVariantMap color = rowOf(m->rows(u"stick leds"_s, 0), u"rgb.color"_s);
-        QCOMPARE(color.value(u"widget"_s).toString(), u"hue"_s);
-        QCOMPARE(color.value(u"value"_s).toString(), QString());
-        QCOMPARE(color.value(u"swatch"_s).toString(), u"#ffffff"_s);
-        QCOMPARE(color.value(u"hue"_s).toInt(), -1);
-        QCOMPARE(value(m->rows(u"stick leds"_s, 0), u"rgb.brightness"_s), u"64"_s);
-        fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.color"_s, 0x00ff80u}});
+        QVariantMap hue = rowOf(m->rows(u"stick leds"_s, 0), u"rgb.hue"_s);
+        QCOMPARE(hue.value(u"widget"_s).toString(), u"hue"_s);
+        QCOMPARE(hue.value(u"value"_s).toString(), QString());
+        QCOMPARE(hue.value(u"swatch"_s).toString(), u"#ff0000"_s);
+        QCOMPARE(hue.value(u"hue"_s).toInt(), 0);
+        QCOMPARE(value(m->rows(u"stick leds"_s, 0), u"rgb.saturation"_s), u"0 %"_s);
+        QCOMPARE(value(m->rows(u"stick leds"_s, 0), u"rgb.brightness"_s), u"100 %"_s);
+        fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.hue"_s, 150u}});
         m = model();
-        color = rowOf(m->rows(u"stick leds"_s, 0), u"rgb.color"_s);
-        QCOMPARE(color.value(u"swatch"_s).toString(), u"#00ff80"_s);
-        QCOMPARE(color.value(u"hue"_s).toInt(), 150);
-        QCOMPARE(color.value(u"current"_s).toUInt(), 0x00ff80u);
-        fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.color"_s, 0x123456u}});
-        fake->emitChanged(u"rgb.color"_s, 0xff00ffu);
-        QTRY_COMPARE(rowOf(m->rows(u"stick leds"_s, 0), u"rgb.color"_s).value(u"swatch"_s).toString(), u"#123456"_s);
-        QVERIFY(m->set(u"rgb.color"_s, m->colorFor(0)));
+        hue = rowOf(m->rows(u"stick leds"_s, 0), u"rgb.hue"_s);
+        QCOMPARE(hue.value(u"swatch"_s).toString(), u"#00ff80"_s);
+        QCOMPARE(hue.value(u"hue"_s).toInt(), 150);
+        QCOMPARE(hue.value(u"current"_s).toUInt(), 150u);
+        fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.hue"_s, 203u}});
+        fake->emitChanged(u"rgb.hue"_s, 300u);
+        QTRY_COMPARE(rowOf(m->rows(u"stick leds"_s, 0), u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#009dff"_s);
+        QCOMPARE(rowOf(m->rows(u"stick leds"_s, 0), u"rgb.hue"_s).value(u"hue"_s).toInt(), 200);
+        QVERIFY(m->set(u"rgb.hue"_s, 0));
         QTRY_COMPARE(fake->sets().size(), 1);
-        QCOMPARE(fake->sets().at(0).second, QVariant(0xff0000u));
-        QTRY_COMPARE(rowOf(m->rows(u"stick leds"_s, 0), u"rgb.color"_s).value(u"swatch"_s).toString(), u"#ff0000"_s);
-    }
-
-    void hueHelpers()
-    {
-        SettingsModel m;
-        QCOMPARE(m.colorFor(0), 0xff0000u);
-        QCOMPARE(m.colorFor(120), 0x00ff00u);
-        QCOMPARE(m.colorFor(240), 0x0000ffu);
-        QCOMPARE(m.colorFor(10), 0xff2b00u);
-        QCOMPARE(m.colorFor(350), 0xff002bu);
-        QCOMPARE(m.colorFor(355), 0xff0000u);
-        QCOMPARE(SettingsModel::hueOf(0xffffffu), -1);
-        QCOMPARE(SettingsModel::hueOf(0x000000u), -1);
-        QCOMPARE(SettingsModel::hueOf(0x808080u), -1);
-        for (int hue = 0; hue < 360; hue += 10)
-            QCOMPARE(SettingsModel::hueOf(m.colorFor(hue)), hue);
-        QCOMPARE(SettingsModel::hueOf(0x40c0ffu), 200);
+        QCOMPARE(fake->sets().at(0).second, QVariant(0u));
+        QTRY_COMPARE(rowOf(m->rows(u"stick leds"_s, 0), u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#ff0000"_s);
     }
 
     void toastTexts()
@@ -291,10 +278,11 @@ private slots:
         QCOMPARE(m->next(u"power.gpu_clock"_s, 400u, 1), QVariant(442u));
         QCOMPARE(m->next(u"power.gpu_clock"_s, 450u, 0), QVariant(442u));
         QCOMPARE(m->next(u"power.gpu_clock"_s, 305u, -1), QVariant(305u));
-        QCOMPARE(m->next(u"rgb.brightness"_s, {}, 1), QVariant(70u));
-        QCOMPARE(m->next(u"rgb.brightness"_s, {}, -1), QVariant(60u));
-        QCOMPARE(m->next(u"rgb.brightness"_s, 255u, 1), QVariant(255u));
+        QCOMPARE(m->next(u"rgb.brightness"_s, {}, 1), QVariant(100u));
+        QCOMPARE(m->next(u"rgb.brightness"_s, {}, -1), QVariant(95u));
         QCOMPARE(m->next(u"rgb.brightness"_s, 0u, -1), QVariant(0u));
+        QCOMPARE(m->next(u"rgb.saturation"_s, {}, 1), QVariant(5u));
+        QCOMPARE(m->next(u"rgb.saturation"_s, 100u, 1), QVariant(100u));
         QCOMPARE(m->next(u"session.default"_s, {}, -1), QVariant(u"microemu"_s));
         QVERIFY(!m->next(u"audio.eq.headphones.name"_s, {}, 1).isValid());
         QVERIFY(!m->next(u"nope.key"_s, {}, 1).isValid());

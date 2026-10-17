@@ -33,7 +33,7 @@ void fail(const QString &message)
 const QStringList &states()
 {
     static const QStringList names{
-        u"top"_s,     u"audio"_s, u"display"_s,  u"rgb"_s,  u"power"_s,      u"system"_s,  u"updates"_s,
+        u"top"_s,     u"audio"_s, u"display"_s,  u"rgb"_s,  u"rgb-off"_s,  u"power"_s,  u"system"_s,  u"updates"_s,
         u"edit"_s,    u"hue-edit"_s, u"draft-edit"_s, u"toast"_s, u"long-label"_s, u"long-value"_s, u"merged"_s,
         u"top-sections"_s,
     };
@@ -73,8 +73,9 @@ int main(int argc, char *argv[])
                       {u"audio.eq.headphones.name"_s, state == "long-value"_L1 ? LongProfile : u"Sennheiser HD 600 ParametricEQ"_s},
                       {u"fixture.long"_s, u"extended"_s},
                       {u"microdap.accent_hue"_s, 200u},
-                      {u"display.rotation"_s, u"landscape-flipped"_s}},
-                     {{u"rgb.enabled"_s, true}, {u"rgb.color"_s, 0x40c0ffu}});
+                      {u"display.rotation"_s, u"landscape-flipped"_s},
+                      {u"rgb.brightness"_s, 50u}},
+                     {{u"rgb.enabled"_s, state != "rgb-off"_L1}, {u"rgb.hue"_s, 200u}, {u"rgb.saturation"_s, 60u}});
 
     QQmlApplicationEngine engine;
     bool warned = false;

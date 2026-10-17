@@ -262,27 +262,37 @@
       "label": "Stick LEDs",
       "ui": {"order": 0}
     },
-    "rgb.color": {
+    "rgb.hue": {
       "override": true,
       "type": "u",
-      "default": 16777215,
+      "default": 0,
       "min": 0,
-      "max": 16777215,
+      "max": 359,
       "applier": "rgb",
       "group": "rgb",
-      "label": "Stick LED color",
+      "label": "Stick LED hue",
       "ui": {"order": 1, "widget": "hue", "lock": {"key": "rgb.enabled", "is": false, "text": "off"}}
     },
-    "rgb.brightness": {
+    "rgb.saturation": {
       "override": true,
       "type": "u",
-      "default": 64,
+      "default": 0,
       "min": 0,
-      "max": 255,
+      "max": 100,
+      "applier": "rgb",
+      "group": "rgb",
+      "label": "Stick LED saturation",
+      "ui": {"order": 2, "step": 5, "unit": "%", "lock": {"key": "rgb.enabled", "is": false, "text": "off"}}
+    },
+    "rgb.brightness": {
+      "type": "u",
+      "default": 100,
+      "min": 0,
+      "max": 100,
       "applier": "rgb",
       "group": "rgb",
       "label": "Stick LED brightness",
-      "ui": {"order": 2, "step": 5, "lock": {"key": "rgb.enabled", "is": false, "text": "off"}}
+      "ui": {"order": 3, "step": 5, "unit": "%", "lock": {"key": "rgb.enabled", "is": false, "text": "off"}}
     }
   },
   "groups": {

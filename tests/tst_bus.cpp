@@ -349,7 +349,7 @@ private slots:
         h->writeState(R"({"future.key": 1, "power.gpu_clock": 9999, "session.default": "gone"})");
         QVERIFY(up());
         const QVariantMap all = qdbus_cast<QVariantMap>(h->call(u"List"_s, {QString()}).arguments().value(0));
-        QCOMPARE(all.size(), 31);
+        QCOMPARE(all.size(), 32);
         QVERIFY(!all.contains(u"future.key"_s));
         QCOMPARE(all.value(u"power.gpu_clock"_s), QVariant(587u));
         QCOMPARE(all.value(u"session.default"_s), QVariant(u"steam"_s));
@@ -388,13 +388,13 @@ private slots:
         QTRY_COMPARE(spy.count(), 2);
         QCOMPARE(spy.at(1).at(0).toString(), u"display.rotation"_s);
         QCOMPARE(spy.at(1).at(1), QVariant(u"landscape"_s));
-        QCOMPARE(set(u"rgb.brightness"_s, 256u), invalid);
-        QCOMPARE(set(u"rgb.brightness"_s, 255), invalid);
-        QCOMPARE(set(u"rgb.color"_s, 0x1000000u), invalid);
+        QCOMPARE(set(u"rgb.brightness"_s, 101u), invalid);
+        QCOMPARE(set(u"rgb.brightness"_s, 100), invalid);
+        QCOMPARE(set(u"rgb.hue"_s, 360u), invalid);
         QCOMPARE(set(u"rgb.enabled"_s, 1u), invalid);
-        QCOMPARE(set(u"rgb.color"_s, 0xff8000u), QString());
-        QCOMPARE(set(u"rgb.brightness"_s, 255u), QString());
-        QCOMPARE(get(u"rgb.color"_s), QVariant(0xff8000u));
+        QCOMPARE(set(u"rgb.hue"_s, 30u), QString());
+        QCOMPARE(set(u"rgb.brightness"_s, 50u), QString());
+        QCOMPARE(get(u"rgb.hue"_s), QVariant(30u));
         QCOMPARE(errorOf(h->call(u"Subscribe"_s, {u"audio.output"_s})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         QCOMPARE(errorOf(h->call(u"Subscribe"_s, {u"nope.key"_s})), u"net.seilent.MicroSet1.Error.UnknownKey"_s);
         h->writeCgroup(QCoreApplication::applicationPid(), Harness::GameCgroup);
@@ -505,15 +505,15 @@ private slots:
 
     void storedValues()
     {
-        h->writeState(R"({"future.key": 1, "power.gpu_clock": 9999, "audio.output": "usb", "rgb.color": 255})");
+        h->writeState(R"({"future.key": 1, "power.gpu_clock": 9999, "audio.output": "usb", "rgb.hue": 255})");
         QVERIFY(up());
-        QCOMPARE(stored(), (QVariantMap{{u"audio.output"_s, u"usb"_s}, {u"rgb.color"_s, 255u}}));
+        QCOMPARE(stored(), (QVariantMap{{u"audio.output"_s, u"usb"_s}, {u"rgb.hue"_s, 255u}}));
         QCOMPARE(set(u"audio.volume_step"_s, 10u), QString());
         QCOMPARE(set(u"audio.eq.usb.filters"_s, QStringList{u"preamp -3"_s, u"peak 100 2 1"_s}), QString());
         QCOMPARE(stored(u"audio"_s), (QVariantMap{{u"audio.output"_s, u"usb"_s}, {u"audio.volume_step"_s, 10u},
                                                   {u"audio.eq.usb.filters"_s,
                                                    QStringList{u"preamp -3"_s, u"peak 100 2 1"_s}}}));
-        QCOMPARE(stored(u"rgb"_s), (QVariantMap{{u"rgb.color"_s, 255u}}));
+        QCOMPARE(stored(u"rgb"_s), (QVariantMap{{u"rgb.hue"_s, 255u}}));
         QCOMPARE(stored(u"display"_s), QVariantMap());
         QCOMPARE(set(u"audio.volume_step"_s, 5u), QString());
         QCOMPARE(stored(u"audio.volume_step"_s), (QVariantMap{{u"audio.volume_step"_s, 5u}}));
@@ -599,12 +599,12 @@ private slots:
     {
         QVERIFY(up());
         QVariantMap values;
-        for (int i = 0; i < 32; ++i)
+        for (int i = 0; i < 33; ++i)
             values.insert(u"nope.k%1"_s.arg(i), true);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         values.remove(u"nope.k0"_s);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), QString());
-        QVERIFY(h->daemonLog().contains("import by uid 0 refused 31 unknown keys\n"_L1));
+        QVERIFY(h->daemonLog().contains("import by uid 0 refused 32 unknown keys\n"_L1));
     }
 
     void importWriteFailure()
@@ -627,25 +627,25 @@ private slots:
         QDBusConnection::connectToBus(h->address(), b);
         MicroSet::Client client(h->client());
         QSignalSpy spy(&client, &MicroSet::Client::changed);
-        QCOMPARE(set(u"rgb.color"_s, 0x0000ffu), QString());
+        QCOMPARE(set(u"rgb.hue"_s, 200u), QString());
         QTRY_COMPARE(spy.count(), 1);
 
-        QCOMPARE(override(a, u"rgb.color"_s, 0xff0000u), QString());
-        QCOMPARE(get(u"rgb.color"_s), QVariant(0xff0000u));
-        QCOMPARE(override(b, u"rgb.color"_s, 0x00ff00u), QString());
-        QCOMPARE(get(u"rgb.color"_s), QVariant(0x00ff00u));
-        QCOMPARE(override(a, u"rgb.color"_s, 0x111111u), QString());
-        QCOMPARE(get(u"rgb.color"_s), QVariant(0x111111u));
-        QCOMPARE(stored(u"rgb"_s), (QVariantMap{{u"rgb.color"_s, 0x0000ffu}}));
-        QCOMPARE(callFrom(a, u"ClearOverride"_s, {u"rgb.color"_s}), QString());
-        QCOMPARE(get(u"rgb.color"_s), QVariant(0x00ff00u));
-        QCOMPARE(callFrom(a, u"ClearOverride"_s, {u"rgb.color"_s}), QString());
-        QCOMPARE(get(u"rgb.color"_s), QVariant(0x00ff00u));
+        QCOMPARE(override(a, u"rgb.hue"_s, 10u), QString());
+        QCOMPARE(get(u"rgb.hue"_s), QVariant(10u));
+        QCOMPARE(override(b, u"rgb.hue"_s, 120u), QString());
+        QCOMPARE(get(u"rgb.hue"_s), QVariant(120u));
+        QCOMPARE(override(a, u"rgb.hue"_s, 300u), QString());
+        QCOMPARE(get(u"rgb.hue"_s), QVariant(300u));
+        QCOMPARE(stored(u"rgb"_s), (QVariantMap{{u"rgb.hue"_s, 200u}}));
+        QCOMPARE(callFrom(a, u"ClearOverride"_s, {u"rgb.hue"_s}), QString());
+        QCOMPARE(get(u"rgb.hue"_s), QVariant(120u));
+        QCOMPARE(callFrom(a, u"ClearOverride"_s, {u"rgb.hue"_s}), QString());
+        QCOMPARE(get(u"rgb.hue"_s), QVariant(120u));
         QCOMPARE(override(a, u"rgb.enabled"_s, true), QString());
         QDBusConnection::disconnectFromBus(b);
-        QTRY_COMPARE(get(u"rgb.color"_s), QVariant(0x0000ffu));
+        QTRY_COMPARE(get(u"rgb.hue"_s), QVariant(200u));
         QCOMPARE(get(u"rgb.enabled"_s), QVariant(true));
-        QTRY_VERIFY(h->daemonLog().contains("override rgb.color dropped: "_L1));
+        QTRY_VERIFY(h->daemonLog().contains("override rgb.hue dropped: "_L1));
         QDBusConnection::disconnectFromBus(a);
         QTRY_COMPARE(get(u"rgb.enabled"_s), QVariant(false));
         QVERIFY(h->daemonLog().contains(u"override rgb.enabled dropped: %1 left the bus"_s.arg(nameA)));
@@ -654,8 +654,8 @@ private slots:
         QStringList seen;
         for (const QList<QVariant> &signal : spy)
             seen << signal.at(0).toString() + u'=' + QString::number(signal.at(1).toUInt(), 16);
-        QCOMPARE(seen, (QStringList{u"rgb.color=ff"_s, u"rgb.color=ff0000"_s, u"rgb.color=ff00"_s, u"rgb.color=111111"_s,
-                                    u"rgb.color=ff00"_s, u"rgb.enabled=1"_s, u"rgb.color=ff"_s, u"rgb.enabled=0"_s}));
+        QCOMPARE(seen, (QStringList{u"rgb.hue=c8"_s, u"rgb.hue=a"_s, u"rgb.hue=78"_s, u"rgb.hue=12c"_s, u"rgb.hue=78"_s,
+                                    u"rgb.enabled=1"_s, u"rgb.hue=c8"_s, u"rgb.enabled=0"_s}));
         QVERIFY(!h->readState().contains("rgb.enabled"));
     }
 
@@ -667,15 +667,16 @@ private slots:
         QCOMPARE(override(c, u"audio.output"_s, u"usb"_s), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         QCOMPARE(override(c, u"power.profile"_s, u"low-power"_s), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         QCOMPARE(override(c, u"nope.key"_s, true), u"net.seilent.MicroSet1.Error.UnknownKey"_s);
-        QCOMPARE(override(c, u"rgb.brightness"_s, 256u), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
-        QCOMPARE(override(c, u"rgb.brightness"_s, 20), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        QCOMPARE(override(c, u"rgb.brightness"_s, 20u), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
+        QCOMPARE(override(c, u"rgb.saturation"_s, 101u), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        QCOMPARE(override(c, u"rgb.saturation"_s, 20), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
         QCOMPARE(callFrom(c, u"ClearOverride"_s, {u"audio.output"_s}), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         h->writeCgroup(QCoreApplication::applicationPid(), Harness::GameCgroup);
-        QCOMPARE(override(c, u"rgb.brightness"_s, 20u), u"org.freedesktop.DBus.Error.AccessDenied"_s);
+        QCOMPARE(override(c, u"rgb.saturation"_s, 20u), u"org.freedesktop.DBus.Error.AccessDenied"_s);
         h->writeCgroup(QCoreApplication::applicationPid(), Harness::RootCgroup);
-        QCOMPARE(get(u"rgb.brightness"_s), QVariant(64u));
+        QCOMPARE(get(u"rgb.saturation"_s), QVariant(0u));
         QCOMPARE(get(u"audio.output"_s), QVariant(u"auto"_s));
-        QVERIFY(h->daemonLog().contains("override rgb.brightness by uid 0 refused: called from a game"_L1));
+        QVERIFY(h->daemonLog().contains("override rgb.saturation by uid 0 refused: called from a game"_L1));
         QDBusConnection::disconnectFromBus(c);
     }
 
@@ -684,27 +685,27 @@ private slots:
         QVERIFY(up());
         const QString a = u"override-d"_s;
         QDBusConnection::connectToBus(h->address(), a);
-        QCOMPARE(override(a, u"rgb.brightness"_s, 200u), QString());
+        QCOMPARE(override(a, u"rgb.saturation"_s, 80u), QString());
         MicroSet::Client client(h->client());
         QSignalSpy spy(&client, &MicroSet::Client::changed);
-        QCOMPARE(set(u"rgb.brightness"_s, 100u), QString());
-        QCOMPARE(get(u"rgb.brightness"_s), QVariant(200u));
-        QVERIFY(h->readState().contains("\"rgb.brightness\": 100"));
-        QCOMPARE(set(u"rgb.brightness"_s, 200u), QString());
-        QVERIFY(h->readState().contains("\"rgb.brightness\": 200"));
-        QCOMPARE(stored(u"rgb"_s), (QVariantMap{{u"rgb.brightness"_s, 200u}}));
-        QCOMPARE(callFrom(a, u"ClearOverride"_s, {u"rgb.brightness"_s}), QString());
-        QCOMPARE(get(u"rgb.brightness"_s), QVariant(200u));
-        QCOMPARE(override(a, u"rgb.brightness"_s, 50u), QString());
+        QCOMPARE(set(u"rgb.saturation"_s, 60u), QString());
+        QCOMPARE(get(u"rgb.saturation"_s), QVariant(80u));
+        QVERIFY(h->readState().contains("\"rgb.saturation\": 60"));
+        QCOMPARE(set(u"rgb.saturation"_s, 80u), QString());
+        QVERIFY(h->readState().contains("\"rgb.saturation\": 80"));
+        QCOMPARE(stored(u"rgb"_s), (QVariantMap{{u"rgb.saturation"_s, 80u}}));
+        QCOMPARE(callFrom(a, u"ClearOverride"_s, {u"rgb.saturation"_s}), QString());
+        QCOMPARE(get(u"rgb.saturation"_s), QVariant(80u));
+        QCOMPARE(override(a, u"rgb.saturation"_s, 40u), QString());
         QTRY_COMPARE(spy.count(), 1);
-        QCOMPARE(set(u"rgb.brightness"_s, 100u), QString());
-        QCOMPARE(callFrom(a, u"ClearOverride"_s, {u"rgb.brightness"_s}), QString());
+        QCOMPARE(set(u"rgb.saturation"_s, 60u), QString());
+        QCOMPARE(callFrom(a, u"ClearOverride"_s, {u"rgb.saturation"_s}), QString());
         QTRY_COMPARE(spy.count(), 2);
         QTest::qWait(300);
         QCOMPARE(spy.count(), 2);
-        QCOMPARE(spy.at(0).at(1), QVariant(50u));
-        QCOMPARE(spy.at(1).at(1), QVariant(100u));
-        QCOMPARE(get(u"rgb.brightness"_s), QVariant(100u));
+        QCOMPARE(spy.at(0).at(1), QVariant(40u));
+        QCOMPARE(spy.at(1).at(1), QVariant(60u));
+        QCOMPARE(get(u"rgb.saturation"_s), QVariant(60u));
         QDBusConnection::disconnectFromBus(a);
     }
 

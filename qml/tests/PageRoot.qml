@@ -12,7 +12,8 @@ Window {
     property string shotState: "top"
     readonly property int shotSettle: Math.max(Motion.focusCursor, Motion.focusAlpha)
     readonly property var groupStates: ({
-        audio: "audio", display: "display", rgb: "stick leds", power: "power", system: "system", updates: "updates",
+        audio: "audio", display: "display", rgb: "stick leds", "rgb-off": "stick leds", power: "power", system: "system",
+        updates: "updates",
         "long-label": "group with a long title", merged: "display"
     })
     property alias view: view
@@ -42,7 +43,7 @@ Window {
         } else if (root.shotState === "edit") {
             root.edit("audio", "audio.output", 1)
         } else if (root.shotState === "hue-edit") {
-            root.edit("stick leds", "rgb.color", 1)
+            root.edit("stick leds", "rgb.hue", 1)
         } else if (root.shotState === "long-value") {
             view.open("audio")
             const page = view.stack.currentItem

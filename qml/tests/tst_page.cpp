@@ -188,25 +188,26 @@ private slots:
         QVERIFY(page()->property("editing").toBool());
     }
 
-    void hueFromWhite()
+    void hueSteps()
     {
         fake->setStored({{u"rgb.enabled"_s, true}});
         model->load();
-        QTRY_COMPARE(model->rows(u"stick leds"_s, 0).size(), 4);
+        QTRY_COMPARE(model->rows(u"stick leds"_s, 0).size(), 5);
         QTRY_VERIFY(!model->rows(u"stick leds"_s, 0).at(2).toMap().value(u"readOnly"_s).toBool());
         open(u"stick leds"_s);
-        focus(u"rgb.color"_s);
-        QCOMPARE(row(u"rgb.color"_s).value(u"swatch"_s).toString(), u"#ffffff"_s);
+        focus(u"rgb.hue"_s);
+        QCOMPARE(row(u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#ff0000"_s);
         key(Qt::Key_Return);
         key(Qt::Key_Right);
         QTRY_COMPARE(fake->sets().size(), 1);
-        QCOMPARE(fake->sets().at(0), qMakePair(u"rgb.color"_s, QVariant(model->colorFor(0))));
+        QCOMPARE(fake->sets().at(0), qMakePair(u"rgb.hue"_s, QVariant(10u)));
+        QTRY_COMPARE(row(u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#ff2b00"_s);
         key(Qt::Key_Right);
         QTRY_COMPARE(fake->sets().size(), 2);
-        QCOMPARE(fake->sets().at(1), qMakePair(u"rgb.color"_s, QVariant(model->colorFor(10))));
+        QCOMPARE(fake->sets().at(1), qMakePair(u"rgb.hue"_s, QVariant(20u)));
         key(Qt::Key_Escape);
         QTRY_COMPARE(fake->sets().size(), 3);
-        QCOMPARE(fake->sets().at(2), qMakePair(u"rgb.color"_s, QVariant(0xffffffu)));
+        QCOMPARE(fake->sets().at(2), qMakePair(u"rgb.hue"_s, QVariant(0u)));
     }
 
     void draftAppliesOnA()

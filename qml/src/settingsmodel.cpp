@@ -1,6 +1,7 @@
 #include "settingsmodel.h"
 
 #include <microset/client.h>
+#include <microset/color.h>
 
 #include <QColor>
 #include <QDBusArgument>
@@ -162,45 +163,12 @@ int SettingsModel::normalizeHue(int hue)
     return ((stepped % 360) + 360) % 360;
 }
 
-int SettingsModel::hueOf(uint rgb)
-{
-    const QColor color = QColor::fromRgb(int(rgb >> 16 & 0xff), int(rgb >> 8 & 0xff), int(rgb & 0xff));
-    return color.hsvSaturation() <= 0 ? -1 : normalizeHue(color.hsvHue());
-}
-
 QString SettingsModel::toastText(const QString &error)
 {
     static const QStringList gone = {u"org.freedesktop.DBus.Error.ServiceUnknown"_s, u"org.freedesktop.DBus.Error.NoReply"_s,
                                      u"org.freedesktop.DBus.Error.Disconnected"_s, u"org.freedesktop.DBus.Error.NameHasNoOwner"_s,
                                      u"org.freedesktop.DBus.Error.Timeout"_s};
     return gone.contains(error) ? NotAvailable : SetFailed;
-}
-
-uint SettingsModel::colorFor(int hue) const
-{
-    const int h = normalizeHue(hue);
-    const int l = 100;
-    const int k = h / 60;
-    const int f = h % 60;
-    const int lo = (255 * (100 - l) + 50) / 100;
-    const int span = 255 - lo;
-    const int up = lo + (span * f + 30) / 60;
-    const int down = lo + (span * (60 - f) + 30) / 60;
-    const auto rgb = [](int r, int g, int b) { return uint(r) << 16 | uint(g) << 8 | uint(b); };
-    switch (k) {
-    case 0:
-        return rgb(255, up, lo);
-    case 1:
-        return rgb(down, 255, lo);
-    case 2:
-        return rgb(lo, 255, up);
-    case 3:
-        return rgb(lo, down, 255);
-    case 4:
-        return rgb(up, lo, 255);
-    default:
-        return rgb(255, lo, down);
-    }
 }
 
 QVariant SettingsModel::coerce(const QString &type, const QVariant &value)
@@ -435,11 +403,10 @@ QVariantMap SettingsModel::rowOf(const Entry &entry) const
         {u"confirm"_s, entry.confirm},
     };
     if (entry.widget == "hue"_L1 && !lockedNow) {
-        const bool color = entry.max && *entry.max == ColorMax;
-        const uint shown = entry.shown.toUInt();
-        row.insert(u"hue"_s, color ? hueOf(shown) : normalizeHue(int(shown)));
-        if (color)
-            row.insert(u"swatch"_s, QColor::fromRgb(int(shown >> 16 & 0xff), int(shown >> 8 & 0xff), int(shown & 0xff)).name());
+        const int shown = entry.shown.toInt();
+        row.insert(u"hue"_s, normalizeHue(shown));
+        if (entry.key == LedHueKey)
+            row.insert(u"swatch"_s, QColor::fromRgb(MicroSet::hueColor(shown, 100)).name());
     }
     return row;
 }
