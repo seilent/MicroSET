@@ -205,7 +205,7 @@ Window {
                 screenOff: false
                 sticky: root.overlay.hint
                 onPhaseChanged: {
-                    if (hint.phase === "hidden" && root.overlay.hintShown)
+                    if (hint.phase === "hidden" && hint.progress <= 0 && root.overlay.hintShown)
                         root.overlay.hintDone()
                 }
             }

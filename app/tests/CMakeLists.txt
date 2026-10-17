@@ -6,8 +6,8 @@ add_test(NAME overlay COMMAND tst_overlay)
 set_tests_properties(overlay PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 add_executable(tst_overlayqml tst_overlayqml.cpp)
-target_link_libraries(tst_overlayqml PRIVATE microset_page_fixtures microset_overlay_uiplugin microset_uiplugin
-    microset_ui Qt6::Quick Qt6::Test)
+target_link_libraries(tst_overlayqml PRIVATE microset_overlay_core microset_page_fixtures microset_overlay_uiplugin
+    microset_uiplugin microset_ui Qt6::Quick Qt6::Test)
 add_test(NAME overlay-qml COMMAND tst_overlayqml)
 set_tests_properties(overlay-qml PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 

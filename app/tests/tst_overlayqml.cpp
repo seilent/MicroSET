@@ -1,7 +1,11 @@
+#include "dbuspad.h"
 #include "fakemicrosetd.h"
+#include "overlay.h"
 #include "settingsmodel.h"
 
+#include <QElapsedTimer>
 #include <QQmlApplicationEngine>
+#include <QScopeGuard>
 #include <QQuickWindow>
 #include <QRegularExpression>
 #include <QTest>
@@ -183,6 +187,52 @@ private slots:
         QTRY_COMPARE(title(), u"settings"_s);
         QTest::keyClick(m_window, Qt::Key_Return);
         QTRY_COMPARE(title(), u"audio"_s);
+    }
+
+    void stripStaysForTheWholeHint()
+    {
+        cleanup();
+        m_model = std::make_unique<SettingsModel>();
+        m_model->setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {});
+        DbusPad pad(QDBusConnection(u"none"_s), QDBusConnection(u"none"_s), nullptr, false);
+        Overlay overlay(&pad, nullptr);
+        const auto engineFirst = qScopeGuard([this] { m_engine.reset(); });
+        QQuickWindow *root = nullptr;
+        overlay.setUi([&] {
+            if (m_engine)
+                return;
+            m_engine = std::make_unique<QQmlApplicationEngine>();
+            m_engine->setInitialProperties({
+                {u"overlay"_s, QVariant::fromValue(static_cast<QObject *>(&overlay))},
+                {u"model"_s, QVariant::fromValue(static_cast<QObject *>(m_model.get()))},
+            });
+            m_engine->loadFromModule("MicroSetOverlay", "Overlay");
+            root = qobject_cast<QQuickWindow *>(m_engine->rootObjects().value(0));
+            QVERIFY(root);
+            overlay.setWindow(root);
+            overlay.setToastWindow(qvariant_cast<QWindow *>(root->property("toastWindow")));
+        });
+        overlay.setHint(true, u"/dev/mmcblk0"_s);
+        QVERIFY(root);
+        QWindow *strip = overlay.toastWindow();
+        QVERIFY(strip);
+        QVERIFY(strip->handle());
+        QCOMPARE(strip->width(), root->width());
+        QCOMPARE(strip->height(), int(root->property("stripDepth").toReal()));
+        auto *toast = qvariant_cast<QObject *>(root->property("hint"));
+        QVERIFY(toast);
+        const int whole = toast->property("inDuration").toInt() + 3 * toast->property("holdDuration").toInt();
+        QElapsedTimer clock;
+        clock.start();
+        while (clock.elapsed() < whole) {
+            QTest::qWait(20);
+            QVERIFY2(overlay.hintShown() && strip->handle() && strip->isVisible(),
+                     qPrintable(u"strip gone after %1 ms"_s.arg(clock.elapsed())));
+        }
+        QCOMPARE(toast->property("phase").toString(), u"hold"_s);
+        overlay.setHint(false);
+        QTRY_VERIFY(!overlay.hintShown());
+        QVERIFY(!strip->handle());
     }
 
     void backReleaseAfterHolderLossDoesNotHide()
