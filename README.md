@@ -13,7 +13,8 @@ read, change and watch them over D-Bus.
   Pad input comes from InputPlumber's D-Bus target while the MicroOS intercept arbiter (`net.seilent.MicroOs.Intercept`)
   holds it for the app; arrow keys, Return and Escape work too. `--screenshot <png> --state <name>` renders a fixture
   (960x640 by default). Look and components from MicroDAP, font Selawik (OFL 1.1, `MICROSET_FONT_DIR`).
-- `MicroSet` QML module: MicroDAP's tokens and components, used by `microset-recovery`.
+- `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and the settings page. The
+  page (`SettingsView`) lists the schema groups and edits their keys over `net.seilent.MicroSet`.
 - Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other
   file only keys under its owner name (`microdap.*`, `microemu.*`). A key can carry `ui` hints for the page (`order`,
   `widget` `none` or `hue`, `step` or a `steps` list, `values` labels, `unit`, `apply` `confirm` to apply on A, and a

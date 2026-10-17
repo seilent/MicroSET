@@ -88,6 +88,7 @@ install(FILES data/net.seilent.MicroSet1.xml DESTINATION ${MICROSET_DBUS_INTERFA
 install(FILES data/microset.conf DESTINATION ${MICROSET_SYSUSERS_DIR})
 
 option(MICROSET_UI "Build the MicroSet QML module and the pad library" ON)
+set(MICROSET_TEST_FONT_DIR "" CACHE PATH "Selawik dir for the screenshot tests, empty skips them")
 option(MICROSET_RECOVERY "Build microset-recovery" ON)
 if(MICROSET_RECOVERY AND NOT MICROSET_UI)
     message(FATAL_ERROR "MICROSET_RECOVERY needs MICROSET_UI")

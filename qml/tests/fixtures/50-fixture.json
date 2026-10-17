@@ -1,0 +1,47 @@
+{
+  "owner": "fixture",
+  "keys": {
+    "fixture.long": {
+      "type": "s",
+      "default": "standard",
+      "enum": ["standard", "extended"],
+      "group": "fixture_long",
+      "label": "Long setting title that runs into the value column",
+      "ui": {"order": 0, "values": {"extended": "extended range with a long value"}}
+    },
+    "fixture.locked": {
+      "type": "b",
+      "default": true,
+      "writable": false,
+      "group": "fixture_long",
+      "label": "Locked flag",
+      "ui": {"order": 1}
+    },
+    "fixture.count": {
+      "type": "u",
+      "default": 3,
+      "group": "fixture_long",
+      "label": "Count",
+      "ui": {"order": 2}
+    },
+    "fixture.mode": {
+      "type": "s",
+      "default": "wide",
+      "enum": ["wide", "narrow"],
+      "group": "fixture_long",
+      "label": "Mode",
+      "ui": {"order": 3, "values": {"wide": "wide range with a value long enough to reach the title"}}
+    },
+    "fixture.hidden": {
+      "type": "as",
+      "default": [],
+      "group": "fixture_empty",
+      "label": "Hidden list",
+      "ui": {"widget": "none"}
+    }
+  },
+  "groups": {
+    "fixture_long": {"label": "group with a long title", "order": 0},
+    "fixture_empty": {"label": "empty", "order": 1}
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "owner": "microdap",
+  "keys": {
+    "microdap.accent_hue": {
+      "type": "u",
+      "default": 350,
+      "min": 0,
+      "max": 350,
+      "group": "microdap_display",
+      "label": "Accent",
+      "ui": {"order": 0, "widget": "hue", "step": 10}
+    }
+  },
+  "groups": {
+    "microdap_display": {"label": "display", "order": 0}
+  }
+}

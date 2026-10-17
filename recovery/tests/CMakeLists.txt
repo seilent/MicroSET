@@ -16,7 +16,6 @@ target_compile_definitions(tst_pad PRIVATE DBUS_DAEMON="${DBUS_DAEMON}")
 add_test(NAME recovery-pad COMMAND tst_pad)
 set_tests_properties(recovery-pad PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-set(MICROSET_TEST_FONT_DIR "" CACHE PATH "Selawik dir for the screenshot tests, empty skips them")
 if(NOT MICROSET_TEST_FONT_DIR)
     return()
 endif()

@@ -17,6 +17,10 @@ set(microset_qml
     MicroSet/components/CroppedHeader.qml
     MicroSet/components/Dialog.qml
     MicroSet/components/Toast.qml
+    MicroSet/SettingsRow.qml
+    MicroSet/SettingsPage.qml
+    MicroSet/GroupsPage.qml
+    MicroSet/SettingsView.qml
 )
 foreach(file IN LISTS microset_qml)
     get_filename_component(alias ${file} NAME)
@@ -31,8 +35,12 @@ qt_add_qml_module(microset_ui
     RESOURCE_PREFIX /qt/qml
     OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/imports/MicroSet
     QML_FILES ${microset_qml}
-    SOURCES src/env.cpp src/env.h
+    SOURCES src/env.cpp src/env.h src/settingsmodel.cpp src/settingsmodel.h src/updateinfo.cpp src/updateinfo.h
 )
-target_include_directories(microset_ui PRIVATE src)
+target_include_directories(microset_ui PUBLIC src)
 target_compile_definitions(microset_ui PRIVATE MICROSET_UI_FONT_DIR="${MICROSET_UI_FONT_DIR}")
-target_link_libraries(microset_ui PUBLIC Qt6::Gui Qt6::Qml Qt6::Quick)
+target_link_libraries(microset_ui PUBLIC libmicroset Qt6::DBus Qt6::Gui Qt6::Qml Qt6::Quick)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

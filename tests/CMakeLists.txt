@@ -3,6 +3,7 @@ find_program(DBUS_DAEMON dbus-daemon REQUIRED)
 find_program(SETPRIV setpriv REQUIRED)
 
 add_library(microset_harness STATIC harness.cpp fakepowerd.cpp fakealsa.cpp fakelogind.cpp)
+target_include_directories(microset_harness PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(microset_harness PUBLIC microsetd_core Qt6::Test)
 target_compile_definitions(microset_harness PUBLIC
     MICROSET_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
