@@ -9,6 +9,7 @@ Item {
     property string title: ""
     property real progress: 0
     property bool leaving: false
+    property bool sticky: false
     readonly property string phase: inAnim.running ? "in" : holdTimer.running ? "hold" : outAnim.running ? "out" : "hidden"
     readonly property bool shown: root.phase !== "hidden"
     readonly property bool animating: inAnim.running || outAnim.running || swapAnim.running
@@ -92,6 +93,10 @@ Item {
         interval: Motion.toastHold
         repeat: false
         onTriggered: {
+            if (root.sticky) {
+                holdTimer.restart()
+                return
+            }
             root.leaving = true
             outAnim.start()
         }
@@ -177,6 +182,14 @@ Item {
             outAnim.complete()
         if (swapAnim.running)
             swapAnim.complete()
+    }
+
+    onStickyChanged: {
+        if (root.sticky || !holdTimer.running)
+            return
+        holdTimer.stop()
+        root.leaving = true
+        outAnim.start()
     }
 
     onScreenOffChanged: {

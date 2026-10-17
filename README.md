@@ -13,7 +13,14 @@ read, change and watch them over D-Bus.
   Pad input comes from InputPlumber's D-Bus target while the MicroOS intercept arbiter (`net.seilent.MicroOs.Intercept`)
   holds it for the app; arrow keys, Return and Escape work too. `--screenshot <png> --state <name>` renders a fixture
   (960x640 by default). Look and components from MicroDAP, font Selawik (OFL 1.1, `MICROSET_FONT_DIR`).
-- `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and the settings page. The
+- `microset-settings --overlay`: the settings page as a gamescope overlay in the steam, microdap and microemu sessions
+  (`microset-overlay@<session>.service`). RC toggles it (`hotkeys.d/<session>.conf.d/60-microset.conf` rows for MicroOS
+  hotkeyd), B on the first page closes it. D-Bus `net.seilent.MicroSet.Overlay` on the session bus, object
+  `/net/seilent/MicroSet/Overlay`, interface `net.seilent.MicroSet.Overlay1` with `Toggle`, `Show`, `Hide` and the
+  `Shown` property; refused from a game. While shown it holds the pad through the MicroOS intercept arbiter, and it
+  gives way to another overlay that takes the arbiter until it is on top again. Shows "Hold A to format" while
+  `microos-storage format` waits for the hold.
+- `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and `microset-settings`. The
   page (`SettingsView`) lists the schema groups and edits their keys over `net.seilent.MicroSet`.
 - Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other
   file only keys under its owner name (`microdap.*`, `microemu.*`). A key can carry `ui` hints for the page (`order`,
@@ -52,9 +59,10 @@ on `/dev/ttyHS2`. The LEDs follow the screen brightness and are off during suspe
 
 ## Build
 
-Qt 6.11 (Core, DBus; Gui, Qml, Quick for the QML module and `microset-recovery`, off with `-DMICROSET_UI=OFF
--DMICROSET_RECOVERY=OFF`), alsa-lib, CMake 3.22, a C++20 compiler. `-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik
-faces adds the screenshot tests; the recovery shots must match `recovery/tests/shots.sha256`.
+Qt 6.11 (Core, DBus; Gui, Qml, Quick and xcb for the QML module, `microset-recovery` and `microset-settings`, off
+with `-DMICROSET_UI=OFF -DMICROSET_RECOVERY=OFF`), alsa-lib, CMake 3.22, a C++20 compiler.
+`-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik faces adds the screenshot tests; the recovery shots must match
+`recovery/tests/shots.sha256`.
 
 ```
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr

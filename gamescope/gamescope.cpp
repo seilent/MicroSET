@@ -35,6 +35,17 @@ void setCardinal(xcb_connection_t *connection, xcb_window_t window, xcb_atom_t p
 
 }
 
+bool markOverlay(QWindow *window)
+{
+    auto *x11 = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
+    if (!x11 || !x11->connection() || !window || !window->handle())
+        return false;
+    xcb_connection_t *connection = x11->connection();
+    setCardinal(connection, static_cast<xcb_window_t>(window->winId()), atom(connection, "STEAM_OVERLAY"), 1);
+    xcb_flush(connection);
+    return true;
+}
+
 void claimGamescopeFocus(QWindow *window)
 {
     bool ok = false;

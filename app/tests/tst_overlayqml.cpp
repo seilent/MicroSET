@@ -1,0 +1,203 @@
+#include "fakemicrosetd.h"
+#include "settingsmodel.h"
+
+#include <QQmlApplicationEngine>
+#include <QQuickWindow>
+#include <QRegularExpression>
+#include <QTest>
+#include <QtQml/qqmlextensionplugin.h>
+
+#include <memory>
+
+Q_IMPORT_QML_PLUGIN(MicroSetPlugin)
+Q_IMPORT_QML_PLUGIN(MicroSetOverlayPlugin)
+
+using namespace Qt::StringLiterals;
+
+class FakeOverlay : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool shown READ shown CONSTANT)
+    Q_PROPERTY(bool mapped READ mapped CONSTANT)
+    Q_PROPERTY(qreal opacity READ opacity CONSTANT)
+    Q_PROPERTY(bool hintShown READ hintShown CONSTANT)
+    Q_PROPERTY(bool hint READ hint NOTIFY hintChanged)
+    Q_PROPERTY(QString hintDevice READ hintDevice CONSTANT)
+
+public:
+    bool shown() const { return true; }
+    bool mapped() const { return true; }
+    qreal opacity() const { return 1.0; }
+    bool hintShown() const { return false; }
+    bool hint() const { return m_hint; }
+    QString hintDevice() const { return u"/dev/mmcblk0"_s; }
+    void setHint(bool hint)
+    {
+        m_hint = hint;
+        emit hintChanged();
+    }
+    Q_INVOKABLE void hide() { ++hides; }
+    Q_INVOKABLE void hintDone() {}
+
+    int hides = 0;
+
+signals:
+    void pageHint();
+    void hintShownChanged();
+    void hintChanged();
+
+private:
+    bool m_hint = false;
+};
+
+class FakePad : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool holding READ holding NOTIFY holdingChanged)
+
+public:
+    enum Action { Up, Down, Left, Right, A, B };
+
+    bool holding() const { return m_holding; }
+    void setHolding(bool holding)
+    {
+        m_holding = holding;
+        emit holdingChanged();
+    }
+    Q_INVOKABLE QString actionName(int action) const
+    {
+        static const QStringList names{u"up"_s, u"down"_s, u"left"_s, u"right"_s, u"a"_s, u"b"_s};
+        return names.value(action);
+    }
+    void press(int a)
+    {
+        emit pressed(a);
+        emit action(a, false);
+    }
+    void tap(int a)
+    {
+        press(a);
+        emit released(a);
+    }
+
+signals:
+    void action(int action, bool repeat);
+    void pressed(int action);
+    void released(int action);
+    void holdingChanged();
+
+private:
+    bool m_holding = true;
+};
+
+class OverlayQmlTest : public QObject
+{
+    Q_OBJECT
+
+    std::unique_ptr<SettingsModel> m_model;
+    std::unique_ptr<FakeOverlay> m_overlay;
+    std::unique_ptr<FakePad> m_pad;
+    std::unique_ptr<QQmlApplicationEngine> m_engine;
+    QQuickWindow *m_window = nullptr;
+    QObject *m_view = nullptr;
+
+    QObject *page() const
+    {
+        return qvariant_cast<QObject *>(qvariant_cast<QObject *>(m_view->property("stack"))->property("currentItem"));
+    }
+
+    QObject *toast() const { return qvariant_cast<QObject *>(m_view->property("toast")); }
+
+    QString title() const { return page()->property("title").toString(); }
+
+private slots:
+    void init()
+    {
+        QTest::failOnWarning(QRegularExpression(u"TypeError|ReferenceError|Unable to assign|Binding loop"_s));
+        m_model = std::make_unique<SettingsModel>();
+        m_model->setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {});
+        m_overlay = std::make_unique<FakeOverlay>();
+        m_pad = std::make_unique<FakePad>();
+        m_engine = std::make_unique<QQmlApplicationEngine>();
+        m_engine->setInitialProperties({
+            {u"overlay"_s, QVariant::fromValue(static_cast<QObject *>(m_overlay.get()))},
+            {u"model"_s, QVariant::fromValue(static_cast<QObject *>(m_model.get()))},
+            {u"pad"_s, QVariant::fromValue(static_cast<QObject *>(m_pad.get()))},
+            {u"screenshot"_s, true},
+            {u"shotState"_s, u"none"_s},
+            {u"shotWidth"_s, 960},
+            {u"shotHeight"_s, 640},
+        });
+        m_engine->loadFromModule("MicroSetOverlay", "Overlay");
+        m_window = qobject_cast<QQuickWindow *>(m_engine->rootObjects().value(0));
+        QVERIFY(m_window);
+        m_window->requestActivate();
+        QVERIFY(QTest::qWaitForWindowActive(m_window));
+        m_view = m_window->findChild<QObject *>(u"settingsView"_s);
+        QVERIFY(m_view);
+        QCOMPARE(title(), u"settings"_s);
+    }
+
+    void cleanup()
+    {
+        m_engine.reset();
+        m_pad.reset();
+        m_overlay.reset();
+        m_model.reset();
+    }
+
+    void holdTextComesBackAfterAnotherToast()
+    {
+        const QString hold = u"Hold A to format /dev/mmcblk0"_s;
+        m_overlay->setHint(true);
+        emit m_overlay->pageHint();
+        QTRY_COMPARE(toast()->property("phase").toString(), u"hold"_s);
+        QCOMPARE(toast()->property("title").toString(), hold);
+        QVERIFY(toast()->property("sticky").toBool());
+        QVERIFY(QMetaObject::invokeMethod(toast(), "show", Q_ARG(QString, u"Output"_s), Q_ARG(QString, u"set failed"_s)));
+        QTRY_COMPARE(toast()->property("title").toString(), u"set failed"_s);
+        QVERIFY(toast()->property("sticky").toBool());
+        const int holdMs = toast()->property("holdDuration").toInt();
+        QTRY_COMPARE_WITH_TIMEOUT(toast()->property("title").toString(), hold, holdMs + 2000);
+        QVERIFY(toast()->property("sticky").toBool());
+        QTest::qWait(holdMs + 500);
+        QCOMPARE(toast()->property("phase").toString(), u"hold"_s);
+        QCOMPARE(toast()->property("title").toString(), hold);
+        m_overlay->setHint(false);
+        QVERIFY(!toast()->property("sticky").toBool());
+        QTRY_COMPARE(toast()->property("phase").toString(), u"hidden"_s);
+    }
+
+    void acceptIgnoredWhileHint()
+    {
+        m_overlay->setHint(true);
+        QTest::keyClick(m_window, Qt::Key_Return);
+        m_pad->tap(FakePad::A);
+        QTest::qWait(100);
+        QCOMPARE(title(), u"settings"_s);
+        QVERIFY(!page()->property("pressed").toBool());
+        m_overlay->setHint(false);
+        m_pad->tap(FakePad::A);
+        QTRY_COMPARE(title(), u"audio"_s);
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QTRY_COMPARE(title(), u"settings"_s);
+        QTest::keyClick(m_window, Qt::Key_Return);
+        QTRY_COMPARE(title(), u"audio"_s);
+    }
+
+    void backReleaseAfterHolderLossDoesNotHide()
+    {
+        m_pad->tap(FakePad::B);
+        QCOMPARE(m_overlay->hides, 1);
+        m_pad->press(FakePad::B);
+        m_pad->setHolding(false);
+        emit m_pad->released(FakePad::B);
+        QCOMPARE(m_overlay->hides, 1);
+        m_pad->setHolding(true);
+        m_pad->tap(FakePad::B);
+        QCOMPARE(m_overlay->hides, 2);
+    }
+};
+
+QTEST_MAIN(OverlayQmlTest)
+#include "tst_overlayqml.moc"

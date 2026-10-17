@@ -49,23 +49,39 @@ QString holderProperty()
 
 }
 
-DbusPad::DbusPad(const QDBusConnection &session, const QDBusConnection &system, QObject *parent)
+DbusPad::DbusPad(const QDBusConnection &session, const QDBusConnection &system, QObject *parent, bool wanted)
     : QObject(parent)
     , m_session(session)
     , m_system(system)
     , m_watcher(arbiterService(), session, QDBusServiceWatcher::WatchForOwnerChange)
+    , m_wanted(wanted)
 {
     m_repeat.setTimerType(Qt::PreciseTimer);
     connect(&m_repeat, &QTimer::timeout, this, &DbusPad::repeatTick);
-    connect(&m_watcher, &QDBusServiceWatcher::serviceRegistered, this, &DbusPad::acquire);
-    connect(&m_watcher, &QDBusServiceWatcher::serviceUnregistered, this, [this] { setHolder({}); });
+    m_retry.setSingleShot(true);
+    m_retry.setInterval(ReleaseRetryMs);
+    connect(&m_retry, &QTimer::timeout, this, &DbusPad::sendRelease);
+    connect(&m_watcher, &QDBusServiceWatcher::serviceRegistered, this, [this] {
+        if (m_wanted)
+            acquire();
+        else
+            readHolder();
+    });
+    connect(&m_watcher, &QDBusServiceWatcher::serviceUnregistered, this, [this] {
+        m_retry.stop();
+        setHolder({});
+        emit arbiterLost();
+    });
     if (!m_system.connect(u"org.shadowblip.InputPlumber"_s, QString(), u"org.shadowblip.Input.DBusDevice"_s,
                           u"InputEvent"_s, this, SLOT(onInputEvent(QString,double))))
-        qWarning() << "microset-recovery: cannot subscribe to InputEvent" << m_system.lastError().message();
+        qWarning() << "pad: cannot subscribe to InputEvent" << m_system.lastError().message();
     if (!m_session.connect(arbiterService(), arbiterPath(), propertiesInterface(), u"PropertiesChanged"_s, this,
                            SLOT(onArbiterProperties(QString,QVariantMap,QStringList))))
-        qWarning() << "microset-recovery: cannot subscribe to the intercept arbiter" << m_session.lastError().message();
-    acquire();
+        qWarning() << "pad: cannot subscribe to the intercept arbiter" << m_session.lastError().message();
+    if (m_wanted)
+        acquire();
+    else
+        readHolder();
 }
 
 int DbusPad::actionFor(const QString &name)
@@ -97,6 +113,33 @@ bool DbusPad::holding() const
     return m_holding;
 }
 
+QString DbusPad::holder() const
+{
+    return m_holder;
+}
+
+QString DbusPad::name() const
+{
+    return m_session.baseService();
+}
+
+bool DbusPad::wanted() const
+{
+    return m_wanted;
+}
+
+void DbusPad::setWanted(bool wanted)
+{
+    if (wanted == m_wanted)
+        return;
+    m_wanted = wanted;
+    m_retry.stop();
+    if (wanted)
+        acquire();
+    else
+        sendRelease();
+}
+
 QString DbusPad::actionName(DbusPad::Action action) const
 {
     if (action < 0 || action >= ActionCount)
@@ -113,35 +156,65 @@ void DbusPad::acquire()
         w->deleteLater();
         const QDBusPendingReply<> reply = *w;
         if (reply.isError()) {
-            qWarning() << "microset-recovery: Acquire failed" << reply.error().message();
+            qWarning() << "pad: Acquire failed" << reply.error().message();
+            emit acquired(false);
             return;
         }
-        readHolder();
+        readHolder(true);
     });
 }
 
-void DbusPad::readHolder()
+void DbusPad::sendRelease()
+{
+    if (m_wanted)
+        return;
+    const QDBusMessage call = QDBusMessage::createMethodCall(arbiterService(), arbiterPath(), arbiterInterface(),
+                                                             u"Release"_s);
+    auto *watcher = new QDBusPendingCallWatcher(m_session.asyncCall(call), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        const QDBusPendingReply<> reply = *w;
+        if (!m_wanted && !reply.isError())
+            readHolder();
+        if (!m_wanted && reply.isError()) {
+            qWarning() << "pad: Release failed" << reply.error().message();
+            if (m_holding)
+                m_retry.start();
+        }
+        emit releaseDone();
+    });
+}
+
+void DbusPad::readHolder(bool afterAcquire)
 {
     QDBusMessage call = QDBusMessage::createMethodCall(arbiterService(), arbiterPath(), propertiesInterface(),
                                                        u"Get"_s);
     call << arbiterInterface() << holderProperty();
     auto *watcher = new QDBusPendingCallWatcher(m_session.asyncCall(call), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, afterAcquire](QDBusPendingCallWatcher *w) {
         w->deleteLater();
         const QDBusPendingReply<QDBusVariant> reply = *w;
         setHolder(reply.isError() ? QString() : reply.value().variant().toString());
+        if (afterAcquire)
+            emit acquired(true);
     });
 }
 
 void DbusPad::setHolder(const QString &holder)
 {
     const bool holding = !holder.isEmpty() && holder == m_session.baseService();
-    if (holding == m_holding)
-        return;
-    m_holding = holding;
-    if (!holding)
-        releaseAll();
-    emit holdingChanged();
+    const bool moved = holder != m_holder;
+    m_holder = holder;
+    if (holding != m_holding) {
+        m_holding = holding;
+        emit holdingChanged();
+        if (!holding)
+            releaseAll();
+    }
+    if (holding && !m_wanted && !m_retry.isActive())
+        m_retry.start();
+    if (moved)
+        emit holderChanged();
 }
 
 void DbusPad::onArbiterProperties(const QString &interface, const QVariantMap &changed,

@@ -1,0 +1,24 @@
+#!/usr/bin/bash
+set -eu
+
+display=${DISPLAY:-:0}
+socket=${MICROSET_X_SOCKET_DIR:-/tmp/.X11-unix}/X${display#:}
+limit_ms=${MICROSET_WAIT_X_MS:-20000}
+
+ms() {
+  local up
+  read -r up _ < /proc/uptime
+  echo $(( ${up%.*} * 1000 + 10#${up#*.}0 ))
+}
+
+start=$(ms)
+while :; do
+  if [[ -e $socket ]] && xprop -root -display "$display" > /dev/null 2>&1; then
+    exit 0
+  fi
+  if (( $(ms) - start >= limit_ms )); then
+    echo "microset-wait-x: no X server on $display after $limit_ms ms" >&2
+    exit 1
+  fi
+  sleep 0.2
+done

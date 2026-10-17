@@ -1,0 +1,17 @@
+[Unit]
+Description=MicroSET settings overlay in the %i session
+BindsTo=gamescope-session-plus@%i.service
+After=gamescope-session-plus@%i.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=notify
+NotifyAccess=main
+NoNewPrivileges=yes
+WatchdogSec=15
+Environment=DISPLAY=:0
+Environment=QT_QPA_PLATFORM=xcb
+ExecStartPre=/usr/libexec/microset/microset-wait-x
+ExecStart=/usr/bin/microset-settings --overlay
+Restart=on-failure
+RestartSec=2

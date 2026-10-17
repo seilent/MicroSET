@@ -6,10 +6,18 @@ Item {
 
     property QtObject model: null
     property bool animated: true
+    property bool overlay: false
     readonly property int accentHue: view.model !== null && view.model.accentHue >= 0
         ? Ui.hueOnGrid(view.model.accentHue) : Ui.accentHueDefault
     property alias stack: stack
     property alias toast: toast
+
+    signal hideRequested()
+
+    function disarm(): void {
+        if (stack.depth > 0)
+            stack.pages[0].content.hideArmed = false
+    }
 
     function open(group: string): void {
         stack.push(settingsPage, { model: view.model, group: group, animated: view.animated })
@@ -18,7 +26,7 @@ Item {
     Component.onCompleted: {
         Ui.accent = Qt.binding(() => Ui.accentForHue(view.accentHue))
         Ui.accentBright = Qt.binding(() => Ui.brightForHue(view.accentHue))
-        stack.push(groupsPage, { model: view.model, animated: view.animated })
+        stack.push(groupsPage, { model: view.model, animated: view.animated, overlay: view.overlay })
     }
 
     PageStack {
@@ -41,6 +49,7 @@ Item {
 
         GroupsPage {
             onOpened: (group) => view.open(group)
+            onHideRequested: view.hideRequested()
         }
     }
 

@@ -12,6 +12,7 @@ Item {
     property bool screenOff: false
     property bool keyboard: true
     property bool sweeping: false
+    property var ignored: []
     readonly property bool locked: (router.stack !== null && router.stack.inputLocked) || router.sweeping
     readonly property bool modalUp: router.modal !== null && router.modal.shown === true
     readonly property bool saverUp: router.saver !== null && router.saver.shown === true
@@ -137,6 +138,10 @@ Item {
 
         function onAction(action, repeat) {
             const raw = router.pad.actionName(action)
+            if (router.ignored.indexOf(raw) >= 0) {
+                router.dropped(raw, repeat)
+                return
+            }
             if (router.chordHeld[raw] === true)
                 return
             router.dispatch(router.heldName(raw), repeat)
@@ -144,6 +149,8 @@ Item {
 
         function onPressed(action) {
             const raw = router.pad.actionName(action)
+            if (router.ignored.indexOf(raw) >= 0)
+                return
             if (router.chord(raw))
                 return
             if (router.held[raw] !== undefined)
@@ -185,6 +192,8 @@ Item {
         if (name === "")
             return
         event.accepted = true
+        if (router.ignored.indexOf(name) >= 0)
+            return
         if (event.isAutoRepeat && router.directions.indexOf(name) < 0)
             return
         if (!event.isAutoRepeat)

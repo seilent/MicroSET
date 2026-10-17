@@ -3,6 +3,7 @@
 #include <QDBusArgument>
 #include <QDBusMessage>
 #include <QDBusMetaType>
+#include <QDBusPendingCallWatcher>
 #include <QFile>
 
 #include <grp.h>
@@ -38,6 +39,14 @@ QList<uint> groupsFrom(const QVariant &value)
     return out;
 }
 
+QDBusMessage credentialsCall(const QString &sender)
+{
+    QDBusMessage call = QDBusMessage::createMethodCall(u"org.freedesktop.DBus"_s, u"/org/freedesktop/DBus"_s,
+                                                       u"org.freedesktop.DBus"_s, u"GetConnectionCredentials"_s);
+    call << sender;
+    return call;
+}
+
 }
 
 Auth::Auth(const QDBusConnection &bus, const QString &procRoot)
@@ -48,11 +57,24 @@ Auth::Auth(const QDBusConnection &bus, const QString &procRoot)
 
 QString Auth::refusal(const QString &sender, qint64 *uid) const
 {
+    return judge(m_bus.call(credentialsCall(sender), QDBus::Block, 500), m_proc, uid);
+}
+
+void Auth::check(const QString &sender, std::function<void(const QString &refusal, qint64 uid)> done) const
+{
+    auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(credentialsCall(sender), 500));
+    QObject::connect(watcher, &QDBusPendingCallWatcher::finished, watcher,
+                     [proc = m_proc, watcher, done = std::move(done)] {
+        watcher->deleteLater();
+        qint64 uid = -1;
+        const QString refusal = judge(watcher->reply(), proc, &uid);
+        done(refusal, uid);
+    });
+}
+
+QString Auth::judge(const QDBusMessage &reply, const QString &procRoot, qint64 *uid)
+{
     *uid = -1;
-    QDBusMessage call = QDBusMessage::createMethodCall(u"org.freedesktop.DBus"_s, u"/org/freedesktop/DBus"_s,
-                                                       u"org.freedesktop.DBus"_s, u"GetConnectionCredentials"_s);
-    call << sender;
-    const QDBusMessage reply = m_bus.call(call, QDBus::Block, 500);
     if (reply.type() != QDBusMessage::ReplyMessage)
         return u"no credentials: "_s + reply.errorMessage();
     const QVariantMap credentials = qdbus_cast<QVariantMap>(reply.arguments().value(0));
@@ -66,7 +88,7 @@ QString Auth::refusal(const QString &sender, qint64 *uid) const
     const group *wheel = ::getgrnam("wheel");
     if (*uid != 0 && !(wheel && groups.contains(uint(wheel->gr_gid))))
         return u"not in wheel"_s;
-    QFile cgroup(m_proc + u'/' + QString::number(pid) + u"/cgroup"_s);
+    QFile cgroup(procRoot + u'/' + QString::number(pid) + u"/cgroup"_s);
     if (!cgroup.open(QIODevice::ReadOnly))
         return u"cannot read the cgroup of pid %1"_s.arg(pid);
     const QByteArray path = cgroup.readAll().trimmed();

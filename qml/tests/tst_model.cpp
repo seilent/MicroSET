@@ -174,6 +174,47 @@ private slots:
         QCOMPARE(fake->subscriptions().size(), 2);
     }
 
+    void heldKeyFollowed()
+    {
+        const auto m = model();
+        m->hold(u"display.rotation"_s);
+        m->enter(u"display"_s);
+        QTRY_COMPARE(fake->subscriptions(), QStringList{u"Subscribe display.rotation"_s});
+        m->leave(u"display"_s);
+        const int revision = m->revision();
+        fake->emitChanged(u"display.rotation"_s, u"landscape"_s);
+        QTRY_VERIFY(m->revision() > revision);
+        QCOMPARE(m->value(u"display.rotation"_s, m->revision()).toString(), u"landscape"_s);
+        QTest::qWait(50);
+        QCOMPARE(fake->subscriptions().size(), 1);
+        m->drop(u"display.rotation"_s);
+        QTRY_COMPARE(fake->subscriptions().size(), 2);
+        QCOMPARE(fake->subscriptions().at(1), u"Unsubscribe display.rotation"_s);
+        m->drop(u"display.rotation"_s);
+        QTest::qWait(50);
+        QCOMPARE(fake->subscriptions().size(), 2);
+    }
+
+    void heldUnreferencedKeyBumps()
+    {
+        const auto m = model();
+        int revision = m->revision();
+        fake->emitChanged(u"other.unheld"_s, u"a"_s);
+        QTest::qWait(100);
+        QCOMPARE(m->revision(), revision);
+        QCOMPARE(m->value(u"other.unheld"_s, m->revision()).toString(), u"a"_s);
+        m->hold(u"other.unheld"_s);
+        revision = m->revision();
+        fake->emitChanged(u"other.unheld"_s, u"b"_s);
+        QTRY_VERIFY(m->revision() > revision);
+        QCOMPARE(m->value(u"other.unheld"_s, m->revision()).toString(), u"b"_s);
+        m->drop(u"other.unheld"_s);
+        revision = m->revision();
+        fake->emitChanged(u"other.unheld"_s, u"c"_s);
+        QTest::qWait(100);
+        QCOMPARE(m->revision(), revision);
+    }
+
     void storedUnderOverride()
     {
         fake->setValues({{u"rgb.hue"_s, 120u}, {u"rgb.saturation"_s, 60u}, {u"rgb.enabled"_s, true}});

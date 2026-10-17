@@ -17,11 +17,16 @@ set(MICROSET_SYSUSERS_DIR "${CMAKE_INSTALL_PREFIX}/lib/sysusers.d" CACHE PATH "s
 set(MICROSET_DBUS_POLICY_DIR "${CMAKE_INSTALL_FULL_DATADIR}/dbus-1/system.d" CACHE PATH "D-Bus system policy dir")
 set(MICROSET_DBUS_INTERFACES_DIR "${CMAKE_INSTALL_FULL_DATADIR}/dbus-1/interfaces" CACHE PATH "D-Bus interface XML dir")
 set(MICROSET_SCHEMA_DIR "${CMAKE_INSTALL_FULL_DATADIR}/microset/schema.d" CACHE PATH "schema.d dir")
+set(MICROSET_SYSTEMD_USER_DIR "${CMAKE_INSTALL_PREFIX}/lib/systemd/user" CACHE PATH "systemd user unit dir")
+set(MICROSET_HOTKEYS_DIR "${CMAKE_INSTALL_PREFIX}/lib/microos/hotkeys.d" CACHE PATH "MicroOS hotkeyd table dir")
+
+add_library(microset_common STATIC daemon/auth.cpp daemon/auth.h daemon/sleepinhibitor.cpp daemon/sleepinhibitor.h)
+target_include_directories(microset_common PUBLIC daemon)
+target_link_libraries(microset_common PUBLIC Qt6::Core Qt6::DBus)
 
 add_library(microsetd_core STATIC
     daemon/alsaapplier.cpp
     daemon/alsalibcontrol.cpp
-    daemon/auth.cpp
     daemon/powerbridge.cpp
     daemon/qrtrlink.cpp
     daemon/rgbapplier.cpp
@@ -29,7 +34,6 @@ add_library(microsetd_core STATIC
     daemon/service.cpp
     daemon/sessionsprovider.cpp
     daemon/settings.cpp
-    daemon/sleepinhibitor.cpp
     daemon/sscapplier.cpp
     daemon/ssclink.h
     daemon/sscrotation.cpp
@@ -37,7 +41,7 @@ add_library(microsetd_core STATIC
     daemon/store.cpp
 )
 target_include_directories(microsetd_core PUBLIC daemon lib)
-target_link_libraries(microsetd_core PUBLIC Qt6::Core Qt6::DBus ALSA::ALSA)
+target_link_libraries(microsetd_core PUBLIC microset_common Qt6::Core Qt6::DBus ALSA::ALSA)
 
 add_executable(microsetd daemon/main.cpp)
 target_link_libraries(microsetd PRIVATE microsetd_core)
@@ -90,8 +94,9 @@ install(FILES data/microset.conf DESTINATION ${MICROSET_SYSUSERS_DIR})
 option(MICROSET_UI "Build the MicroSet QML module and the pad library" ON)
 set(MICROSET_TEST_FONT_DIR "" CACHE PATH "Selawik dir for the screenshot tests, empty skips them")
 option(MICROSET_RECOVERY "Build microset-recovery" ON)
-if(MICROSET_RECOVERY AND NOT MICROSET_UI)
-    message(FATAL_ERROR "MICROSET_RECOVERY needs MICROSET_UI")
+option(MICROSET_SETTINGS "Build microset-settings" ${MICROSET_UI})
+if((MICROSET_RECOVERY OR MICROSET_SETTINGS) AND NOT MICROSET_UI)
+    message(FATAL_ERROR "MICROSET_RECOVERY and MICROSET_SETTINGS need MICROSET_UI")
 endif()
 if(MICROSET_UI)
     add_library(microset_pad STATIC pad/dbuspad.cpp pad/dbuspad.h)
@@ -99,8 +104,19 @@ if(MICROSET_UI)
     target_link_libraries(microset_pad PUBLIC Qt6::Core Qt6::DBus)
     add_subdirectory(qml)
 endif()
+if(MICROSET_RECOVERY OR MICROSET_SETTINGS)
+    find_package(Qt6 6.11 REQUIRED COMPONENTS Gui)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb)
+    add_library(microset_gamescope STATIC gamescope/gamescope.cpp gamescope/gamescope.h)
+    target_include_directories(microset_gamescope PUBLIC gamescope)
+    target_link_libraries(microset_gamescope PUBLIC Qt6::Gui PkgConfig::XCB)
+endif()
 if(MICROSET_RECOVERY)
     add_subdirectory(recovery)
+endif()
+if(MICROSET_SETTINGS)
+    add_subdirectory(app)
 endif()
 
 if(BUILD_TESTING)

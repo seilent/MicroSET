@@ -59,6 +59,9 @@ public:
     Q_INVOKABLE void reloadUpdates();
     Q_INVOKABLE void enter(const QString &group);
     Q_INVOKABLE void leave(const QString &group);
+    Q_INVOKABLE QVariant value(const QString &key, int revision) const;
+    Q_INVOKABLE void hold(const QString &key);
+    Q_INVOKABLE void drop(const QString &key);
 
     static int normalizeHue(int hue);
     static QString toastText(const QString &error);

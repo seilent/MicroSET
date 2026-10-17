@@ -308,7 +308,7 @@ void SettingsModel::onChanged(const QString &key, const QVariant &value)
     m_values.insert(key, value);
     const auto it = m_entries.find(key);
     if (it == m_entries.end()) {
-        if (m_referenced.contains(key))
+        if (m_referenced.contains(key) || m_watching.contains(key))
             bump();
         return;
     }
@@ -639,24 +639,38 @@ QStringList SettingsModel::liveKeys(const QString &group) const
 
 void SettingsModel::enter(const QString &group)
 {
-    if (!m_client)
-        return;
     for (const QString &key : liveKeys(group))
-        if (m_watching[key]++ == 0)
-            m_client->subscribe(key);
+        hold(key);
 }
 
 void SettingsModel::leave(const QString &group)
 {
+    for (const QString &key : liveKeys(group))
+        drop(key);
+}
+
+QVariant SettingsModel::value(const QString &key, int) const
+{
+    return m_values.value(key);
+}
+
+void SettingsModel::hold(const QString &key)
+{
     if (!m_client)
         return;
-    for (const QString &key : liveKeys(group)) {
-        const auto it = m_watching.find(key);
-        if (it == m_watching.end())
-            continue;
-        if (--*it == 0) {
-            m_watching.erase(it);
-            m_client->unsubscribe(key);
-        }
+    if (m_watching[key]++ == 0)
+        m_client->subscribe(key);
+}
+
+void SettingsModel::drop(const QString &key)
+{
+    if (!m_client)
+        return;
+    const auto it = m_watching.find(key);
+    if (it == m_watching.end())
+        return;
+    if (--*it == 0) {
+        m_watching.erase(it);
+        m_client->unsubscribe(key);
     }
 }

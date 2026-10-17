@@ -1,6 +1,4 @@
 find_package(Qt6 6.11 REQUIRED COMPONENTS Gui Qml Quick)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(XCB REQUIRED IMPORTED_TARGET xcb)
 
 add_library(microset_recovery_core STATIC src/recovery.cpp src/recovery.h)
 target_include_directories(microset_recovery_core PUBLIC src)
@@ -27,9 +25,9 @@ qt_add_qml_module(microset_recovery_ui
 )
 target_link_libraries(microset_recovery_ui PUBLIC microset_uiplugin Qt6::Gui Qt6::Qml Qt6::Quick)
 
-qt_add_executable(microset-recovery src/main.cpp src/gamescope.cpp src/gamescope.h)
-target_link_libraries(microset-recovery PRIVATE microset_recovery_core microset_recovery_uiplugin Qt6::Gui Qt6::Qml Qt6::Quick
-    PkgConfig::XCB)
+qt_add_executable(microset-recovery src/main.cpp)
+target_link_libraries(microset-recovery PRIVATE microset_recovery_core microset_recovery_uiplugin microset_gamescope Qt6::Gui
+    Qt6::Qml Qt6::Quick)
 
 install(TARGETS microset-recovery DESTINATION ${CMAKE_INSTALL_BINDIR})
 

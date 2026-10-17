@@ -6,6 +6,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QRegularExpression>
+#include <QSignalSpy>
 #include <QTest>
 #include <QtQml/qqmlextensionplugin.h>
 
@@ -119,6 +120,37 @@ private slots:
         key(Qt::Key_Return);
         QCOMPARE(page()->property("title").toString(), u"stick leds"_s);
         QCOMPARE(page()->property("focusIndex").toInt(), 1);
+    }
+
+    void toastStaysWhileSticky()
+    {
+        QObject *t = toast();
+        t->setProperty("sticky", true);
+        QVERIFY(QMetaObject::invokeMethod(t, "show", Q_ARG(QString, QString()), Q_ARG(QString, u"Hold A to format"_s)));
+        QTest::qWait(t->property("inDuration").toInt() + t->property("holdDuration").toInt()
+                     + t->property("outDuration").toInt() + 300);
+        QCOMPARE(t->property("phase").toString(), u"hold"_s);
+        t->setProperty("sticky", false);
+        QCOMPARE(t->property("phase").toString(), u"out"_s);
+        QTRY_COMPARE(t->property("phase").toString(), u"hidden"_s);
+    }
+
+    void backHidesOverlayOnRelease()
+    {
+        QSignalSpy hide(view, SIGNAL(hideRequested()));
+        QTest::keyPress(window, Qt::Key_Escape);
+        QTest::keyRelease(window, Qt::Key_Escape);
+        QCOMPARE(hide.count(), 0);
+        page()->setProperty("overlay", true);
+        QTest::keyPress(window, Qt::Key_Escape);
+        QCOMPARE(hide.count(), 0);
+        QTest::keyRelease(window, Qt::Key_Escape);
+        QCOMPARE(hide.count(), 1);
+        open(u"audio"_s);
+        QTest::keyPress(window, Qt::Key_Escape);
+        QCOMPARE(page()->property("title").toString(), u"settings"_s);
+        QTest::keyRelease(window, Qt::Key_Escape);
+        QCOMPARE(hide.count(), 1);
     }
 
     void editStepConfirm()
