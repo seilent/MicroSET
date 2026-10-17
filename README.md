@@ -14,7 +14,10 @@ read, change and watch them over D-Bus.
   holds it for the app; arrow keys, Return and Escape work too. `--screenshot <png> --state <name>` renders a fixture
   (960x640 by default). Look and components from MicroDAP, font Selawik (OFL 1.1, `MICROSET_FONT_DIR`).
 - Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other
-  file only keys under its owner name (`microdap.*`, `microemu.*`).
+  file only keys under its owner name (`microdap.*`, `microemu.*`). A key can carry `ui` hints for the page (`order`,
+  `widget` `none` or `hue`, `step` or a `steps` list, `values` labels, `unit`, `apply` `confirm` to apply on A, and a
+  `lock` that makes it read only while another key has a given value) and a file can name and order its groups under `groups`; the
+  first file that describes a group wins.
 
 `Get`, `List` and `Changed` give the effective value; `Stored` gives only the keys stored under a prefix, with their
 stored values. `Import` stores every key that has no stored value yet in one write and returns the keys it took and the

@@ -7,7 +7,8 @@
       "enum": ["low-power", "balanced", "performance"],
       "applier": "power",
       "group": "power",
-      "label": "Performance profile"
+      "label": "Performance profile",
+      "ui": {"order": 0, "values": {"low-power": "low power"}}
     },
     "power.gpu_level": {
       "type": "s",
@@ -15,7 +16,8 @@
       "enum": ["auto", "manual"],
       "applier": "power",
       "group": "power",
-      "label": "GPU clock control"
+      "label": "GPU clock control",
+      "ui": {"order": 3}
     },
     "power.gpu_clock": {
       "type": "u",
@@ -24,7 +26,8 @@
       "max": 587,
       "applier": "power",
       "group": "power",
-      "label": "Manual GPU clock (MHz)"
+      "label": "Manual GPU clock",
+      "ui": {"order": 4, "steps": [305, 400, 442, 490, 525, 587], "values": {"442": "441.6 mhz"}, "unit": "mhz", "lock": {"key": "power.gpu_level", "is": "auto", "text": "auto"}}
     },
     "power.governor": {
       "type": "s",
@@ -32,7 +35,8 @@
       "enum": ["ondemand", "performance", "schedutil"],
       "applier": "power",
       "group": "power",
-      "label": "CPU governor"
+      "label": "CPU governor",
+      "ui": {"order": 2}
     },
     "power.tdp": {
       "type": "u",
@@ -41,7 +45,8 @@
       "max": 10,
       "applier": "power",
       "group": "power",
-      "label": "TDP limit (W)"
+      "label": "TDP limit",
+      "ui": {"order": 1, "step": 1, "unit": "w"}
     },
     "meta.imported_power": {
       "type": "b",
@@ -57,7 +62,8 @@
       "enum_from": "sessions",
       "applier": null,
       "group": "system",
-      "label": "Boot into"
+      "label": "Boot into",
+      "ui": {"order": 0, "apply": "confirm"}
     },
     "audio.output": {
       "type": "s",
@@ -65,7 +71,8 @@
       "enum": ["auto", "speaker", "headphones", "usb", "bt"],
       "applier": null,
       "group": "audio",
-      "label": "Output"
+      "label": "Output",
+      "ui": {"order": 0}
     },
     "audio.hp_gain": {
       "type": "s",
@@ -73,7 +80,8 @@
       "enum": ["low", "normal", "high"],
       "applier": "alsa",
       "group": "audio",
-      "label": "Headphone gain"
+      "label": "Headphone gain",
+      "ui": {"order": 1}
     },
     "audio.hp_amp": {
       "type": "s",
@@ -81,7 +89,8 @@
       "enum": ["lohifi", "ulp", "hifi"],
       "applier": "alsa",
       "group": "audio",
-      "label": "Headphone amp"
+      "label": "Headphone amp",
+      "ui": {"order": 2}
     },
     "audio.speaker_gain": {
       "type": "u",
@@ -89,7 +98,8 @@
       "enum": [84, 90, 96, 99, 102, 105, 108],
       "applier": "alsa",
       "group": "audio",
-      "label": "Speaker digital gain"
+      "label": "Speaker digital gain",
+      "ui": {"order": 3, "values": {"84": "0 db", "90": "+6 db", "96": "+12 db", "99": "+15 db", "102": "+18 db", "105": "+21 db", "108": "+24 db"}}
     },
     "audio.volume_step": {
       "type": "u",
@@ -97,14 +107,16 @@
       "enum": [2, 5, 10],
       "applier": null,
       "group": "audio",
-      "label": "Volume step"
+      "label": "Volume step",
+      "ui": {"order": 4, "values": {"2": "2%", "5": "5%", "10": "10%"}}
     },
     "audio.eq.headphones.on": {
       "type": "b",
       "default": false,
       "applier": null,
       "group": "audio",
-      "label": "Headphones EQ"
+      "label": "Headphones EQ",
+      "ui": {"order": 6}
     },
     "audio.eq.headphones.name": {
       "type": "s",
@@ -112,7 +124,8 @@
       "max_len": 256,
       "applier": null,
       "group": "audio",
-      "label": "Headphones EQ profile"
+      "label": "Headphones EQ profile",
+      "ui": {"order": 7}
     },
     "audio.eq.headphones.filters": {
       "type": "as",
@@ -121,14 +134,16 @@
       "validator": "eq_filters",
       "applier": null,
       "group": "audio",
-      "label": "Headphones EQ filters"
+      "label": "Headphones EQ filters",
+      "ui": {"widget": "none"}
     },
     "audio.eq.speaker.on": {
       "type": "b",
       "default": false,
       "applier": null,
       "group": "audio",
-      "label": "Speaker EQ"
+      "label": "Speaker EQ",
+      "ui": {"order": 8}
     },
     "audio.eq.speaker.name": {
       "type": "s",
@@ -136,7 +151,8 @@
       "max_len": 256,
       "applier": null,
       "group": "audio",
-      "label": "Speaker EQ profile"
+      "label": "Speaker EQ profile",
+      "ui": {"order": 9}
     },
     "audio.eq.speaker.filters": {
       "type": "as",
@@ -145,14 +161,16 @@
       "validator": "eq_filters",
       "applier": null,
       "group": "audio",
-      "label": "Speaker EQ filters"
+      "label": "Speaker EQ filters",
+      "ui": {"widget": "none"}
     },
     "audio.eq.usb.on": {
       "type": "b",
       "default": false,
       "applier": null,
       "group": "audio",
-      "label": "USB EQ"
+      "label": "USB EQ",
+      "ui": {"order": 10}
     },
     "audio.eq.usb.name": {
       "type": "s",
@@ -160,7 +178,8 @@
       "max_len": 256,
       "applier": null,
       "group": "audio",
-      "label": "USB EQ profile"
+      "label": "USB EQ profile",
+      "ui": {"order": 11}
     },
     "audio.eq.usb.filters": {
       "type": "as",
@@ -169,14 +188,16 @@
       "validator": "eq_filters",
       "applier": null,
       "group": "audio",
-      "label": "USB EQ filters"
+      "label": "USB EQ filters",
+      "ui": {"widget": "none"}
     },
     "audio.eq.bt.on": {
       "type": "b",
       "default": false,
       "applier": null,
       "group": "audio",
-      "label": "Bluetooth EQ"
+      "label": "Bluetooth EQ",
+      "ui": {"order": 12}
     },
     "audio.eq.bt.name": {
       "type": "s",
@@ -184,7 +205,8 @@
       "max_len": 256,
       "applier": null,
       "group": "audio",
-      "label": "Bluetooth EQ profile"
+      "label": "Bluetooth EQ profile",
+      "ui": {"order": 13}
     },
     "audio.eq.bt.filters": {
       "type": "as",
@@ -193,7 +215,8 @@
       "validator": "eq_filters",
       "applier": null,
       "group": "audio",
-      "label": "Bluetooth EQ filters"
+      "label": "Bluetooth EQ filters",
+      "ui": {"widget": "none"}
     },
     "audio.bt_codec": {
       "type": "s",
@@ -201,7 +224,8 @@
       "enum": ["auto", "aptx", "aac", "ldac", "sbc"],
       "applier": null,
       "group": "audio",
-      "label": "Bluetooth codec"
+      "label": "Bluetooth codec",
+      "ui": {"order": 5}
     },
     "display.orientation": {
       "type": "s",
@@ -209,14 +233,16 @@
       "enum": ["portrait", "portrait-flipped", "landscape", "landscape-flipped"],
       "applier": "ssc",
       "group": "display",
-      "label": "Orientation"
+      "label": "Orientation",
+      "ui": {"order": 0, "values": {"portrait-flipped": "portrait flipped", "landscape-flipped": "landscape flipped"}, "apply": "confirm", "lock": {"key": "display.auto_rotate", "is": true, "show": "display.rotation"}}
     },
     "display.auto_rotate": {
       "type": "b",
       "default": true,
       "applier": "ssc",
       "group": "display",
-      "label": "Auto rotate"
+      "label": "Auto rotate",
+      "ui": {"order": 1, "apply": "confirm"}
     },
     "display.rotation": {
       "type": "s",
@@ -233,7 +259,8 @@
       "default": false,
       "applier": "rgb",
       "group": "rgb",
-      "label": "Stick LEDs"
+      "label": "Stick LEDs",
+      "ui": {"order": 0}
     },
     "rgb.color": {
       "override": true,
@@ -243,7 +270,8 @@
       "max": 16777215,
       "applier": "rgb",
       "group": "rgb",
-      "label": "Stick LED color (0xRRGGBB)"
+      "label": "Stick LED color",
+      "ui": {"order": 1, "widget": "hue", "lock": {"key": "rgb.enabled", "is": false, "text": "off"}}
     },
     "rgb.brightness": {
       "override": true,
@@ -253,7 +281,15 @@
       "max": 255,
       "applier": "rgb",
       "group": "rgb",
-      "label": "Stick LED brightness"
+      "label": "Stick LED brightness",
+      "ui": {"order": 2, "step": 5, "lock": {"key": "rgb.enabled", "is": false, "text": "off"}}
     }
+  },
+  "groups": {
+    "audio": {"label": "audio", "order": 0},
+    "display": {"label": "display", "order": 1},
+    "rgb": {"label": "stick leds", "order": 2},
+    "power": {"label": "power", "order": 3},
+    "system": {"label": "system", "order": 4}
   }
 }

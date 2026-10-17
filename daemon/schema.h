@@ -29,6 +29,14 @@ struct Key
     QString applier;
     QString group;
     QString label;
+    QJsonObject ui;
+};
+
+struct Group
+{
+    QString label;
+    int order = 0;
+    QString file;
 };
 
 class Schema
@@ -41,6 +49,7 @@ public:
     void load(const QString &dir);
 
     const Key *key(const QString &name) const;
+    const Group *group(const QString &name) const;
     QStringList keys(const QString &prefix) const;
     bool accepts(const Key &key, const QVariant &value) const;
     QVariant clamp(const Key &key, const QVariant &value) const;
@@ -54,9 +63,11 @@ public:
 private:
     void loadFile(const QString &dir, const QString &file);
     std::optional<Key> parseKey(const QString &name, const QString &owner, const QJsonObject &object, QString *why) const;
+    void parseGroups(const QString &path, const QString &file, const QJsonValue &groups);
     QStringList provided(const Key &key) const;
 
     QMap<QString, Key> m_keys;
+    QMap<QString, Group> m_groups;
     QSet<QString> m_appliers;
     QMap<QString, Provider> m_providers;
 };

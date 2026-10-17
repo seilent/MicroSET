@@ -20,6 +20,14 @@ const QStringList Reserved = {u"microset"_s, u"power"_s, u"meta"_s, u"session"_s
                                u"audio"_s, u"display"_s, u"rgb"_s, u"system"_s};
 const QStringList Types = {u"s"_s, u"b"_s, u"u"_s, u"i"_s, u"d"_s, u"as"_s};
 const QStringList Validators = {u"eq_filters"_s};
+const QStringList Widgets = {u"none"_s, u"hue"_s};
+const QStringList UiFields = {u"order"_s, u"widget"_s, u"step"_s, u"steps"_s, u"values"_s, u"unit"_s, u"apply"_s, u"lock"_s};
+const QStringList Applies = {u"live"_s, u"confirm"_s};
+const QStringList LockFields = {u"key"_s, u"is"_s, u"text"_s, u"show"_s};
+const QRegularExpression KeyPattern(u"^[a-z][a-z0-9]*(\\.[A-Za-z0-9_]+)+$"_s);
+constexpr int MaxSteps = 64;
+constexpr int MaxUnit = 16;
+const QStringList GroupFields = {u"label"_s, u"order"_s};
 const QStringList FilterTypes = {u"peak"_s,    u"lowshelf"_s, u"highshelf"_s, u"bandpass"_s,
                                  u"lowpass"_s, u"highpass"_s, u"allpass"_s};
 constexpr int MaxBands = 10;
@@ -29,6 +37,105 @@ constexpr int MaxNumberLength = 16;
 bool isNumeric(const QString &type)
 {
     return type == "u"_L1 || type == "i"_L1 || type == "d"_L1;
+}
+
+bool isOrder(const QJsonValue &value)
+{
+    const double number = value.toDouble(-1);
+    return value.isDouble() && number >= 0 && number <= std::numeric_limits<int>::max() && number == std::floor(number);
+}
+
+bool onlyFields(const QJsonObject &object, const QStringList &fields)
+{
+    const QStringList keys = object.keys();
+    return std::all_of(keys.cbegin(), keys.cend(), [&](const QString &field) { return fields.contains(field); });
+}
+
+bool fitsKey(const Key &key, const QJsonValue &value)
+{
+    if (!value.isDouble() || !std::isfinite(value.toDouble()))
+        return false;
+    const double number = value.toDouble();
+    if (key.type != "d"_L1 && number != std::floor(number))
+        return false;
+    if (key.type == "u"_L1 && number < 0)
+        return false;
+    return (!key.min || number >= *key.min) && (!key.max || number <= *key.max);
+}
+
+bool validLock(const QJsonValue &value)
+{
+    const QJsonObject lock = value.toObject();
+    const QJsonValue is = lock.value("is"_L1);
+    const bool text = lock.value("text"_L1).isString() && !lock.value("text"_L1).toString().isEmpty()
+        && lock.value("text"_L1).toString().size() <= 256;
+    const bool show = lock.value("show"_L1).isString() && KeyPattern.match(lock.value("show"_L1).toString()).hasMatch();
+    return value.isObject() && onlyFields(lock, LockFields) && lock.value("key"_L1).isString()
+        && KeyPattern.match(lock.value("key"_L1).toString()).hasMatch() && (is.isBool() || is.isString() || is.isDouble())
+        && int(lock.contains("text"_L1)) + int(lock.contains("show"_L1)) == 1 && (text || show);
+}
+
+std::optional<QJsonObject> uiHint(const Key &key, const QJsonValue &value, QString *why, QStringList *notes)
+{
+    const QJsonObject ui = value.toObject();
+    if (!value.isObject() || !onlyFields(ui, UiFields)) {
+        *why = u"not an object of order, widget, step, steps, values, unit, apply and lock"_s;
+        return {};
+    }
+    if (ui.contains("order"_L1) && !isOrder(ui.value("order"_L1))) {
+        *why = u"bad order"_s;
+        return {};
+    }
+    const QString widget = ui.value("widget"_L1).toString();
+    if (ui.contains("widget"_L1) && (!Widgets.contains(widget) || (widget == "hue"_L1 && key.type != "u"_L1))) {
+        *why = u"bad widget"_s;
+        return {};
+    }
+    const QJsonValue step = ui.value("step"_L1);
+    if (ui.contains("step"_L1)
+        && (!isNumeric(key.type) || !key.enumValues.isEmpty() || !step.isDouble() || !(step.toDouble() > 0)
+            || !std::isfinite(step.toDouble()) || (key.type != "d"_L1 && step.toDouble() != std::floor(step.toDouble())))) {
+        *why = u"bad step"_s;
+        return {};
+    }
+    const QJsonArray steps = ui.value("steps"_L1).toArray();
+    if (ui.contains("steps"_L1)
+        && (!isNumeric(key.type) || !key.enumValues.isEmpty() || ui.contains("step"_L1) || !ui.value("steps"_L1).isArray()
+            || steps.isEmpty() || steps.size() > MaxSteps
+            || std::any_of(steps.begin(), steps.end(), [&](const QJsonValue &item) { return !fitsKey(key, item); }))) {
+        *why = u"bad steps"_s;
+        return {};
+    }
+    const QJsonValue values = ui.value("values"_L1);
+    if (ui.contains("values"_L1)) {
+        const QJsonObject labels = values.toObject();
+        if (!values.isObject() || std::any_of(labels.begin(), labels.end(), [&](const QJsonValue &label) {
+                return !label.isString() || label.toString().isEmpty() || label.toString().size() > key.maxLength;
+            })) {
+            *why = u"bad values"_s;
+            return {};
+        }
+        if (!key.enumValues.isEmpty()) {
+            for (const QString &text : labels.keys())
+                if (std::none_of(key.enumValues.cbegin(), key.enumValues.cend(),
+                                 [&](const QVariant &item) { return Schema::text(item) == text; }))
+                    *notes << u"label for %1 is not an enum value"_s.arg(text);
+        }
+    }
+    const QJsonValue unit = ui.value("unit"_L1);
+    if (ui.contains("unit"_L1) && (!unit.isString() || unit.toString().isEmpty() || unit.toString().size() > MaxUnit)) {
+        *why = u"bad unit"_s;
+        return {};
+    }
+    if (ui.contains("apply"_L1) && !Applies.contains(ui.value("apply"_L1).toString())) {
+        *why = u"bad apply"_s;
+        return {};
+    }
+    if (ui.contains("lock"_L1) && !validLock(ui.value("lock"_L1))) {
+        *why = u"bad lock"_s;
+        return {};
+    }
+    return ui;
 }
 
 bool hasType(const QString &type, const QVariant &value)
@@ -148,7 +255,6 @@ void Schema::load(const QString &dir)
 void Schema::loadFile(const QString &dir, const QString &file)
 {
     static const QRegularExpression ownerPattern(u"^[a-z][a-z0-9]*$"_s);
-    static const QRegularExpression keyPattern(u"^[a-z][a-z0-9]*(\\.[A-Za-z0-9_]+)+$"_s);
 
     const QString path = dir + u'/' + file;
     QFile input(path);
@@ -175,7 +281,7 @@ void Schema::loadFile(const QString &dir, const QString &file)
     const QJsonObject keys = root.value("keys"_L1).toObject();
     for (auto it = keys.begin(); it != keys.end(); ++it) {
         const QString name = it.key();
-        if (!keyPattern.match(name).hasMatch()) {
+        if (!KeyPattern.match(name).hasMatch()) {
             qWarning("%s: %s is not a key name, refused", qPrintable(path), qPrintable(name));
             continue;
         }
@@ -194,7 +300,52 @@ void Schema::loadFile(const QString &dir, const QString &file)
             continue;
         }
         parsed->file = file;
+        const QJsonValue ui = it.value().toObject().value("ui"_L1);
+        if (!ui.isUndefined()) {
+            QStringList notes;
+            if (const std::optional<QJsonObject> hint = uiHint(*parsed, ui, &why, &notes))
+                parsed->ui = *hint;
+            else
+                qWarning("%s: %s: %s, ui hint dropped", qPrintable(path), qPrintable(name), qPrintable(why));
+            for (const QString &note : std::as_const(notes))
+                qWarning("%s: %s: %s", qPrintable(path), qPrintable(name), qPrintable(note));
+        }
         m_keys.insert(name, *parsed);
+    }
+    parseGroups(path, file, root.value("groups"_L1));
+}
+
+void Schema::parseGroups(const QString &path, const QString &file, const QJsonValue &groups)
+{
+    if (groups.isUndefined())
+        return;
+    if (!groups.isObject()) {
+        qWarning("%s: groups is not an object, ignored", qPrintable(path));
+        return;
+    }
+    const QJsonObject entries = groups.toObject();
+    for (auto it = entries.begin(); it != entries.end(); ++it) {
+        const QString name = it.key();
+        const QJsonObject entry = it.value().toObject();
+        const bool used = std::any_of(m_keys.cbegin(), m_keys.cend(), [&](const Key &key) {
+            return key.file == file && key.group == name;
+        });
+        if (!used) {
+            qWarning("%s: group %s has no key in this file, dropped", qPrintable(path), qPrintable(name));
+            continue;
+        }
+        if (const Group *first = group(name)) {
+            qWarning("%s: group %s already described in %s, ignored", qPrintable(path), qPrintable(name),
+                     qPrintable(first->file));
+            continue;
+        }
+        const QJsonValue label = entry.value("label"_L1);
+        if (!it.value().isObject() || !onlyFields(entry, GroupFields) || !label.isString() || label.toString().isEmpty()
+            || label.toString().size() > 256 || !isOrder(entry.value("order"_L1))) {
+            qWarning("%s: group %s: not an object of label and order, dropped", qPrintable(path), qPrintable(name));
+            continue;
+        }
+        m_groups.insert(name, Group{label.toString(), entry.value("order"_L1).toInt(), file});
     }
 }
 
@@ -329,6 +480,12 @@ const Key *Schema::key(const QString &name) const
     return it == m_keys.cend() ? nullptr : &*it;
 }
 
+const Group *Schema::group(const QString &name) const
+{
+    const auto it = m_groups.constFind(name);
+    return it == m_groups.cend() ? nullptr : &*it;
+}
+
 QStringList Schema::keys(const QString &prefix) const
 {
     QStringList out;
@@ -411,7 +568,12 @@ QJsonObject Schema::describe(const QString &prefix) const
             {u"applier"_s, key.applier.isEmpty() ? QJsonValue() : QJsonValue(key.applier)},
             {u"group"_s, key.group.isEmpty() ? QJsonValue() : QJsonValue(key.group)},
             {u"label"_s, key.label},
+            {u"ui"_s, key.ui},
         };
+        const Group *described = key.group.isEmpty() ? nullptr : group(key.group);
+        entry.insert(u"group_ui"_s, described ? QJsonValue(QJsonObject{{u"label"_s, described->label},
+                                                                         {u"order"_s, described->order}})
+                                              : QJsonValue());
         if (!key.enumFrom.isEmpty()) {
             entry.insert(u"enum_from"_s, key.enumFrom);
             entry.insert(u"enum"_s, QJsonArray::fromStringList(provided(key)));

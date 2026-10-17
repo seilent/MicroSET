@@ -337,6 +337,175 @@ private slots:
         m_sessions = {u"steam"_s, u"microdap"_s};
     }
 
+    void uiHints()
+    {
+        Harness h;
+        h.writeFile(u"s/20-microdap.json"_s,
+                    file("microdap", R"("microdap.a": {"type": "u", "default": 1, "min": 0, "max": 9, "group": "g",
+                                                       "ui": {"order": 2, "step": 2}},
+                                        "microdap.b": {"type": "s", "default": "x", "enum": ["x", "y"], "group": "g",
+                                                       "ui": {"values": {"x": "first", "y": "second"}}},
+                                        "microdap.c": {"type": "u", "default": 0, "max": 16777215, "ui": {"widget": "hue"}},
+                                        "microdap.d": {"type": "as", "default": [], "ui": {"widget": "none"}},
+                                        "microdap.e": {"type": "b", "default": true, "ui": {"order": -1}},
+                                        "microdap.f": {"type": "b", "default": true, "ui": {"order": 1.5}},
+                                        "microdap.g": {"type": "s", "default": "x", "ui": {"widget": "hue"}},
+                                        "microdap.h": {"type": "s", "default": "x", "ui": {"widget": "slider"}},
+                                        "microdap.i": {"type": "s", "default": "x", "ui": {"step": 1}},
+                                        "microdap.j": {"type": "u", "default": 2, "enum": [2, 5], "ui": {"step": 1}},
+                                        "microdap.k": {"type": "u", "default": 1, "ui": {"step": 0}},
+                                        "microdap.l": {"type": "s", "default": "x", "ui": {"values": {"x": 1}}},
+                                        "microdap.m": {"type": "s", "default": "x", "ui": {"values": {"x": ""}}},
+                                        "microdap.n": {"type": "s", "default": "x", "ui": {"label": "x"}},
+                                        "microdap.o": {"type": "s", "default": "x", "ui": "none"})"));
+        for (const char *key : {"e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o"})
+            QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"20-microdap.json: microdap.%1: .*, ui hint dropped"_s
+                                                                      .arg(QLatin1StringView(key))));
+        const Schema schema = make(h.path(u"s"_s));
+        QCOMPARE(schema.keys({}).size(), 15);
+        QCOMPARE(schema.key(u"microdap.a"_s)->ui, (QJsonObject{{u"order"_s, 2}, {u"step"_s, 2}}));
+        QCOMPARE(schema.key(u"microdap.b"_s)->ui.value("values"_L1).toObject().value("y"_L1).toString(), u"second"_s);
+        QCOMPARE(schema.key(u"microdap.c"_s)->ui.value("widget"_L1).toString(), u"hue"_s);
+        QCOMPARE(schema.key(u"microdap.d"_s)->ui.value("widget"_L1).toString(), u"none"_s);
+        for (const char *key : {"e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o"})
+            QVERIFY(schema.key(u"microdap."_s + QLatin1StringView(key))->ui.isEmpty());
+        const QJsonObject described = schema.describe(u"microdap"_s);
+        QCOMPARE(described.value("microdap.a"_L1).toObject().value("ui"_L1).toObject().value("order"_L1).toInt(), 2);
+        QCOMPARE(described.value("microdap.e"_L1).toObject().value("ui"_L1).toObject(), QJsonObject());
+        QVERIFY(described.value("microdap.a"_L1).toObject().value("group_ui"_L1).isNull());
+        QVERIFY(described.value("microdap.c"_L1).toObject().value("group_ui"_L1).isNull());
+    }
+
+    void moreHints()
+    {
+        Harness h;
+        h.writeFile(u"s/20-microdap.json"_s,
+                    file("microdap", R"("microdap.a": {"type": "u", "default": 400, "min": 305, "max": 587,
+                                                       "ui": {"steps": [305, 400, 587], "unit": "mhz",
+                                                              "lock": {"key": "microdap.c", "is": "auto", "text": "auto"}}},
+                                        "microdap.b": {"type": "s", "default": "x", "enum": ["x", "y"],
+                                                       "ui": {"apply": "confirm", "values": {"x": "first", "z": "none"},
+                                                              "lock": {"key": "microdap.d", "is": true, "show": "microdap.e"}}},
+                                        "microdap.c": {"type": "d", "default": 1, "min": 0, "max": 2, "ui": {"step": 0.1}},
+                                        "microdap.d": {"type": "u", "default": 1, "ui": {"step": 0.5}},
+                                        "microdap.e": {"type": "u", "default": 400, "min": 305, "max": 587, "ui": {"steps": [300]}},
+                                        "microdap.f": {"type": "u", "default": 400, "ui": {"steps": [1.5]}},
+                                        "microdap.g": {"type": "u", "default": 400, "ui": {"steps": [1], "step": 1}},
+                                        "microdap.h": {"type": "s", "default": "x", "enum": ["x"], "ui": {"steps": [1]}},
+                                        "microdap.i": {"type": "u", "default": 1, "ui": {"steps": []}},
+                                        "microdap.j": {"type": "u", "default": 1, "ui": {"unit": ""}},
+                                        "microdap.k": {"type": "u", "default": 1, "ui": {"apply": "later"}},
+                                        "microdap.l": {"type": "u", "default": 1, "ui": {"lock": {"key": "microdap.a", "is": 1}}},
+                                        "microdap.m": {"type": "u", "default": 1,
+                                                       "ui": {"lock": {"key": "microdap.a", "is": 1, "text": "x", "show": "microdap.b"}}},
+                                        "microdap.n": {"type": "u", "default": 1, "ui": {"lock": {"key": "Bad", "is": 1, "text": "x"}}},
+                                        "microdap.o": {"type": "u", "default": 1, "ui": {"lock": {"key": "microdap.a", "is": [1], "text": "x"}}},
+                                        "microdap.p": {"type": "u", "default": 1, "ui": {"lock": {"key": "microdap.a", "is": 1, "text": "x", "when": 1}}})"));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"20-microdap.json: microdap.b: label for z is not an enum value"_s));
+        for (const char *key : {"d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p"})
+            QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"20-microdap.json: microdap.%1: .*, ui hint dropped"_s
+                                                                      .arg(QLatin1StringView(key))));
+        const Schema schema = make(h.path(u"s"_s));
+        QCOMPARE(schema.key(u"microdap.a"_s)->ui.value("steps"_L1).toArray(), (QJsonArray{305, 400, 587}));
+        QCOMPARE(schema.key(u"microdap.a"_s)->ui.value("unit"_L1).toString(), u"mhz"_s);
+        QCOMPARE(schema.key(u"microdap.a"_s)->ui.value("lock"_L1).toObject().value("text"_L1).toString(), u"auto"_s);
+        QCOMPARE(schema.key(u"microdap.b"_s)->ui.value("apply"_L1).toString(), u"confirm"_s);
+        QCOMPARE(schema.key(u"microdap.b"_s)->ui.value("values"_L1).toObject().size(), 2);
+        QCOMPARE(schema.key(u"microdap.b"_s)->ui.value("lock"_L1).toObject().value("show"_L1).toString(), u"microdap.e"_s);
+        QCOMPARE(schema.key(u"microdap.c"_s)->ui.value("step"_L1).toDouble(), 0.1);
+        for (const char *key : {"d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p"})
+            QVERIFY(schema.key(u"microdap."_s + QLatin1StringView(key))->ui.isEmpty());
+    }
+
+    void groupHints()
+    {
+        Harness h;
+        h.writeFile(u"s/10-microset.json"_s,
+                    file("microset", R"("audio.x": {"type": "b", "default": true, "group": "audio"},
+                                        "power.x": {"type": "b", "default": true, "group": "power"})"
+                                     R"(}, "groups": {"audio": {"label": "audio", "order": 0},
+                                                      "power": {"label": "power"},
+                                                      "rgb": {"label": "stick leds", "order": 2})"));
+        h.writeFile(u"s/20-microdap.json"_s,
+                    file("microdap", R"("microdap.x": {"type": "b", "default": true, "group": "audio"},
+                                        "microdap.y": {"type": "b", "default": true, "group": "microdap_display"},
+                                        "microdap.z": {"type": "b", "default": true, "group": "microdap_power"},
+                                        "microdap.w": {"type": "b", "default": true, "group": "microdap_bad"})"
+                                     R"(}, "groups": {"audio": {"label": "player audio", "order": 9},
+                                                      "microdap_display": {"label": "player display", "order": 1},
+                                                      "microdap_power": {"label": "", "order": 2},
+                                                      "microdap_bad": {"label": "bad", "order": 3, "icon": "x"},
+                                                      "microdap_library": {"label": "library", "order": 4})"));
+        h.writeFile(u"s/30-microemu.json"_s,
+                    file("microemu", R"("microemu.x": {"type": "b", "default": true, "group": "microdap_display"})"
+                                     R"(}, "groups": {"microdap_display": {"label": "emulator display", "order": 0})"));
+        h.writeFile(u"s/40-other.json"_s,
+                    R"({"owner": "other", "keys": {"other.x": {"type": "b", "default": true, "group": "other"}},
+                        "groups": ["other"]})");
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"10-microset.json: group power: not an object of label and order, dropped"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"10-microset.json: group rgb has no key in this file, dropped"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"20-microdap.json: group audio already described in 10-microset.json, ignored"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"20-microdap.json: group microdap_power: not an object of label and order, dropped"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"20-microdap.json: group microdap_bad: not an object of label and order, dropped"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"20-microdap.json: group microdap_library has no key in this file, dropped"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"30-microemu.json: group microdap_display already described in 20-microdap.json, ignored"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"40-other.json: groups is not an object, ignored"_s));
+        const Schema schema = make(h.path(u"s"_s));
+        QCOMPARE(schema.group(u"audio"_s)->label, u"audio"_s);
+        QCOMPARE(schema.group(u"audio"_s)->file, u"10-microset.json"_s);
+        QCOMPARE(schema.group(u"microdap_display"_s)->label, u"player display"_s);
+        QCOMPARE(schema.group(u"microdap_display"_s)->order, 1);
+        for (const QString &name : {u"power"_s, u"rgb"_s, u"microdap_power"_s, u"microdap_bad"_s, u"microdap_library"_s, u"other"_s})
+            QVERIFY(!schema.group(name));
+        const QJsonObject described = schema.describe({});
+        QCOMPARE(described.value("microdap.x"_L1).toObject().value("group_ui"_L1).toObject(),
+                 (QJsonObject{{u"label"_s, u"audio"_s}, {u"order"_s, 0}}));
+        QCOMPARE(described.value("microemu.x"_L1).toObject().value("group_ui"_L1).toObject().value("label"_L1).toString(),
+                 u"player display"_s);
+        QVERIFY(described.value("power.x"_L1).toObject().value("group_ui"_L1).isNull());
+        QVERIFY(described.value("microdap.z"_L1).toObject().value("group_ui"_L1).isNull());
+    }
+
+    void shippedHints()
+    {
+        const Schema schema = make(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+        QStringList groups;
+        for (const QString &name : schema.keys({})) {
+            const Key &key = *schema.key(name);
+            if (!key.group.isEmpty() && !groups.contains(key.group))
+                groups << key.group;
+            if (key.group.isEmpty() || key.ui.value("widget"_L1).toString() == "none"_L1)
+                continue;
+            QVERIFY2(key.ui.contains("order"_L1), qPrintable(name));
+        }
+        for (const QString &name : groups)
+            QVERIFY2(schema.group(name), qPrintable(name));
+        QCOMPARE(schema.group(u"rgb"_s)->label, u"stick leds"_s);
+        QCOMPARE(schema.key(u"rgb.color"_s)->ui.value("widget"_L1).toString(), u"hue"_s);
+        for (const QString &slot : {u"headphones"_s, u"speaker"_s, u"usb"_s, u"bt"_s})
+            QCOMPARE(schema.key(u"audio.eq.%1.filters"_s.arg(slot))->ui.value("widget"_L1).toString(), u"none"_s);
+        const QJsonObject clock = schema.key(u"power.gpu_clock"_s)->ui;
+        QCOMPARE(clock.value("steps"_L1).toArray(), (QJsonArray{305, 400, 442, 490, 525, 587}));
+        for (const QJsonValue &step : clock.value("steps"_L1).toArray())
+            QVERIFY(schema.accepts(*schema.key(u"power.gpu_clock"_s), uint(step.toInt())));
+        QCOMPARE(clock.value("lock"_L1).toObject().value("key"_L1).toString(), u"power.gpu_level"_s);
+        QCOMPARE(schema.key(u"rgb.brightness"_s)->ui.value("step"_L1).toInt(), 5);
+        for (const QString &key : {u"display.orientation"_s, u"display.auto_rotate"_s, u"session.default"_s})
+            QCOMPARE(schema.key(key)->ui.value("apply"_L1).toString(), u"confirm"_s);
+        for (const QString &name : schema.keys({})) {
+            const QJsonObject lock = schema.key(name)->ui.value("lock"_L1).toObject();
+            if (lock.isEmpty())
+                continue;
+            QVERIFY2(schema.key(lock.value("key"_L1).toString()), qPrintable(name));
+            if (lock.contains("show"_L1))
+                QVERIFY2(schema.key(lock.value("show"_L1).toString()), qPrintable(name));
+        }
+        const Key &gain = *schema.key(u"audio.speaker_gain"_s);
+        const QJsonObject labels = gain.ui.value("values"_L1).toObject();
+        for (const QVariant &value : gain.enumValues)
+            QVERIFY(labels.contains(Schema::text(value)));
+    }
+
     void describeAndPrefix()
     {
         const Schema schema = make(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
