@@ -34,6 +34,8 @@ Overlay::Overlay(DbusPad *pad, SleepInhibitor *sleep, QObject *parent)
     connect(m_pad, &DbusPad::arbiterLost, this, &Overlay::onArbiterLost);
     connect(m_pad, &DbusPad::releaseDone, this, &Overlay::onReleaseDone);
     connect(this, &Overlay::mappedChanged, this, &Overlay::syncHint);
+    connect(this, &Overlay::mappedChanged, this, &Overlay::checkUnused);
+    connect(this, &Overlay::hintShownChanged, this, &Overlay::checkUnused);
     if (m_sleep)
         connect(m_sleep, &SleepInhibitor::prepareForSleep, this, &Overlay::onPrepareForSleep);
     m_clock.start();
@@ -135,8 +137,8 @@ void Overlay::show()
             raise();
         return;
     }
-    ensureUi();
     m_clock.start();
+    ensureUi();
     m_release.stop();
     m_releaseArmed = false;
     m_phase = Phase::Showing;
@@ -416,6 +418,16 @@ void Overlay::syncHint()
     m_toast->setVisible(true);
     m_lower(m_toast);
     setHintShown(true);
+}
+
+void Overlay::checkUnused()
+{
+    QTimer::singleShot(0, this, [this] {
+        if (m_shown || m_mapped || m_hintShown || (!m_window && !m_toast))
+            return;
+        step("ui unused");
+        emit unused();
+    });
 }
 
 void Overlay::hintDone()

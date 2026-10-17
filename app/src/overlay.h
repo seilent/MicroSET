@@ -62,6 +62,7 @@ signals:
     void hintShownChanged();
     void hintChanged();
     void pageHint();
+    void unused();
 
 private slots:
     void onFrameSwapped();
@@ -85,6 +86,7 @@ private:
     void destroyWindow();
     void dropToast();
     void syncHint();
+    void checkUnused();
     void setShown(bool shown);
     void setMapped(bool mapped);
     void setOpacity(qreal value);

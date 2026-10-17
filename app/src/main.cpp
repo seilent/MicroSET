@@ -18,6 +18,7 @@
 #include <QTimer>
 #include <QtQml/qqmlextensionplugin.h>
 
+#include <malloc.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -135,6 +136,13 @@ int main(int argc, char *argv[])
         }
         overlay.setWindow(window);
         overlay.setToastWindow(qvariant_cast<QWindow *>(window->property("toastWindow")));
+    });
+
+    QObject::connect(&overlay, &Overlay::unused, &overlay, [&] {
+        overlay.setWindow(nullptr);
+        overlay.setToastWindow(nullptr);
+        engine.reset();
+        malloc_trim(0);
     });
 
     HoldHint hint(u"/run/microos/hold"_s, u"/proc"_s);

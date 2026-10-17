@@ -196,6 +196,7 @@ private slots:
     void hiddenShowsAndShownHides()
     {
         QSignalSpy shown(m_overlay.get(), &Overlay::shownChanged);
+        QSignalSpy unused(m_overlay.get(), &Overlay::unused);
         m_overlay->toggle();
         QVERIFY(m_overlay->shown());
         QCOMPARE(m_events, (QStringList{u"create"_s, u"lower"_s}));
@@ -210,8 +211,11 @@ private slots:
         QCOMPARE(m_overlay->created(), 1);
         QCOMPARE(m_overlay->destroyed(), 1);
         QCOMPARE(shown.count(), 2);
+        QTRY_COMPARE(unused.count(), 1);
         m_overlay->hide();
         QCOMPARE(shown.count(), 2);
+        QTest::qWait(50);
+        QCOMPARE(unused.count(), 1);
     }
 
     void showOnShownIsNoop()
@@ -233,6 +237,9 @@ private slots:
         QVERIFY(m_overlay->shown());
         QVERIFY(m_overlay->buried());
         QCOMPARE(m_overlay->opacity(), 1.0);
+        QSignalSpy unused(m_overlay.get(), &Overlay::unused);
+        QTest::qWait(50);
+        QCOMPARE(unused.count(), 0);
         const int changes = m_arbiter->changes;
         QSignalSpy holders(m_pad.get(), &DbusPad::holderChanged);
         m_events.clear();
@@ -410,9 +417,13 @@ private slots:
         QCOMPARE(m_events, (QStringList{u"create toast"_s, u"lower"_s}));
         QVERIFY(m_toast->isVisible());
         QCOMPARE(page.count(), 0);
+        QSignalSpy unused(m_overlay.get(), &Overlay::unused);
         m_overlay->setHint(false);
         QVERIFY(!m_overlay->hint());
+        QTest::qWait(50);
+        QCOMPARE(unused.count(), 0);
         m_overlay->hintDone();
+        QTRY_COMPARE(unused.count(), 1);
         QVERIFY(!m_overlay->hintShown());
         QVERIFY(!m_toast->handle());
         m_overlay->setHint(true);
