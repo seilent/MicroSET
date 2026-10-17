@@ -15,6 +15,7 @@
 
 #include <memory>
 
+Q_IMPORT_QML_PLUGIN(MicroSetPlugin)
 Q_IMPORT_QML_PLUGIN(MicroSetRecoveryPlugin)
 
 using namespace Qt::StringLiterals;

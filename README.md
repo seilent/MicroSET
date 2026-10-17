@@ -13,6 +13,7 @@ read, change and watch them over D-Bus.
   Pad input comes from InputPlumber's D-Bus target while the MicroOS intercept arbiter (`net.seilent.MicroOs.Intercept`)
   holds it for the app; arrow keys, Return and Escape work too. `--screenshot <png> --state <name>` renders a fixture
   (960x640 by default). Look and components from MicroDAP, font Selawik (OFL 1.1, `MICROSET_FONT_DIR`).
+- `MicroSet` QML module: MicroDAP's tokens and components, used by `microset-recovery`.
 - Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other
   file only keys under its owner name (`microdap.*`, `microemu.*`). A key can carry `ui` hints for the page (`order`,
   `widget` `none` or `hue`, `step` or a `steps` list, `values` labels, `unit`, `apply` `confirm` to apply on A, and a
@@ -49,9 +50,9 @@ LEDs are off during suspend.
 
 ## Build
 
-Qt 6.11 (Core, DBus; Gui, Qml, Quick for `microset-recovery`, off with `-DMICROSET_RECOVERY=OFF`), alsa-lib, CMake
-3.22, a C++20 compiler. `-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik faces adds the screenshot tests; the
-recovery shots must match `recovery/tests/shots.sha256`.
+Qt 6.11 (Core, DBus; Gui, Qml, Quick for the QML module and `microset-recovery`, off with `-DMICROSET_UI=OFF
+-DMICROSET_RECOVERY=OFF`), alsa-lib, CMake 3.22, a C++20 compiler. `-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik
+faces adds the screenshot tests; the recovery shots must match `recovery/tests/shots.sha256`.
 
 ```
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr

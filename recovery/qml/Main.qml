@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import MicroSet
 
 Window {
     id: root

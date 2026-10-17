@@ -90,7 +90,7 @@ QtObject {
     readonly property var letterGlyph: ({ name: "letterGlyph", size: 20, style: "Regular", caps: Font.AllLowercase, alpha: 1.0, tracking: -0.5, sample: "a" })
     readonly property var settingsItem: ({ name: "settingsItem", size: 17, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, alphaDim: 0.6, tracking: -0.5, sample: "output" })
     readonly property var settingsValue: ({ name: "settingsValue", size: 11, style: "Light", caps: Font.AllUppercase, alpha: 0.6, tracking: -0.5, sample: "speaker" })
-    readonly property var settingsSub: ({ name: "settingsSub", size: 11, style: "Light", caps: Font.MixedCase, alpha: 1.0, alphaDim: 0.6, tracking: -0.5, sample: "/home/armada/Music" })
+    readonly property var settingsSub: ({ name: "settingsSub", size: 11, style: "Light", caps: Font.MixedCase, alpha: 1.0, alphaDim: 0.6, tracking: -0.5, sample: "/home/micro/Music" })
     readonly property var npArtist: ({ name: "npArtist", size: 20, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5, sample: "artist" })
     readonly property var npAlbum: ({ name: "npAlbum", size: 20, style: "Light", caps: Font.AllUppercase, alpha: 0.85, tracking: -0.5, sample: "album" })
     readonly property var npTitle: ({ name: "npTitle", size: 26, style: "Light", caps: Font.MixedCase, alpha: 1.0, tracking: -0.5, sample: "Song title" })
