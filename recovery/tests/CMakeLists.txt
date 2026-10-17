@@ -24,5 +24,11 @@ endif()
 foreach(state browse rollback long-reason empty-journal short-journal dialog toast no-previous long-line requested hold)
     add_test(NAME recovery-shot-${state}
         COMMAND microset-recovery --screenshot ${CMAKE_CURRENT_BINARY_DIR}/shots/${state}.png --state ${state})
-    set_tests_properties(recovery-shot-${state} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;MICROSET_FONT_DIR=${MICROSET_TEST_FONT_DIR}")
+    set_tests_properties(recovery-shot-${state} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;MICROSET_FONT_DIR=${MICROSET_TEST_FONT_DIR}"
+        FIXTURES_SETUP recovery-shots)
 endforeach()
+
+find_program(SHA256SUM sha256sum REQUIRED)
+add_test(NAME recovery-shot-compare COMMAND ${SHA256SUM} --check --strict ${CMAKE_CURRENT_SOURCE_DIR}/shots.sha256
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shots)
+set_tests_properties(recovery-shot-compare PROPERTIES FIXTURES_REQUIRED recovery-shots)

@@ -211,22 +211,25 @@ int main(int argc, char *argv[])
     }
 
     const QString out = parser.value(screenshotOption);
-    const int settle = window->property("shotSettle").toInt();
-    QTimer::singleShot(settle, window, [window, out, &warned] {
-        QObject::connect(window, &QQuickWindow::frameSwapped, window, [window, out, &warned] {
-            QTimer::singleShot(0, window, [window, out, &warned] {
-                if (warned) {
-                    fail(u"QML warnings during the render"_s);
-                    QCoreApplication::exit(1);
-                    return;
-                }
-                grab(window, out);
-            });
-        }, Qt::SingleShotConnection);
-        window->update();
+    auto *idle = new QTimer(window);
+    idle->setSingleShot(true);
+    idle->setInterval(window->property("shotSettle").toInt());
+    bool swapped = false;
+    QObject::connect(window, &QQuickWindow::frameSwapped, idle, [idle, &swapped] {
+        swapped = true;
+        idle->start();
     });
-    QTimer::singleShot(frameTimeoutMs, window, [] {
-        fail(u"no frame within %1 ms"_s.arg(frameTimeoutMs));
+    QObject::connect(idle, &QTimer::timeout, window, [window, out, &warned] {
+        if (warned) {
+            fail(u"QML warnings during the render"_s);
+            QCoreApplication::exit(1);
+            return;
+        }
+        grab(window, out);
+    });
+    window->update();
+    QTimer::singleShot(frameTimeoutMs, window, [&swapped] {
+        fail((swapped ? u"frames never settled within %1 ms"_s : u"no frame within %1 ms"_s).arg(frameTimeoutMs));
         QCoreApplication::exit(1);
     });
     return QCoreApplication::exec();

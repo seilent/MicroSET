@@ -47,7 +47,8 @@ LEDs are off during suspend.
 ## Build
 
 Qt 6.11 (Core, DBus; Gui, Qml, Quick for `microset-recovery`, off with `-DMICROSET_RECOVERY=OFF`), alsa-lib, CMake
-3.22, a C++20 compiler. `-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik faces adds the screenshot tests.
+3.22, a C++20 compiler. `-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik faces adds the screenshot tests; the
+recovery shots must match `recovery/tests/shots.sha256`.
 
 ```
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr
