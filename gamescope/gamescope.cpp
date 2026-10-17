@@ -6,6 +6,8 @@
 
 #include <xcb/xcb.h>
 
+#include <unistd.h>
+
 #include <cstdlib>
 #include <cstring>
 
@@ -23,6 +25,17 @@ xcb_atom_t atom(xcb_connection_t *connection, const char *name)
     const xcb_atom_t result = reply->atom;
     std::free(reply);
     return result;
+}
+
+xcb_connection_t *watched = nullptr;
+
+void exitIfDisplayGone()
+{
+    if (!microset::displayGone())
+        return;
+    static const char line[] = "X display gone, exiting\n";
+    [[maybe_unused]] const ssize_t written = ::write(STDERR_FILENO, line, sizeof(line) - 1);
+    ::_exit(0);
 }
 
 void setCardinal(xcb_connection_t *connection, xcb_window_t window, xcb_atom_t property, uint32_t value)
@@ -44,6 +57,21 @@ bool markOverlay(QWindow *window)
     setCardinal(connection, static_cast<xcb_window_t>(window->winId()), atom(connection, "STEAM_OVERLAY"), 1);
     xcb_flush(connection);
     return true;
+}
+
+bool displayGone()
+{
+    return watched && xcb_connection_has_error(watched);
+}
+
+void exitCleanlyOnDisplayLoss()
+{
+    auto *x11 = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
+    if (!x11 || !x11->connection() || watched)
+        return;
+    watched = x11->connection();
+    QObject::connect(qGuiApp, &QObject::destroyed, [] { watched = nullptr; });
+    std::atexit(exitIfDisplayGone);
 }
 
 void claimGamescopeFocus(QWindow *window)

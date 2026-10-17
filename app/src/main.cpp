@@ -84,6 +84,7 @@ int main(int argc, char *argv[])
         fail(u"--overlay needs the xcb platform"_s);
         return 1;
     }
+    microset::exitCleanlyOnDisplayLoss();
 
     QDBusConnection session = QDBusConnection::sessionBus();
     QDBusConnection system = QDBusConnection::systemBus();
@@ -157,5 +158,10 @@ int main(int argc, char *argv[])
         notify(QByteArrayLiteral("WATCHDOG=1\n"));
         watchdog.start();
     }
-    return QCoreApplication::exec();
+    const int code = QCoreApplication::exec();
+    if (code != 0 && microset::displayGone()) {
+        QTextStream(stderr) << "microset-settings: X display gone, exiting\n";
+        return 0;
+    }
+    return code;
 }
