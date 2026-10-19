@@ -50,15 +50,16 @@ private slots:
                                                u"audio.speaker_gain"_s, u"audio.volume_step"_s, u"display.auto_rotate"_s, u"display.brightness"_s,
                                                u"display.orientation"_s, u"display.rotation"_s, u"meta.imported_power"_s,
                                                u"meta.moved_bt_codec"_s,
-                                               u"power.governor"_s, u"power.gpu_clock"_s, u"power.gpu_level"_s,
-                                               u"power.profile"_s, u"power.tdp"_s, u"rgb.brightness"_s, u"rgb.enabled"_s,
-                                               u"rgb.hue"_s, u"rgb.saturation"_s, u"session.default"_s}));
-        QCOMPARE(schema.keys(u"power"_s).size(), 5);
+                                               u"power.game_floor"_s, u"power.governor"_s, u"power.gpu_clock"_s,
+                                               u"power.gpu_level"_s, u"power.profile"_s, u"power.tdp"_s, u"rgb.brightness"_s,
+                                               u"rgb.enabled"_s, u"rgb.hue"_s, u"rgb.saturation"_s, u"session.default"_s}));
+        QCOMPARE(schema.keys(u"power"_s).size(), 6);
         QCOMPARE(schema.key(u"power.profile"_s)->defaultValue, QVariant(u"balanced"_s));
         QCOMPARE(schema.key(u"power.gpu_clock"_s)->defaultValue, QVariant(587u));
         QCOMPARE(schema.key(u"power.tdp"_s)->defaultValue, QVariant(10u));
         QCOMPARE(schema.key(u"power.governor"_s)->defaultValue, QVariant(u"schedutil"_s));
         QCOMPARE(schema.key(u"power.gpu_level"_s)->defaultValue, QVariant(u"auto"_s));
+        QCOMPARE(schema.key(u"power.game_floor"_s)->defaultValue, QVariant(68u));
         QCOMPARE(schema.key(u"session.default"_s)->defaultValue, QVariant(u"steam"_s));
         QCOMPARE(schema.key(u"session.default"_s)->enumFrom, u"sessions"_s);
         QVERIFY(!schema.key(u"meta.imported_power"_s)->writable);
@@ -423,6 +424,12 @@ private slots:
         QVERIFY(schema.accepts(profile, u"low-power"_s));
         QVERIFY(!schema.accepts(profile, u"turbo"_s));
         QVERIFY(!schema.accepts(profile, 1u));
+        const Key &floor = *schema.key(u"power.game_floor"_s);
+        QVERIFY(schema.accepts(floor, 0u));
+        QVERIFY(schema.accepts(floor, 50u));
+        QVERIFY(schema.accepts(floor, 83u));
+        QVERIFY(!schema.accepts(floor, 84u));
+        QVERIFY(!schema.accepts(floor, 68));
         const Key &imported = *schema.key(u"meta.imported_power"_s);
         QVERIFY(schema.accepts(imported, true));
         QVERIFY(!schema.accepts(imported, 1u));
@@ -436,6 +443,7 @@ private slots:
         QCOMPARE(schema.clamp(*schema.key(u"power.tdp"_s), 1u), QVariant(3u));
         QCOMPARE(schema.clamp(*schema.key(u"power.tdp"_s), 4294967295u), QVariant(10u));
         QCOMPARE(schema.clamp(*schema.key(u"power.tdp"_s), 6u), QVariant(6u));
+        QCOMPARE(schema.clamp(*schema.key(u"power.game_floor"_s), 100u), QVariant(83u));
         QVERIFY(!schema.clamp(*schema.key(u"power.profile"_s), u"turbo"_s).isValid());
         QVERIFY(!schema.clamp(*schema.key(u"power.tdp"_s), 6).isValid());
     }
@@ -606,6 +614,12 @@ private slots:
         for (const QJsonValue &step : clock.value("steps"_L1).toArray())
             QVERIFY(schema.accepts(*schema.key(u"power.gpu_clock"_s), uint(step.toInt())));
         QCOMPARE(clock.value("lock"_L1).toObject().value("key"_L1).toString(), u"power.gpu_level"_s);
+        const QJsonObject floor = schema.key(u"power.game_floor"_s)->ui;
+        QCOMPARE(floor.value("steps"_L1).toArray(), (QJsonArray{0, 28, 49, 68, 83}));
+        for (const QJsonValue &step : floor.value("steps"_L1).toArray())
+            QVERIFY(schema.accepts(*schema.key(u"power.game_floor"_s), uint(step.toInt())));
+        QCOMPARE(floor.value("values"_L1).toObject().value("0"_L1).toString(), u"off"_s);
+        QCOMPARE(floor.value("unit"_L1).toString(), u"%"_s);
         for (const QString &key : {u"rgb.saturation"_s, u"rgb.brightness"_s}) {
             QCOMPARE(schema.key(key)->ui.value("step"_L1).toInt(), 5);
             QCOMPARE(schema.key(key)->ui.value("unit"_L1).toString(), u"%"_s);
@@ -630,7 +644,7 @@ private slots:
     {
         const Schema schema = make(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
         const QJsonObject power = schema.describe(u"power"_s);
-        QCOMPARE(power.size(), 5);
+        QCOMPARE(power.size(), 6);
         const QJsonObject clock = power.value("power.gpu_clock"_L1).toObject();
         QCOMPARE(clock.value("min"_L1).toInt(), 305);
         QCOMPARE(clock.value("max"_L1).toInt(), 587);

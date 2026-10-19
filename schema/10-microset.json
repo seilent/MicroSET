@@ -29,6 +29,16 @@
       "label": "Manual GPU clock",
       "ui": {"order": 4, "steps": [305, 400, 442, 490, 525, 587], "values": {"442": "441.6 mhz"}, "unit": "mhz", "lock": {"key": "power.gpu_level", "is": "auto", "text": "auto"}}
     },
+    "power.game_floor": {
+      "type": "u",
+      "default": 68,
+      "min": 0,
+      "max": 83,
+      "applier": "power",
+      "group": "power",
+      "label": "Game CPU floor",
+      "ui": {"order": 5, "steps": [0, 28, 49, 68, 83], "values": {"0": "off"}, "unit": "%"}
+    },
     "power.governor": {
       "type": "s",
       "default": "schedutil",

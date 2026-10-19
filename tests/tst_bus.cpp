@@ -207,6 +207,44 @@ private slots:
         QVERIFY(powerd->sets.isEmpty());
     }
 
+    void gameFloor()
+    {
+        h->writeState(R"({"power.profile": "low-power", "power.tdp": 6})");
+        h->writeSessions();
+        QVERIFY(h->startBus());
+        powerd = std::make_unique<FakePowerd>(h->address());
+        powerd->values[FakePowerd::Power1][u"GameCpuFloor"_s] = 0u;
+        QVERIFY(powerd->start());
+        QVERIFY(h->startDaemon());
+        waitPushes(1);
+        QCOMPARE(powerd->sets, (QStringList{u"Power1.Profile=low-power"_s, u"Power1.GameCpuFloor=68"_s,
+                                            u"TdpLimit1.TdpLimit=6"_s}));
+        QVERIFY(h->daemonLog().contains("power.profile=low-power power.game_floor=68 power.tdp=6"_L1));
+        powerd->sets.clear();
+        QCOMPARE(set(u"power.game_floor"_s, 28u), QString());
+        QCOMPARE(powerd->sets, QStringList{u"Power1.GameCpuFloor=28"_s});
+        QCOMPARE(get(u"power.game_floor"_s), QVariant(28u));
+        QVERIFY(h->readState().contains("\"power.game_floor\": 28"));
+        QCOMPARE(set(u"power.game_floor"_s, 84u), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        powerd->emitChanged(FakePowerd::Power1, {{u"GameCpuFloor"_s, 50u}});
+        QTRY_COMPARE(get(u"power.game_floor"_s), QVariant(50u));
+        powerd->emitChanged(FakePowerd::Power1, {{u"GameCpuFloor"_s, 90u}});
+        QTRY_COMPARE(get(u"power.game_floor"_s), QVariant(83u));
+        powerd->sets.clear();
+        h->stopDaemon();
+        QVERIFY(h->startDaemon());
+        waitPushes(1);
+        QCOMPARE(powerd->sets, QStringList{u"Power1.GameCpuFloor=83"_s});
+        powerd->stop();
+        QTRY_VERIFY(h->daemonLog().contains("powerd left the bus"_L1));
+        powerd = std::make_unique<FakePowerd>(h->address());
+        powerd->values[FakePowerd::Power1][u"GameCpuFloor"_s] = 0u;
+        QVERIFY(powerd->start());
+        waitPushes(2);
+        QCOMPARE(powerd->sets, (QStringList{u"Power1.Profile=low-power"_s, u"Power1.GameCpuFloor=83"_s,
+                                            u"TdpLimit1.TdpLimit=6"_s}));
+    }
+
     void startSignalsIgnored()
     {
         h->writeState(R"({"power.profile": "low-power"})");
@@ -374,7 +412,7 @@ private slots:
         QCOMPARE(values.value("session.default"_L1).toString(), u"gone"_s);
         QCOMPARE(values.value("power.tdp"_L1).toInt(), 5);
         const QVariantMap power = qdbus_cast<QVariantMap>(h->call(u"List"_s, {u"power"_s}).arguments().value(0));
-        QCOMPARE(power.size(), 5);
+        QCOMPARE(power.size(), 6);
     }
 
     void audioStoredWithoutCard()
@@ -466,7 +504,7 @@ private slots:
         QCOMPARE(h->cli({u"get"_s, u"meta.imported_power"_s}, {}, Harness::RootCgroup, &out), 0);
         QCOMPARE(out, u"false\n"_s);
         QCOMPARE(h->cli({u"list"_s, u"power"_s}, {}, Harness::RootCgroup, &out), 0);
-        QCOMPARE(out, u"power.governor\tschedutil\npower.gpu_clock\t587\npower.gpu_level\tauto\npower.profile\tbalanced\npower.tdp\t6\n"_s);
+        QCOMPARE(out, u"power.game_floor\t68\npower.governor\tschedutil\npower.gpu_clock\t587\npower.gpu_level\tauto\npower.profile\tbalanced\npower.tdp\t6\n"_s);
         QCOMPARE(h->cli({u"schema"_s, u"session"_s}, {}, Harness::RootCgroup, &out), 0);
         const QJsonObject session = QJsonDocument::fromJson(out.toUtf8()).object().value("session.default"_L1).toObject();
         QCOMPARE(session.value("enum"_L1).toVariant().toStringList(), (QStringList{u"microdap"_s, u"steam"_s}));

@@ -96,7 +96,7 @@ private slots:
         QVERIFY(error.ok());
         client.get(u"nope.key"_s, &error);
         QCOMPARE(error.name, u"net.seilent.MicroSet1.Error.UnknownKey"_s);
-        QCOMPARE(client.list(u"power"_s).size(), 5);
+        QCOMPARE(client.list(u"power"_s).size(), 6);
         QCOMPARE(QJsonDocument::fromJson(client.schema(u"power.tdp"_s).toUtf8()).object().keys(), QStringList{u"power.tdp"_s});
 
         std::optional<MicroSet::Error> result;

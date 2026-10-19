@@ -33,6 +33,7 @@ const QList<PowerBridge::Property> &PowerBridge::properties()
         {u"power.gpu_level"_s, Power1, u"GpuLevel"_s},
         {u"power.gpu_clock"_s, Power1, u"ManualGpuClock"_s},
         {u"power.governor"_s, Power1, u"CpuGovernor"_s},
+        {u"power.game_floor"_s, Power1, u"GameCpuFloor"_s},
         {u"power.tdp"_s, Tdp1, u"TdpLimit"_s},
     };
     return list;
