@@ -243,6 +243,52 @@ private slots:
         QCOMPARE(described.value("microdap.roots"_L1).toObject().value("override"_L1), QJsonValue(false));
     }
 
+    void floorStoreAndScale()
+    {
+        Harness h;
+        h.writeFile(u"s/20-microdap.json"_s,
+                    file("microdap", R"("microdap.level": {"type": "u", "default": 2442, "min": 1, "max": 10000,
+                                                           "floor": 1000, "store": "coalesce", "override": true,
+                                                           "ui": {"scale": 100, "unit": "%"}},
+                                        "microdap.plain": {"type": "u", "default": 1, "min": 0, "max": 10},
+                                        "microdap.a": {"type": "u", "default": 1, "floor": 1},
+                                        "microdap.b": {"type": "u", "default": 1, "min": 0, "max": 10, "floor": 11},
+                                        "microdap.c": {"type": "u", "default": 1, "min": 0, "max": 10, "floor": 1.5},
+                                        "microdap.d": {"type": "s", "default": "x", "floor": 1},
+                                        "microdap.e": {"type": "u", "default": 1, "store": "later"},
+                                        "microdap.f": {"type": "u", "default": 1, "store": true},
+                                        "microdap.g": {"type": "u", "default": 1, "writable": false, "store": "coalesce"},
+                                        "microdap.h": {"type": "s", "default": "x", "applier": "power", "store": "coalesce"},
+                                        "microdap.i": {"type": "u", "default": 1, "ui": {"scale": 0}},
+                                        "microdap.j": {"type": "u", "default": 1, "ui": {"scale": "100"}},
+                                        "microdap.k": {"type": "s", "default": "x", "ui": {"scale": 100}},
+                                        "microdap.l": {"type": "u", "default": 1, "enum": [1, 2], "ui": {"scale": 100}})"));
+        for (const char *key : {"i", "j", "k", "l"})
+            QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"20-microdap.json: microdap.%1: bad scale, ui hint dropped"_s
+                                                                      .arg(QLatin1StringView(key))));
+        const Schema schema = make(h.path(u"s"_s));
+        QCOMPARE(schema.keys({}), (QStringList{u"microdap.i"_s, u"microdap.j"_s, u"microdap.k"_s, u"microdap.l"_s,
+                                               u"microdap.level"_s, u"microdap.plain"_s}));
+        const Key &level = *schema.key(u"microdap.level"_s);
+        QCOMPARE(level.floorValue, std::optional<double>(1000));
+        QVERIFY(level.coalesce);
+        QVERIFY(level.overridable);
+        QCOMPARE(level.ui.value("scale"_L1).toDouble(), 100.0);
+        QVERIFY(schema.accepts(level, 1u));
+        QVERIFY(schema.accepts(level, 999u));
+        QVERIFY(!schema.accepts(level, 0u));
+        const Key &plain = *schema.key(u"microdap.plain"_s);
+        QVERIFY(!plain.floorValue);
+        QVERIFY(!plain.coalesce);
+        for (const char *key : {"i", "j", "k", "l"})
+            QVERIFY(schema.key(u"microdap."_s + QLatin1StringView(key))->ui.isEmpty());
+        const QJsonObject described = schema.describe(u"microdap"_s);
+        QCOMPARE(described.value("microdap.level"_L1).toObject().value("floor"_L1).toDouble(), 1000.0);
+        QCOMPARE(described.value("microdap.level"_L1).toObject().value("store"_L1).toString(), u"coalesce"_s);
+        QVERIFY(!described.value("microdap.plain"_L1).toObject().contains("floor"_L1));
+        QVERIFY(!described.value("microdap.plain"_L1).toObject().contains("store"_L1));
+    }
+
     void merge()
     {
         Harness h;

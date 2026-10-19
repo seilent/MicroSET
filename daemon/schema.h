@@ -21,6 +21,8 @@ struct Key
     QString enumFrom;
     std::optional<double> min;
     std::optional<double> max;
+    std::optional<double> floorValue;
+    bool coalesce = false;
     int maxLength = 256;
     std::optional<int> maxItems;
     QString validator;

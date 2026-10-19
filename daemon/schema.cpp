@@ -21,7 +21,8 @@ const QStringList Reserved = {u"microset"_s, u"power"_s, u"meta"_s, u"session"_s
 const QStringList Types = {u"s"_s, u"b"_s, u"u"_s, u"i"_s, u"d"_s, u"as"_s};
 const QStringList Validators = {u"eq_filters"_s};
 const QStringList Widgets = {u"none"_s, u"hue"_s};
-const QStringList UiFields = {u"order"_s, u"widget"_s, u"step"_s, u"steps"_s, u"values"_s, u"unit"_s, u"apply"_s, u"lock"_s};
+const QStringList UiFields = {u"order"_s, u"widget"_s, u"step"_s, u"steps"_s, u"values"_s, u"unit"_s, u"scale"_s, u"apply"_s,
+                               u"lock"_s};
 const QStringList Applies = {u"live"_s, u"confirm"_s};
 const QStringList LockFields = {u"key"_s, u"is"_s, u"text"_s, u"show"_s};
 const QRegularExpression KeyPattern(u"^[a-z][a-z0-9]*(\\.[A-Za-z0-9_]+)+$"_s);
@@ -79,7 +80,7 @@ std::optional<QJsonObject> uiHint(const Key &key, const QJsonValue &value, QStri
 {
     const QJsonObject ui = value.toObject();
     if (!value.isObject() || !onlyFields(ui, UiFields)) {
-        *why = u"not an object of order, widget, step, steps, values, unit, apply and lock"_s;
+        *why = u"not an object of order, widget, step, steps, values, unit, scale, apply and lock"_s;
         return {};
     }
     if (ui.contains("order"_L1) && !isOrder(ui.value("order"_L1))) {
@@ -125,6 +126,13 @@ std::optional<QJsonObject> uiHint(const Key &key, const QJsonValue &value, QStri
     const QJsonValue unit = ui.value("unit"_L1);
     if (ui.contains("unit"_L1) && (!unit.isString() || unit.toString().isEmpty() || unit.toString().size() > MaxUnit)) {
         *why = u"bad unit"_s;
+        return {};
+    }
+    const QJsonValue scale = ui.value("scale"_L1);
+    if (ui.contains("scale"_L1)
+        && (!isNumeric(key.type) || !key.enumValues.isEmpty() || !scale.isDouble() || !std::isfinite(scale.toDouble())
+            || !(scale.toDouble() > 0))) {
+        *why = u"bad scale"_s;
         return {};
     }
     if (ui.contains("apply"_L1) && !Applies.contains(ui.value("apply"_L1).toString())) {
@@ -408,6 +416,14 @@ std::optional<Key> Schema::parseKey(const QString &name, const QString &owner, c
             return {};
         }
     }
+    const QJsonValue floor = object.value("floor"_L1);
+    if (!floor.isUndefined()) {
+        if (!hasRange || !fitsKey(key, floor)) {
+            *why = u"bad floor"_s;
+            return {};
+        }
+        key.floorValue = floor.toDouble();
+    }
     const QJsonValue maxLength = object.value("max_len"_L1);
     if (!maxLength.isUndefined()) {
         if ((key.type != "s"_L1 && key.type != "as"_L1) || !maxLength.isDouble() || maxLength.toDouble() < 1
@@ -457,6 +473,14 @@ std::optional<Key> Schema::parseKey(const QString &name, const QString &owner, c
     if (key.overridable && (!key.writable || key.applier == "power"_L1)) {
         *why = u"override on a read only or power key"_s;
         return {};
+    }
+    const QJsonValue store = object.value("store"_L1);
+    if (!store.isUndefined()) {
+        if (store.toString() != "coalesce"_L1 || !key.writable || key.applier == "power"_L1) {
+            *why = u"bad store"_s;
+            return {};
+        }
+        key.coalesce = true;
     }
     const QJsonValue group = object.value("group"_L1);
     const QJsonValue label = object.value("label"_L1);
@@ -593,6 +617,10 @@ QJsonObject Schema::describe(const QString &prefix) const
             entry.insert(u"min"_s, *key.min);
         if (key.max)
             entry.insert(u"max"_s, *key.max);
+        if (key.floorValue)
+            entry.insert(u"floor"_s, *key.floorValue);
+        if (key.coalesce)
+            entry.insert(u"store"_s, u"coalesce"_s);
         out.insert(key.name, entry);
     }
     return out;

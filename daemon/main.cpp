@@ -15,12 +15,37 @@
 
 #include <QCoreApplication>
 #include <QDBusConnection>
+#include <QSocketNotifier>
+
+#include <signal.h>
+#include <sys/signalfd.h>
+#include <unistd.h>
 
 using namespace Qt::StringLiterals;
 
 int main(int argc, char **argv)
 {
+    sigset_t stop;
+    sigemptyset(&stop);
+    sigaddset(&stop, SIGTERM);
+    sigaddset(&stop, SIGINT);
+    if (sigprocmask(SIG_BLOCK, &stop, nullptr) != 0) {
+        qCritical("cannot block SIGTERM and SIGINT");
+        return 1;
+    }
+    const int stopFd = signalfd(-1, &stop, SFD_CLOEXEC | SFD_NONBLOCK);
+    if (stopFd < 0) {
+        qCritical("cannot open a signalfd");
+        return 1;
+    }
     QCoreApplication app(argc, argv);
+    QSocketNotifier stopNotifier(stopFd, QSocketNotifier::Read);
+    QObject::connect(&stopNotifier, &QSocketNotifier::activated, &app, [stopFd] {
+        signalfd_siginfo info;
+        while (::read(stopFd, &info, sizeof info) == sizeof info)
+            ;
+        QCoreApplication::quit();
+    });
 
     QDBusConnection bus = QDBusConnection::systemBus();
     if (!bus.isConnected()) {
@@ -40,6 +65,10 @@ int main(int argc, char **argv)
     Store store(qEnvironmentVariable("STATE_DIRECTORY", u"/var/lib/microset"_s));
     store.load();
     Settings settings(schema, store);
+    bool delayOk = false;
+    const int delay = qEnvironmentVariableIntValue("MICROSET_COALESCE_MS", &delayOk);
+    if (delayOk && delay > 0)
+        settings.setCoalesceDelay(delay);
     PowerBridge::importState(qEnvironmentVariable("MICROSET_POWER_CONF", u"/var/lib/microos/power.conf"_s), settings);
 
     PowerBridge bridge(bus, settings);
@@ -69,6 +98,12 @@ int main(int argc, char **argv)
     RgbApplier rgb(settings, &sleep, qEnvironmentVariable("MICROSET_RGB_DEVICE", u"/dev/ttyHS2"_s),
                    qEnvironmentVariable("MICROSET_BACKLIGHT", u"/sys/class/backlight/backlight"_s));
     rgb.start();
+    QObject::connect(&sleep, &SleepInhibitor::prepareForSleep, &settings, [&settings](bool start) {
+        if (start)
+            settings.flush();
+    });
     sleep.take();
-    return app.exec();
+    const int code = app.exec();
+    settings.flush();
+    return code;
 }

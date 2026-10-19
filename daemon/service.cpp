@@ -8,10 +8,13 @@
 #include <QDBusMetaType>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLoggingCategory>
 
 #include <algorithm>
 
 using namespace Qt::StringLiterals;
+
+Q_LOGGING_CATEGORY(lcCoalesced, "microset.coalesced", QtInfoMsg)
 
 Service::Service(const QDBusConnection &bus, Settings &settings, const Auth &auth, PowerBridge &bridge,
                  QObject *parent)
@@ -61,7 +64,11 @@ void Service::Set(const QString &name, const QDBusVariant &value)
         sendErrorReply(Errors::InvalidValue, u"not a valid "_s + name);
         return;
     }
-    qInfo("set %s=%s by uid %lld", qPrintable(name), qPrintable(::Schema::text(requested).left(64)), uid);
+    const QByteArray shown = ::Schema::text(requested).left(64).toUtf8();
+    if (key->coalesce)
+        qCDebug(lcCoalesced, "set %s=%s by uid %lld", qPrintable(name), shown.constData(), uid);
+    else
+        qInfo("set %s=%s by uid %lld", qPrintable(name), shown.constData(), uid);
     if (key->applier == "power"_L1) {
         setDelayedReply(true);
         const QDBusMessage request = message();

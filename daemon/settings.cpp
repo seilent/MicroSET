@@ -7,6 +7,8 @@ Settings::Settings(const Schema &schema, Store &store, QObject *parent)
     , m_schema(schema)
     , m_store(store)
 {
+    m_flush.setSingleShot(true);
+    connect(&m_flush, &QTimer::timeout, this, &Settings::flush);
 }
 
 const Schema &Settings::schema() const
@@ -29,6 +31,8 @@ QVariant Settings::value(const QString &name) const
 QVariant Settings::stored(const QString &name) const
 {
     const Key *key = m_schema.key(name);
+    if (key && m_pending.contains(name))
+        return m_pending.value(name);
     if (!key || !m_store.contains(name))
         return {};
     const QVariant stored = Schema::fromJson(key->type, m_store.value(name));
@@ -46,14 +50,46 @@ QVariant Settings::base(const QString &name) const
 
 bool Settings::isStored(const QString &key) const
 {
-    return m_store.contains(key);
+    return m_pending.contains(key) || m_store.contains(key);
 }
 
 Settings::Result Settings::store(const QString &key, const QVariant &value)
 {
     if (base(key) == value)
         return Unchanged;
-    return store(QVariantMap{{key, value}});
+    const Key *entry = m_schema.key(key);
+    if (!entry || !entry->coalesce)
+        return store(QVariantMap{{key, value}});
+    const QVariant before = this->value(key);
+    m_pending.insert(key, value);
+    m_flush.start(m_delay);
+    emitIfMoved(key, before);
+    return Changed;
+}
+
+bool Settings::flush()
+{
+    m_flush.stop();
+    if (m_pending.isEmpty())
+        return true;
+    QJsonObject changes;
+    for (auto it = m_pending.cbegin(); it != m_pending.cend(); ++it)
+        changes.insert(it.key(), Schema::toJson(it.value()));
+    if (!m_store.set(changes)) {
+        if (!m_flushWarned)
+            qWarning("cannot write %lld coalesced keys, kept in memory and retried", qlonglong(changes.size()));
+        m_flushWarned = true;
+        m_flush.start(m_delay * 10);
+        return false;
+    }
+    m_flushWarned = false;
+    m_pending.clear();
+    return true;
+}
+
+void Settings::setCoalesceDelay(int ms)
+{
+    m_delay = ms;
 }
 
 Settings::Result Settings::store(const QVariantMap &values)
@@ -66,6 +102,8 @@ Settings::Result Settings::store(const QVariantMap &values)
     }
     if (!m_store.set(changes))
         return Failed;
+    for (auto it = values.cbegin(); it != values.cend(); ++it)
+        m_pending.remove(it.key());
     Result result = Unchanged;
     for (auto it = before.cbegin(); it != before.cend(); ++it) {
         const QVariant after = value(it.key());

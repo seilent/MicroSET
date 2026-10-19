@@ -5,6 +5,7 @@
 
 #include <QHash>
 #include <QObject>
+#include <QTimer>
 
 class Settings : public QObject
 {
@@ -26,6 +27,8 @@ public:
     bool clearOverride(const QString &key, const QString &owner);
     QStringList dropOverrides(const QString &owner);
     bool holdsOverride(const QString &owner) const;
+    bool flush();
+    void setCoalesceDelay(int ms);
 
 signals:
     void changed(const QString &key, const QVariant &value);
@@ -44,5 +47,9 @@ private:
     const Schema &m_schema;
     Store &m_store;
     QVariantMap m_live;
+    QVariantMap m_pending;
+    QTimer m_flush;
+    int m_delay = 1000;
+    bool m_flushWarned = false;
     QHash<QString, QList<Override>> m_overrides;
 };
