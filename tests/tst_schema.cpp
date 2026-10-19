@@ -35,12 +35,16 @@ private slots:
     void shippedSchema()
     {
         const Schema schema = make(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
-        QCOMPARE(schema.keys({}), (QStringList{u"audio.bt_codec"_s, u"audio.eq.bt.filters"_s, u"audio.eq.bt.name"_s,
+        QCOMPARE(schema.keys({}), (QStringList{u"audio.balance.bt"_s, u"audio.balance.headphones"_s,
+                                               u"audio.balance.speaker"_s, u"audio.balance.usb"_s, u"audio.bt_codec"_s,
+                                               u"audio.crossfeed.headphones"_s, u"audio.crossfeed.usb"_s,
+                                               u"audio.eq.bt.filters"_s, u"audio.eq.bt.name"_s,
                                                u"audio.eq.bt.on"_s, u"audio.eq.headphones.filters"_s,
                                                u"audio.eq.headphones.name"_s, u"audio.eq.headphones.on"_s,
                                                u"audio.eq.speaker.filters"_s, u"audio.eq.speaker.name"_s,
                                                u"audio.eq.speaker.on"_s, u"audio.eq.usb.filters"_s, u"audio.eq.usb.name"_s,
-                                               u"audio.eq.usb.on"_s, u"audio.hp_amp"_s, u"audio.hp_gain"_s, u"audio.output"_s,
+                                               u"audio.eq.usb.on"_s, u"audio.hp_amp"_s, u"audio.hp_gain"_s,
+                                               u"audio.max_volume"_s, u"audio.output"_s, u"audio.power_on_volume"_s,
                                                u"audio.speaker_gain"_s, u"audio.volume_step"_s, u"display.auto_rotate"_s,
                                                u"display.orientation"_s, u"display.rotation"_s, u"meta.imported_power"_s,
                                                u"power.governor"_s, u"power.gpu_clock"_s, u"power.gpu_level"_s,
@@ -108,6 +112,35 @@ private slots:
         QCOMPARE(schema.key(u"audio.bt_codec"_s)->defaultValue, QVariant(u"auto"_s));
         QCOMPARE(schema.key(u"audio.bt_codec"_s)->enumValues,
                  (QVariantList{u"auto"_s, u"aptx"_s, u"aac"_s, u"ldac"_s, u"sbc"_s}));
+        for (const QString &slot : {u"headphones"_s, u"speaker"_s, u"usb"_s, u"bt"_s}) {
+            const Key &balance = *schema.key(u"audio.balance."_s + slot);
+            QCOMPARE(balance.type, u"i"_s);
+            QCOMPARE(balance.defaultValue, QVariant(0));
+            QVERIFY(balance.applier.isEmpty());
+            QVERIFY(schema.accepts(balance, -20));
+            QVERIFY(schema.accepts(balance, 20));
+            QVERIFY(!schema.accepts(balance, 21));
+            QVERIFY(!schema.accepts(balance, -21));
+        }
+        QCOMPARE(schema.keys(u"audio.crossfeed"_s), (QStringList{u"audio.crossfeed.headphones"_s, u"audio.crossfeed.usb"_s}));
+        for (const QString &key : schema.keys(u"audio.crossfeed"_s)) {
+            QCOMPARE(schema.key(key)->defaultValue, QVariant(u"off"_s));
+            QCOMPARE(schema.key(key)->enumValues, (QVariantList{u"off"_s, u"default"_s, u"chuMoy"_s, u"janMeier"_s}));
+            QVERIFY(schema.key(key)->applier.isEmpty());
+        }
+        const Key &maxVolume = *schema.key(u"audio.max_volume"_s);
+        QCOMPARE(maxVolume.defaultValue, QVariant(100u));
+        QVERIFY(schema.accepts(maxVolume, 50u));
+        QVERIFY(schema.accepts(maxVolume, 55u));
+        QVERIFY(!schema.accepts(maxVolume, 52u));
+        QVERIFY(!schema.accepts(maxVolume, 45u));
+        const Key &powerOn = *schema.key(u"audio.power_on_volume"_s);
+        QCOMPARE(powerOn.defaultValue, QVariant(0u));
+        QVERIFY(schema.accepts(powerOn, 0u));
+        QVERIFY(schema.accepts(powerOn, 10u));
+        QVERIFY(!schema.accepts(powerOn, 5u));
+        QVERIFY(!schema.accepts(powerOn, 12u));
+        QVERIFY(maxVolume.applier.isEmpty() && powerOn.applier.isEmpty());
         for (const QString &key : schema.keys({}))
             QCOMPARE(schema.key(key)->overridable, key.startsWith("rgb."_L1) && key != "rgb.brightness"_L1);
     }
@@ -119,7 +152,8 @@ private slots:
         QTest::newRow("default") << QStringList{u"preamp 0"_s} << true;
         QTest::newRow("every type") << QStringList{u"preamp -24"_s,         u"peak 20 -24 0.1"_s,  u"lowshelf 105 3.5 0.71"_s,
                                                    u"highshelf 10000 -2 1"_s, u"bandpass 1000 0 2"_s, u"lowpass 20000 12 10"_s,
-                                                   u"highpass 30 0 0.5"_s,   u"allpass 500 0 1"_s}
+                                                   u"highpass 30 0 0.5"_s,   u"allpass 500 0 1"_s,
+                                                   u"matchedpeak 16000 12 0.92"_s}
                                     << true;
         QStringList ten{u"preamp -6.5"_s};
         for (int i = 0; i < 10; ++i)
@@ -136,6 +170,8 @@ private slots:
         QTest::newRow("preamp no value") << QStringList{u"preamp"_s} << false;
         QTest::newRow("unknown type") << QStringList{u"preamp 0"_s, u"notch 100 1 1"_s} << false;
         QTest::newRow("type case") << QStringList{u"preamp 0"_s, u"Peak 100 1 1"_s} << false;
+        QTest::newRow("matched peak") << QStringList{u"preamp -12"_s, u"matchedpeak 31.25 12 0.92"_s} << true;
+        QTest::newRow("matched peak case") << QStringList{u"preamp 0"_s, u"matchedPeak 1000 1 0.92"_s} << false;
         QTest::newRow("hz low") << QStringList{u"preamp 0"_s, u"peak 19.9 1 1"_s} << false;
         QTest::newRow("hz high") << QStringList{u"preamp 0"_s, u"peak 20001 1 1"_s} << false;
         QTest::newRow("hz exponent") << QStringList{u"preamp 0"_s, u"peak 1e3 1 1"_s} << false;
@@ -523,8 +559,8 @@ private slots:
         QCOMPARE(clock.value("type"_L1).toString(), u"u"_s);
         QCOMPARE(schema.describe(u"power.tdp"_s).size(), 1);
         QCOMPARE(schema.describe(u"powe"_s).size(), 0);
-        QCOMPARE(schema.describe({}).size(), 32);
-        QCOMPARE(schema.describe(u"audio"_s).size(), 18);
+        QCOMPARE(schema.describe({}).size(), 40);
+        QCOMPARE(schema.describe(u"audio"_s).size(), 26);
         QVERIFY(schema.describe(u"meta"_s).value("meta.imported_power"_L1).toObject().value("group"_L1).isNull());
     }
 };

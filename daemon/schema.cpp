@@ -28,8 +28,8 @@ const QRegularExpression KeyPattern(u"^[a-z][a-z0-9]*(\\.[A-Za-z0-9_]+)+$"_s);
 constexpr int MaxSteps = 64;
 constexpr int MaxUnit = 16;
 const QStringList GroupFields = {u"label"_s, u"order"_s};
-const QStringList FilterTypes = {u"peak"_s,    u"lowshelf"_s, u"highshelf"_s, u"bandpass"_s,
-                                 u"lowpass"_s, u"highpass"_s, u"allpass"_s};
+const QStringList FilterTypes = {u"peak"_s,     u"lowshelf"_s, u"highshelf"_s, u"bandpass"_s,
+                                 u"lowpass"_s,  u"highpass"_s, u"allpass"_s,   u"matchedpeak"_s};
 constexpr int MaxBands = 10;
 constexpr int MaxItems = 1024;
 constexpr int MaxNumberLength = 16;

@@ -39,9 +39,13 @@ name per key, the newest wins, dropped on `ClearOverride` or when the caller lea
 once the override is gone.
 
 `as` keys can set `max_items` and a `validator`. `eq_filters` takes `preamp <dB>` (-24 to 0) first, then up to 10
-`<type> <Hz> <dB> <Q>` with type `peak`, `lowshelf`, `highshelf`, `bandpass`, `lowpass`, `highpass` or `allpass`, 20 to
-20000 Hz, -24 to 12 dB, Q 0.1 to 10. `audio.eq.<slot>.on`, `.name` and `.filters` exist for `headphones`, `speaker`,
-`usb` and `bt`; `audio.bt_codec` is `auto`, `aptx`, `aac`, `ldac` or `sbc`.
+`<type> <Hz> <dB> <Q>` with type `peak`, `lowshelf`, `highshelf`, `bandpass`, `lowpass`, `highpass`, `allpass` or
+`matchedpeak`, 20 to 20000 Hz, -24 to 12 dB, Q 0.1 to 10. `audio.eq.<slot>.on`, `.name` and `.filters` and
+`audio.balance.<slot>` (-20 to 20 half dB, negative toward L) exist for `headphones`, `speaker`, `usb` and `bt`;
+`audio.crossfeed.headphones` and `audio.crossfeed.usb` are `off`, `default`, `chuMoy` or `janMeier`.
+`audio.max_volume` (50 to 100 % in steps of 5) caps every sink volume: at the default 100 a level above 100 % folds to
+100 %, and bit perfect output needs 100. `audio.power_on_volume` (0 keeps the last level, else 10 to 100 % in steps of
+5) is set once per boot on the default output. `audio.bt_codec` is `auto`, `aptx`, `aac`, `ldac` or `sbc`.
 
 Power settings are applied by MicroOS `microos-powerd`; `microsetd` pushes the stored values to it and records the
 changes Steam makes there.

@@ -73,9 +73,12 @@ private slots:
         QVERIFY(m->available());
         QCOMPARE(keysOf(m->rows(u"audio"_s, 0)),
                  (QStringList{u"label-microset"_s, u"audio.output"_s, u"audio.hp_gain"_s, u"audio.hp_amp"_s,
-                              u"audio.speaker_gain"_s, u"audio.volume_step"_s, u"audio.bt_codec"_s,
-                              u"audio.eq.headphones.on"_s, u"audio.eq.headphones.name"_s, u"audio.eq.speaker.on"_s,
-                              u"audio.eq.usb.on"_s, u"audio.eq.bt.on"_s}));
+                              u"audio.speaker_gain"_s, u"audio.volume_step"_s, u"audio.max_volume"_s,
+                              u"audio.power_on_volume"_s, u"audio.bt_codec"_s, u"audio.eq.headphones.on"_s,
+                              u"audio.eq.headphones.name"_s, u"audio.balance.headphones"_s,
+                              u"audio.crossfeed.headphones"_s, u"audio.eq.speaker.on"_s, u"audio.balance.speaker"_s,
+                              u"audio.eq.usb.on"_s, u"audio.balance.usb"_s, u"audio.crossfeed.usb"_s,
+                              u"audio.eq.bt.on"_s, u"audio.balance.bt"_s}));
         QCOMPARE(keysOf(m->rows(u"power"_s, 0)),
                  (QStringList{u"label-microset"_s, u"power.profile"_s, u"power.tdp"_s, u"power.governor"_s,
                               u"power.gpu_level"_s, u"power.gpu_clock"_s}));
@@ -100,6 +103,14 @@ private slots:
         const QVariantList audio = m->rows(u"audio"_s, 0);
         QCOMPARE(value(audio, u"audio.speaker_gain"_s), u"+18 db"_s);
         QCOMPARE(value(audio, u"audio.volume_step"_s), u"5%"_s);
+        QCOMPARE(value(audio, u"audio.max_volume"_s), u"100%"_s);
+        QCOMPARE(value(audio, u"audio.power_on_volume"_s), u"last"_s);
+        QCOMPARE(value(audio, u"audio.balance.headphones"_s), u"center"_s);
+        QCOMPARE(value(audio, u"audio.crossfeed.usb"_s), u"off"_s);
+        QCOMPARE(m->text(u"audio.balance.speaker"_s, -3), u"l 1.5 db"_s);
+        QCOMPARE(m->text(u"audio.balance.speaker"_s, 20), u"r 10 db"_s);
+        QCOMPARE(m->text(u"audio.crossfeed.headphones"_s, u"chuMoy"_s), u"chu moy"_s);
+        QCOMPARE(m->text(u"audio.power_on_volume"_s, 40u), u"40%"_s);
         QCOMPARE(value(audio, u"audio.output"_s), u"auto"_s);
         QCOMPARE(rowOf(audio, u"audio.output"_s).value(u"title"_s).toString(), u"Output"_s);
         QCOMPARE(value(audio, u"audio.eq.headphones.on"_s), u"on"_s);
