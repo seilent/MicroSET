@@ -87,7 +87,9 @@ private:
         QVariantList steps;
         std::optional<double> min;
         std::optional<double> max;
+        std::optional<double> floor;
         double step = 1;
+        double scale = 0;
         QJsonObject labels;
         bool writable = true;
         bool overridable = false;

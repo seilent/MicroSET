@@ -1,0 +1,26 @@
+{
+  "owner": "fixture",
+  "keys": {
+    "fixture.level": {
+      "type": "u",
+      "default": 2442,
+      "min": 1,
+      "max": 10000,
+      "floor": 1000,
+      "group": "fixture_scale",
+      "label": "Level",
+      "ui": {"order": 0, "scale": 100, "unit": "%", "steps": [1000, 1500, 2000, 2500, 3000, 10000]}
+    },
+    "fixture.ranged": {
+      "type": "u",
+      "default": 50,
+      "min": 0,
+      "max": 100,
+      "floor": 20,
+      "group": "fixture_scale",
+      "label": "Ranged",
+      "ui": {"order": 1, "step": 10}
+    }
+  },
+  "groups": {"fixture_scale": {"label": "scale", "order": 9}}
+}

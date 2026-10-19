@@ -240,7 +240,10 @@ void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, 
             entry.min = object.value("min"_L1).toDouble();
         if (object.contains("max"_L1))
             entry.max = object.value("max"_L1).toDouble();
+        if (object.contains("floor"_L1))
+            entry.floor = object.value("floor"_L1).toDouble();
         entry.step = ui.value("step"_L1).toDouble(1);
+        entry.scale = ui.value("scale"_L1).toDouble(0);
         entry.labels = ui.value("values"_L1).toObject();
         entry.unit = ui.value("unit"_L1).toString();
         entry.confirm = ui.value("apply"_L1).toString() == "confirm"_L1;
@@ -376,10 +379,12 @@ QString SettingsModel::textOf(const Entry &entry, const QVariant &value) const
         return value.toBool() ? u"on"_s : u"off"_s;
     if (entry.type == "as"_L1)
         return value.toStringList().join(u", "_s);
-    const QString text = entry.type == "d"_L1 ? QString::number(value.toDouble()) : value.toString();
-    const QJsonValue label = entry.labels.value(text);
+    const QString raw = entry.type == "d"_L1 ? QString::number(value.toDouble()) : value.toString();
+    const QJsonValue label = entry.labels.value(raw);
     if (label.isString())
         return label.toString();
+    const bool scaled = entry.scale > 0 && !raw.isEmpty();
+    const QString text = scaled ? QString::number(std::round(value.toDouble() / entry.scale)) : raw;
     return entry.unit.isEmpty() || text.isEmpty() ? text : text + u' ' + entry.unit;
 }
 
@@ -550,12 +555,29 @@ QVariant SettingsModel::next(const QString &key, const QVariant &from, int delta
     const QVariant base = coerce(entry.type, from).isValid() ? coerce(entry.type, from) : entry.shown;
     if (entry.type == "b"_L1)
         return !base.toBool();
-    const QVariantList &list = entry.choices.isEmpty() ? entry.steps : entry.choices;
-    if (!list.isEmpty()) {
-        qsizetype index = list.indexOf(base);
+    const auto floored = [&](double value) {
+        if (!entry.floor || value >= *entry.floor)
+            return coerce(entry.type, value);
+        return coerce(entry.type, delta > 0 ? *entry.floor : std::min(base.toDouble(), *entry.floor));
+    };
+    if (!entry.choices.isEmpty()) {
+        qsizetype index = entry.choices.indexOf(base);
         if (index < 0)
-            index = nearest(list, base);
-        return list.at(std::clamp<qsizetype>(index + delta, 0, list.size() - 1));
+            index = nearest(entry.choices, base);
+        return entry.choices.at(std::clamp<qsizetype>(index + delta, 0, entry.choices.size() - 1));
+    }
+    if (!entry.steps.isEmpty()) {
+        qsizetype index = entry.steps.indexOf(base);
+        if (index < 0 && delta != 0) {
+            const qsizetype below = std::count_if(entry.steps.cbegin(), entry.steps.cend(),
+                                                  [&](const QVariant &item) { return item.toDouble() < base.toDouble(); });
+            if ((delta > 0 && below == entry.steps.size()) || (delta < 0 && below == 0))
+                return base;
+            index = delta > 0 ? below - 1 : below;
+        } else if (index < 0) {
+            index = nearest(entry.steps, base);
+        }
+        return floored(entry.steps.at(std::clamp<qsizetype>(index + delta, 0, entry.steps.size() - 1)).toDouble());
     }
     if (!isNumeric(entry.type) || !entry.min || !entry.max)
         return {};
@@ -564,7 +586,7 @@ QVariant SettingsModel::next(const QString &key, const QVariant &from, int delta
         : target <= *entry.min           ? *entry.min
                                          : *entry.min + std::round((target - *entry.min) / entry.step) * entry.step;
     value = std::clamp(value, *entry.min, *entry.max);
-    return coerce(entry.type, value);
+    return floored(value);
 }
 
 QString SettingsModel::text(const QString &key, const QVariant &value) const

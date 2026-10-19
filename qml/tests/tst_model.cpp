@@ -309,6 +309,31 @@ private slots:
         QCOMPARE(UpdateInfo::checkStatus(u"ExecMainStatus=0\nExecMainStartTimestampMonotonic=0\n"_s), u"unchecked"_s);
     }
 
+    void scaledAndFloored()
+    {
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"70-scale.json"_s)}));
+        fake->setValues({{u"fixture.level"_s, 300u}, {u"fixture.ranged"_s, 10u}});
+        const auto m = model();
+        QCOMPARE(value(m->rows(u"scale"_s, 0), u"fixture.level"_s), u"3 %"_s);
+        QCOMPARE(m->text(u"fixture.level"_s, 2442u), u"24 %"_s);
+        QCOMPARE(m->text(u"fixture.level"_s, 10000u), u"100 %"_s);
+        QCOMPARE(m->next(u"fixture.level"_s, {}, 1), QVariant(1000u));
+        QCOMPARE(m->next(u"fixture.level"_s, {}, -1), QVariant(300u));
+        QCOMPARE(m->next(u"fixture.level"_s, {}, 2), QVariant(1500u));
+        QCOMPARE(m->next(u"fixture.level"_s, 2442u, 1), QVariant(2500u));
+        QCOMPARE(m->next(u"fixture.level"_s, 2442u, -1), QVariant(2000u));
+        QCOMPARE(m->next(u"fixture.level"_s, 2442u, 0), QVariant(2500u));
+        QCOMPARE(m->next(u"fixture.level"_s, 1000u, -1), QVariant(1000u));
+        QCOMPARE(m->next(u"fixture.level"_s, 1500u, -1), QVariant(1000u));
+        QCOMPARE(m->next(u"fixture.level"_s, 10000u, 1), QVariant(10000u));
+        QCOMPARE(m->next(u"fixture.level"_s, 20000u, 1), QVariant(20000u));
+        QCOMPARE(m->next(u"fixture.ranged"_s, {}, -1), QVariant(10u));
+        QCOMPARE(m->next(u"fixture.ranged"_s, {}, 1), QVariant(20u));
+        QCOMPARE(m->next(u"fixture.ranged"_s, 30u, -1), QVariant(20u));
+        QCOMPARE(m->next(u"fixture.ranged"_s, 20u, -1), QVariant(20u));
+        QCOMPARE(m->next(u"fixture.ranged"_s, 90u, 1), QVariant(100u));
+    }
+
     void nextValues()
     {
         fake->setValues({{u"audio.output"_s, u"bt"_s}, {u"power.tdp"_s, 10u}, {u"audio.speaker_gain"_s, 100u},
@@ -329,6 +354,10 @@ private slots:
         QCOMPARE(m->next(u"power.gpu_clock"_s, {}, -1), QVariant(525u));
         QCOMPARE(m->next(u"power.gpu_clock"_s, 400u, 1), QVariant(442u));
         QCOMPARE(m->next(u"power.gpu_clock"_s, 450u, 0), QVariant(442u));
+        QCOMPARE(m->next(u"power.gpu_clock"_s, 450u, 1), QVariant(490u));
+        QCOMPARE(m->next(u"power.gpu_clock"_s, 450u, -1), QVariant(442u));
+        QCOMPARE(m->next(u"power.gpu_clock"_s, 300u, -1), QVariant(300u));
+        QCOMPARE(m->next(u"power.gpu_clock"_s, 300u, 1), QVariant(305u));
         QCOMPARE(m->next(u"power.gpu_clock"_s, 305u, -1), QVariant(305u));
         QCOMPARE(m->next(u"rgb.brightness"_s, {}, 1), QVariant(100u));
         QCOMPARE(m->next(u"rgb.brightness"_s, {}, -1), QVariant(95u));
