@@ -5,7 +5,9 @@
 #include <QDBusMetaType>
 #include <QDBusPendingCallWatcher>
 #include <QFile>
+#include <QRegularExpression>
 
+#include <algorithm>
 #include <grp.h>
 #include <pwd.h>
 #include <vector>
@@ -91,8 +93,11 @@ QString Auth::judge(const QDBusMessage &reply, const QString &procRoot, qint64 *
     QFile cgroup(procRoot + u'/' + QString::number(pid) + u"/cgroup"_s);
     if (!cgroup.open(QIODevice::ReadOnly))
         return u"cannot read the cgroup of pid %1"_s.arg(pid);
-    const QByteArray path = cgroup.readAll().trimmed();
-    if (path.contains("/app-steam-app") || path.endsWith("/microemu-game.scope") || path.contains("/microemu-game.scope/"))
+    static const QRegularExpression game(
+        QRegularExpression::anchoredPattern(uR"(app-steam-app.*\.scope|microemu-game\.scope)"_s));
+    const QStringList components = QString::fromUtf8(cgroup.readAll().trimmed()).split(u'/');
+    if (std::any_of(components.cbegin(), components.cend(),
+                    [](const QString &component) { return game.match(component).hasMatch(); }))
         return u"called from a game"_s;
     return {};
 }

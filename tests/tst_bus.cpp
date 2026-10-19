@@ -427,12 +427,20 @@ private slots:
         QCOMPARE(h->cli(profile + QStringList{u"low-power"_s}, Harness::noWheel(), Harness::UserCgroup), 4);
         QCOMPARE(h->cli(profile + QStringList{u"low-power"_s}, Harness::wheel(), Harness::GameCgroup), 4);
         QCOMPARE(h->cli(profile + QStringList{u"low-power"_s}, Harness::wheel(), Harness::EmuCgroup), 4);
+        const QByteArray manager = "0::/user.slice/user-1000.slice/user@1000.service/";
+        for (const QByteArray &game : {QByteArray("game.slice/app-steam-app1145360-1.scope"),
+                                       QByteArray("app.slice/app-steam-appx.scope"),
+                                       QByteArray("game.slice/microemu-game.scope/core")})
+            QCOMPARE(h->cli(profile + QStringList{u"low-power"_s}, Harness::wheel(), manager + game), 4);
+        const QByteArray service = manager + "app.slice/app-steam-x.service";
+        QCOMPARE(h->cli(profile + QStringList{u"performance"_s}, Harness::wheel(), service), 0);
         QCOMPARE(h->cli({u"set"_s, u"session.default"_s, u"microdap"_s}, Harness::noWheel(), Harness::UserCgroup), 4);
         QString out;
         QCOMPARE(h->cli({u"get"_s, u"power.profile"_s}, Harness::noWheel(), Harness::GameCgroup, &out), 0);
         QCOMPARE(out, u"performance\n"_s);
         QCOMPARE(h->cli({u"set"_s, u"session.default"_s, u"microdap"_s}), 0);
-        QCOMPARE(powerd->sets, (QStringList{u"Power1.Profile=performance"_s, u"Power1.Profile=performance"_s}));
+        QCOMPARE(powerd->sets, (QStringList{u"Power1.Profile=performance"_s, u"Power1.Profile=performance"_s,
+                                            u"Power1.Profile=performance"_s}));
         const QString log = h->daemonLog();
         const QString uid = QString::number(Harness::user());
         QVERIFY(log.contains(u"set power.profile=performance by uid %1\n"_s.arg(uid)));
