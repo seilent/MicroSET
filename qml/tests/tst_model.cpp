@@ -81,7 +81,7 @@ private slots:
                               u"audio.eq.bt.on"_s, u"audio.balance.bt"_s}));
         QCOMPARE(keysOf(m->rows(u"power"_s, 0)),
                  (QStringList{u"label-microset"_s, u"power.profile"_s, u"power.tdp"_s, u"power.governor"_s,
-                              u"power.gpu_level"_s, u"power.gpu_clock"_s}));
+                              u"power.gpu_level"_s, u"power.gpu_clock"_s, u"power.game_floor"_s}));
         QCOMPARE(keysOf(m->rows(u"display"_s, 0)),
                  (QStringList{u"label-microset"_s, u"display.orientation"_s, u"display.auto_rotate"_s}));
         QCOMPARE(keysOf(m->rows(u"stick leds"_s, 0)),

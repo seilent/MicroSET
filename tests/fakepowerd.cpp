@@ -22,6 +22,7 @@ FakePowerd::FakePowerd(const QString &address)
         {u"GpuLevel"_s, u"auto"_s},
         {u"ManualGpuClock"_s, 587u},
         {u"CpuGovernor"_s, u"schedutil"_s},
+        {u"GameCpuFloor"_s, 68u},
     };
     values[Tdp1] = {{u"TdpLimit"_s, 10u}, {u"TdpLimitMin"_s, 3u}, {u"TdpLimitMax"_s, 10u}};
 }
