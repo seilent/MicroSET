@@ -176,3 +176,9 @@ bool Settings::holdsOverride(const QString &owner) const
         return std::any_of(entries.cbegin(), entries.cend(), mine);
     });
 }
+
+bool Settings::overridden(const QString &key) const
+{
+    const auto it = m_overrides.constFind(key);
+    return it != m_overrides.cend() && !it->isEmpty();
+}

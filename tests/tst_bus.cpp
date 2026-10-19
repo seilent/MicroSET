@@ -1,3 +1,4 @@
+#include "fakelogind.h"
 #include "fakepowerd.h"
 #include "harness.h"
 
@@ -6,6 +7,7 @@
 #include <QDBusConnectionInterface>
 #include <QDBusMetaType>
 #include <QDBusVariant>
+#include <QDir>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -106,6 +108,17 @@ private:
         return callFrom(connection, u"Override"_s, {key, QVariant::fromValue(QDBusVariant(value))});
     }
 
+    QByteArray node() const
+    {
+        QFile file(h->path(u"backlight/brightness"_s));
+        return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+    }
+
+    QJsonObject onDisk() const
+    {
+        return QJsonDocument::fromJson(h->readState()).object().value("values"_L1).toObject();
+    }
+
     QVariantMap stored(const QString &prefix = {}) const
     {
         return qdbus_cast<QVariantMap>(h->call(u"Stored"_s, {prefix}).arguments().value(0));
@@ -141,6 +154,7 @@ private slots:
     void cleanup()
     {
         h->stopDaemon();
+        qunsetenv("MICROSET_COALESCE_MS");
         powerd.reset();
         h.reset();
     }
@@ -349,7 +363,7 @@ private slots:
         h->writeState(R"({"future.key": 1, "power.gpu_clock": 9999, "session.default": "gone"})");
         QVERIFY(up());
         const QVariantMap all = qdbus_cast<QVariantMap>(h->call(u"List"_s, {QString()}).arguments().value(0));
-        QCOMPARE(all.size(), 40);
+        QCOMPARE(all.size(), 41);
         QVERIFY(!all.contains(u"future.key"_s));
         QCOMPARE(all.value(u"power.gpu_clock"_s), QVariant(587u));
         QCOMPARE(all.value(u"session.default"_s), QVariant(u"steam"_s));
@@ -479,7 +493,8 @@ private slots:
         h->startCli(watch, {u"watch"_s, u"display"_s});
         QVERIFY(watch.waitForStarted());
         QTRY_COMPARE(QString::fromUtf8(watch.peek(1024)),
-                     u"display.auto_rotate\ttrue\ndisplay.orientation\tportrait\ndisplay.rotation\tportrait\n"_s);
+                     u"display.auto_rotate\ttrue\ndisplay.brightness\t2442\ndisplay.orientation\tportrait\n"
+                     u"display.rotation\tportrait\n"_s);
         QTRY_VERIFY(h->daemonLog().contains("ssc: subscribed"_L1));
         QVERIFY(h->daemonLog().contains("subscribe display.rotation by :"_L1));
         watch.kill();
@@ -599,12 +614,12 @@ private slots:
     {
         QVERIFY(up());
         QVariantMap values;
-        for (int i = 0; i < 41; ++i)
+        for (int i = 0; i < 42; ++i)
             values.insert(u"nope.k%1"_s.arg(i), true);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         values.remove(u"nope.k0"_s);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), QString());
-        QVERIFY(h->daemonLog().contains("import by uid 0 refused 40 unknown keys\n"_L1));
+        QVERIFY(h->daemonLog().contains("import by uid 0 refused 41 unknown keys\n"_L1));
     }
 
     void importWriteFailure()
@@ -616,6 +631,104 @@ private slots:
         QCOMPARE(errorOf(reply), u"org.freedesktop.DBus.Error.Failed"_s);
         QCOMPARE(get(u"audio.volume_step"_s), QVariant(5u));
         QCOMPARE(stored(), QVariantMap());
+    }
+
+    void coalescedBrightness()
+    {
+        qDBusRegisterMetaType<QMap<QString, QString>>();
+        qputenv("MICROSET_COALESCE_MS", "600000");
+        QVERIFY(up());
+        MicroSet::Client client(h->client());
+        QSignalSpy spy(&client, &MicroSet::Client::changed);
+        QCOMPARE(set(u"display.brightness"_s, 300u), QString());
+        QCOMPARE(node(), QByteArray("123\n"));
+        QTRY_COMPARE(spy.count(), 1);
+        QCOMPARE(get(u"display.brightness"_s), QVariant(300u));
+        QCOMPARE(stored(u"display"_s), (QVariantMap{{u"display.brightness"_s, 300u}}));
+        QVERIFY(!onDisk().contains("display.brightness"_L1));
+        QVERIFY(!h->daemonLog().contains("set display.brightness"_L1));
+        const QDBusMessage reply = h->call(u"Import"_s, {QVariantMap{{u"display.brightness"_s, 5000u}}});
+        QCOMPARE(errorOf(reply), QString());
+        QCOMPARE(reply.arguments().value(0).toStringList(), QStringList());
+        QCOMPARE(get(u"display.brightness"_s), QVariant(300u));
+        QVERIFY(!onDisk().contains("display.brightness"_L1));
+        QCOMPARE(set(u"display.brightness"_s, 0u), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        QCOMPARE(set(u"display.brightness"_s, 10001u), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        QCOMPARE(set(u"display.brightness"_s, 4100u), QString());
+        h->stopDaemon();
+        QCOMPARE(onDisk().value("display.brightness"_L1).toInt(), 4100);
+    }
+
+    void coalescedTimerFlush()
+    {
+        qputenv("MICROSET_COALESCE_MS", "200");
+        QVERIFY(up());
+        QCOMPARE(set(u"display.brightness"_s, 6000u), QString());
+        QTRY_COMPARE_WITH_TIMEOUT(onDisk().value("display.brightness"_L1).toInt(), 6000, 5000);
+    }
+
+    void coalescedFlushBeforeSleep()
+    {
+        qputenv("MICROSET_COALESCE_MS", "600000");
+        h->writeSessions();
+        QVERIFY(h->startBus());
+        FakeLogind logind(h->address());
+        QVERIFY(logind.start());
+        powerd = std::make_unique<FakePowerd>(h->address());
+        QVERIFY(powerd->start());
+        QVERIFY(h->startDaemon());
+        QTRY_COMPARE(logind.inhibits.size(), 1);
+        QCOMPARE(set(u"display.brightness"_s, 7000u), QString());
+        QVERIFY(!onDisk().contains("display.brightness"_L1));
+        logind.prepareForSleep(true);
+        QTRY_COMPARE(onDisk().value("display.brightness"_L1).toInt(), 7000);
+    }
+
+    void setUnderBrightnessOverride()
+    {
+        QVERIFY(up());
+        const QString player = u"override-player"_s;
+        QDBusConnection::connectToBus(h->address(), player);
+        QCOMPARE(set(u"display.brightness"_s, 5000u), QString());
+        QCOMPARE(override(player, u"display.brightness"_s, 9000u), QString());
+        QCOMPARE(get(u"display.brightness"_s), QVariant(9000u));
+        QCOMPARE(node(), QByteArray("3686\n"));
+        QCOMPARE(set(u"display.brightness"_s, 300u), QString());
+        QCOMPARE(get(u"display.brightness"_s), QVariant(9000u));
+        QCOMPARE(node(), QByteArray("3686\n"));
+        QCOMPARE(stored(u"display"_s), (QVariantMap{{u"display.brightness"_s, 300u}}));
+        QCOMPARE(callFrom(player, u"ClearOverride"_s, {u"display.brightness"_s}), QString());
+        QCOMPARE(get(u"display.brightness"_s), QVariant(300u));
+        QCOMPARE(node(), QByteArray("123\n"));
+        QVERIFY(!h->daemonLog().contains("override display.brightness"_L1));
+        QDBusConnection::disconnectFromBus(player);
+    }
+
+    void brightnessWriteFailed()
+    {
+        qputenv("MICROSET_COALESCE_MS", "200");
+        QVERIFY(QFile::remove(h->path(u"backlight/brightness"_s)));
+        QVERIFY(QDir().mkpath(h->path(u"backlight/brightness"_s)));
+        QVERIFY(up());
+        QCOMPARE(set(u"display.brightness"_s, 5000u), u"org.freedesktop.DBus.Error.Failed"_s);
+        QCOMPARE(get(u"display.brightness"_s), QVariant(2442u));
+        QCOMPARE(stored(u"display"_s), QVariantMap());
+        QTest::qWait(400);
+        QVERIFY(!onDisk().contains("display.brightness"_L1));
+    }
+
+    void brightnessBootFloor()
+    {
+        h->writeState(R"({"display.brightness": 300})");
+        QVERIFY(up());
+        QCOMPARE(node(), QByteArray("410\n"));
+        QCOMPARE(get(u"display.brightness"_s), QVariant(1000u));
+        h->stopDaemon();
+        QCOMPARE(onDisk().value("display.brightness"_L1).toInt(), 1000);
+        h->writeState(R"({"display.brightness": 300})");
+        QVERIFY(h->startDaemon());
+        QCOMPARE(node(), QByteArray("123\n"));
+        QCOMPARE(get(u"display.brightness"_s), QVariant(300u));
     }
 
     void overrides()

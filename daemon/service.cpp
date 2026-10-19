@@ -17,11 +17,12 @@ using namespace Qt::StringLiterals;
 Q_LOGGING_CATEGORY(lcCoalesced, "microset.coalesced", QtInfoMsg)
 
 Service::Service(const QDBusConnection &bus, Settings &settings, const Auth &auth, PowerBridge &bridge,
-                 QObject *parent)
+                 BacklightApplier &backlight, QObject *parent)
     : QObject(parent)
     , m_settings(settings)
     , m_auth(auth)
     , m_bridge(bridge)
+    , m_backlight(backlight)
     , m_watcher(QString(), bus, QDBusServiceWatcher::WatchForUnregistration)
 {
     qDBusRegisterMetaType<QMap<QString, QString>>();
@@ -76,6 +77,10 @@ void Service::Set(const QString &name, const QDBusVariant &value)
         m_bridge.set(name, requested, [request, bus](const QString &error, const QString &text) mutable {
             bus.send(error.isEmpty() ? request.createReply() : request.createErrorReply(error, text));
         });
+        return;
+    }
+    if (key->applier == "backlight"_L1 && !m_settings.overridden(name) && !m_backlight.apply(requested.toUInt())) {
+        sendErrorReply(Errors::Failed, u"cannot write the backlight"_s);
         return;
     }
     if (m_settings.store(name, requested) == Settings::Failed)
@@ -188,19 +193,26 @@ void Service::Override(const QString &name, const QDBusVariant &value)
     const QString owner = message().service();
     if (!watch(owner))
         return;
-    qInfo("override %s by %s uid %lld", qPrintable(name), qPrintable(owner), uid);
+    if (key->coalesce)
+        qCDebug(lcCoalesced, "override %s by %s uid %lld", qPrintable(name), qPrintable(owner), uid);
+    else
+        qInfo("override %s by %s uid %lld", qPrintable(name), qPrintable(owner), uid);
     m_settings.setOverride(name, owner, requested);
 }
 
 void Service::ClearOverride(const QString &name)
 {
     qint64 uid = -1;
-    if (!overridable(name, "clear override", &uid))
+    const Key *key = overridable(name, "clear override", &uid);
+    if (!key)
         return;
     const QString owner = message().service();
     if (!m_settings.clearOverride(name, owner))
         return;
-    qInfo("clear override %s by %s", qPrintable(name), qPrintable(owner));
+    if (key->coalesce)
+        qCDebug(lcCoalesced, "clear override %s by %s", qPrintable(name), qPrintable(owner));
+    else
+        qInfo("clear override %s by %s", qPrintable(name), qPrintable(owner));
     unwatch(owner);
 }
 

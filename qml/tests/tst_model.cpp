@@ -83,7 +83,8 @@ private slots:
                  (QStringList{u"label-microset"_s, u"power.profile"_s, u"power.tdp"_s, u"power.governor"_s,
                               u"power.gpu_level"_s, u"power.gpu_clock"_s}));
         QCOMPARE(keysOf(m->rows(u"display"_s, 0)),
-                 (QStringList{u"label-microset"_s, u"display.orientation"_s, u"display.auto_rotate"_s}));
+                 (QStringList{u"label-microset"_s, u"display.brightness"_s, u"display.orientation"_s,
+                              u"display.auto_rotate"_s}));
         QCOMPARE(keysOf(m->rows(u"stick leds"_s, 0)),
                  (QStringList{u"label-microset"_s, u"rgb.enabled"_s, u"rgb.hue"_s, u"rgb.saturation"_s,
                               u"rgb.brightness"_s}));
@@ -276,8 +277,8 @@ private slots:
         QCOMPARE(leds.value(u"title"_s).toString(), u"stick leds"_s);
         QCOMPARE(leds.value(u"group"_s).toString(), u"stick leds"_s);
         QCOMPARE(keysOf(m->rows(u"display"_s, 0)),
-                 (QStringList{u"label-microset"_s, u"display.orientation"_s, u"display.auto_rotate"_s,
-                              u"label-microdap"_s, u"microdap.accent_hue"_s}));
+                 (QStringList{u"label-microset"_s, u"display.brightness"_s, u"display.orientation"_s,
+                              u"display.auto_rotate"_s, u"label-microdap"_s, u"microdap.accent_hue"_s}));
         QCOMPARE(m->accentHue(), 120);
         const QVariantMap accent = rowOf(m->rows(u"display"_s, 0), u"microdap.accent_hue"_s);
         QCOMPARE(accent.value(u"hue"_s).toInt(), 120);

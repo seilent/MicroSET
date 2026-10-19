@@ -1,6 +1,7 @@
 #pragma once
 
 #include "auth.h"
+#include "backlightapplier.h"
 #include "powerbridge.h"
 #include "settings.h"
 
@@ -20,7 +21,7 @@ class Service : public QObject, protected QDBusContext
 
 public:
     Service(const QDBusConnection &bus, Settings &settings, const Auth &auth, PowerBridge &bridge,
-            QObject *parent = nullptr);
+            BacklightApplier &backlight, QObject *parent = nullptr);
 
     void addLive(const QString &key);
     bool held(const QString &key) const;
@@ -52,6 +53,7 @@ private:
     Settings &m_settings;
     const Auth &m_auth;
     PowerBridge &m_bridge;
+    BacklightApplier &m_backlight;
     QDBusServiceWatcher m_watcher;
     QSet<QString> m_live;
     QHash<QString, QSet<QString>> m_subscribers;

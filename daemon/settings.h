@@ -27,6 +27,7 @@ public:
     bool clearOverride(const QString &key, const QString &owner);
     QStringList dropOverrides(const QString &owner);
     bool holdsOverride(const QString &owner) const;
+    bool overridden(const QString &key) const;
     bool flush();
     void setCoalesceDelay(int ms);
 

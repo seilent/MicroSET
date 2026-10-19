@@ -21,6 +21,7 @@ private:
         schema.addApplier(u"alsa"_s);
         schema.addApplier(u"ssc"_s);
         schema.addApplier(u"rgb"_s);
+        schema.addApplier(u"backlight"_s);
         schema.addProvider(u"sessions"_s, [this] { return m_sessions; });
         schema.load(dir);
         return schema;
@@ -45,7 +46,7 @@ private slots:
                                                u"audio.eq.speaker.on"_s, u"audio.eq.usb.filters"_s, u"audio.eq.usb.name"_s,
                                                u"audio.eq.usb.on"_s, u"audio.hp_amp"_s, u"audio.hp_gain"_s,
                                                u"audio.max_volume"_s, u"audio.output"_s, u"audio.power_on_volume"_s,
-                                               u"audio.speaker_gain"_s, u"audio.volume_step"_s, u"display.auto_rotate"_s,
+                                               u"audio.speaker_gain"_s, u"audio.volume_step"_s, u"display.auto_rotate"_s, u"display.brightness"_s,
                                                u"display.orientation"_s, u"display.rotation"_s, u"meta.imported_power"_s,
                                                u"power.governor"_s, u"power.gpu_clock"_s, u"power.gpu_level"_s,
                                                u"power.profile"_s, u"power.tdp"_s, u"rgb.brightness"_s, u"rgb.enabled"_s,
@@ -71,8 +72,28 @@ private slots:
         QCOMPARE(schema.key(u"audio.hp_gain"_s)->defaultValue, QVariant(u"high"_s));
         QCOMPARE(schema.key(u"audio.hp_amp"_s)->defaultValue, QVariant(u"lohifi"_s));
         QCOMPARE(schema.key(u"audio.speaker_gain"_s)->defaultValue, QVariant(102u));
-        for (const QString &key : schema.keys(u"display"_s))
+        for (const QString &key : {u"display.orientation"_s, u"display.auto_rotate"_s, u"display.rotation"_s})
             QCOMPARE(schema.key(key)->applier, u"ssc"_s);
+        const Key &brightness = *schema.key(u"display.brightness"_s);
+        QCOMPARE(brightness.applier, u"backlight"_s);
+        QCOMPARE(brightness.defaultValue, QVariant(2442u));
+        QCOMPARE(brightness.min, std::optional<double>(1));
+        QCOMPARE(brightness.max, std::optional<double>(10000));
+        QCOMPARE(brightness.floorValue, std::optional<double>(1000));
+        QVERIFY(brightness.coalesce);
+        QVERIFY(brightness.overridable);
+        QVERIFY(!schema.accepts(brightness, 0u));
+        QVERIFY(schema.accepts(brightness, 1u));
+        QVERIFY(schema.accepts(brightness, 10000u));
+        QVERIFY(!schema.accepts(brightness, 10001u));
+        QCOMPARE(brightness.ui.value("scale"_L1).toDouble(), 100.0);
+        QJsonArray steps;
+        for (int percent = 10; percent <= 100; percent += 5)
+            steps << percent * 100;
+        QCOMPARE(brightness.ui.value("steps"_L1).toArray(), steps);
+        QCOMPARE(brightness.ui.value("order"_L1).toInt(), 0);
+        QCOMPARE(schema.key(u"display.orientation"_s)->ui.value("order"_L1).toInt(), 1);
+        QCOMPARE(schema.key(u"display.auto_rotate"_s)->ui.value("order"_L1).toInt(), 2);
         for (const QString &key : schema.keys(u"rgb"_s))
             QCOMPARE(schema.key(key)->applier, u"rgb"_s);
         QCOMPARE(schema.key(u"display.orientation"_s)->defaultValue, QVariant(u"portrait"_s));
@@ -142,7 +163,8 @@ private slots:
         QVERIFY(!schema.accepts(powerOn, 12u));
         QVERIFY(maxVolume.applier.isEmpty() && powerOn.applier.isEmpty());
         for (const QString &key : schema.keys({}))
-            QCOMPARE(schema.key(key)->overridable, key.startsWith("rgb."_L1) && key != "rgb.brightness"_L1);
+            QCOMPARE(schema.key(key)->overridable,
+                     (key.startsWith("rgb."_L1) && key != "rgb.brightness"_L1) || key == "display.brightness"_L1);
     }
 
     void eqFilters_data()
@@ -605,7 +627,7 @@ private slots:
         QCOMPARE(clock.value("type"_L1).toString(), u"u"_s);
         QCOMPARE(schema.describe(u"power.tdp"_s).size(), 1);
         QCOMPARE(schema.describe(u"powe"_s).size(), 0);
-        QCOMPARE(schema.describe({}).size(), 40);
+        QCOMPARE(schema.describe({}).size(), 41);
         QCOMPARE(schema.describe(u"audio"_s).size(), 26);
         QVERIFY(schema.describe(u"meta"_s).value("meta.imported_power"_L1).toObject().value("group"_L1).isNull());
     }

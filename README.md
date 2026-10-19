@@ -38,8 +38,8 @@ stored values. `Import` stores every key that has no stored value yet in one wri
 refused ones with a reason; stored keys are left as they are. `Set`, `Import`, `Override` and `ClearOverride` need uid
 0 or `wheel`, and are refused from a game.
 
-Keys marked `"override": true` (`rgb.enabled`, `rgb.hue`, `rgb.saturation`) take an `Override`: one per caller bus
-name per key, the newest wins, dropped on `ClearOverride` or when the caller leaves the bus. Overrides live in memory;
+Keys marked `"override": true` (`rgb.enabled`, `rgb.hue`, `rgb.saturation`, `display.brightness`) take an
+`Override`: one per caller bus name per key, the newest wins, dropped on `ClearOverride` or when the caller leaves the bus. Overrides live in memory;
 `libmicroset` sends them again when `microsetd` restarts. Under an override `Set` still stores its value, and it shows
 once the override is gone.
 
@@ -62,6 +62,12 @@ differs.
 `display.rotation` is live. While a caller holds it with `Subscribe` and `display.auto_rotate` is on, `microsetd`
 streams the SSC `device_orient` sensor over QRTR and follows it; otherwise it equals `display.orientation`. The stream
 stops before suspend and starts again after.
+
+`display.brightness` is basis points of the panel's `max_brightness` (1 to 10000, shown as %); `microsetd` writes it
+to `brightness` in `MICROSET_BACKLIGHT` (`/sys/class/backlight/backlight`). A `Set` with no override held writes the
+node first and is stored only if the write works. A level another process writes is recorded, a 0 is written over
+with the current level. At boot a stored level under the `floor` (10 %) is written and stored as the floor; a restart
+(marker in `RUNTIME_DIRECTORY`) writes the stored level as is. With nothing stored the current level is recorded.
 
 `rgb.enabled`, `rgb.hue`, `rgb.saturation` and `rgb.brightness` (% of the screen brightness) go to the stick LED MCU
 on `/dev/ttyHS2`. The LEDs follow the screen brightness and are off during suspend.

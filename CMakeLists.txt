@@ -27,6 +27,7 @@ target_link_libraries(microset_common PUBLIC Qt6::Core Qt6::DBus)
 add_library(microsetd_core STATIC
     daemon/alsaapplier.cpp
     daemon/alsalibcontrol.cpp
+    daemon/backlightapplier.cpp
     daemon/powerbridge.cpp
     daemon/qrtrlink.cpp
     daemon/rgbapplier.cpp

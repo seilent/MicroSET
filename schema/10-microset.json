@@ -303,6 +303,19 @@
       "label": "Bluetooth codec",
       "ui": {"order": 7}
     },
+    "display.brightness": {
+      "type": "u",
+      "default": 2442,
+      "min": 1,
+      "max": 10000,
+      "floor": 1000,
+      "store": "coalesce",
+      "override": true,
+      "applier": "backlight",
+      "group": "display",
+      "label": "Brightness",
+      "ui": {"order": 0, "scale": 100, "unit": "%", "steps": [1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500, 9000, 9500, 10000]}
+    },
     "display.orientation": {
       "type": "s",
       "default": "portrait",
@@ -310,7 +323,7 @@
       "applier": "ssc",
       "group": "display",
       "label": "Orientation",
-      "ui": {"order": 0, "values": {"portrait-flipped": "portrait flipped", "landscape-flipped": "landscape flipped"}, "apply": "confirm", "lock": {"key": "display.auto_rotate", "is": true, "show": "display.rotation"}}
+      "ui": {"order": 1, "values": {"portrait-flipped": "portrait flipped", "landscape-flipped": "landscape flipped"}, "apply": "confirm", "lock": {"key": "display.auto_rotate", "is": true, "show": "display.rotation"}}
     },
     "display.auto_rotate": {
       "type": "b",
@@ -318,7 +331,7 @@
       "applier": "ssc",
       "group": "display",
       "label": "Auto rotate",
-      "ui": {"order": 1, "apply": "confirm"}
+      "ui": {"order": 2, "apply": "confirm"}
     },
     "display.rotation": {
       "type": "s",

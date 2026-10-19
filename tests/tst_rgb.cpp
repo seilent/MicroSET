@@ -74,10 +74,11 @@ private:
 
         Fixture()
         {
-            for (const QString &name : {u"power"_s, u"alsa"_s, u"ssc"_s, u"rgb"_s})
+            for (const QString &name : {u"power"_s, u"alsa"_s, u"ssc"_s, u"rgb"_s, u"backlight"_s})
                 schema.addApplier(name);
             schema.addProvider(u"sessions"_s, [] { return QStringList{u"steam"_s}; });
             schema.load(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+            h.writeFile(u"backlight/actual_brightness"_s, "4095\n");
             if (!h.startBus())
                 qFatal("no test bus");
             logind = std::make_unique<FakeLogind>(h.address());

@@ -48,7 +48,7 @@ QJsonObject FakeMicroSetd::describe(const QStringList &files)
     for (const QString &file : files)
         QFile::copy(file, dir.filePath(QFileInfo(file).fileName()));
     Schema schema;
-    for (const QString &applier : {u"power"_s, u"alsa"_s, u"ssc"_s, u"rgb"_s})
+    for (const QString &applier : {u"power"_s, u"alsa"_s, u"ssc"_s, u"rgb"_s, u"backlight"_s})
         schema.addApplier(applier);
     schema.addProvider(u"sessions"_s, [] { return QStringList{u"microdap"_s, u"microemu"_s, u"steam"_s}; });
     schema.load(dir.path());

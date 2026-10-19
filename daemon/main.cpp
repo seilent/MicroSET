@@ -1,6 +1,7 @@
 #include "alsaapplier.h"
 #include "alsalibcontrol.h"
 #include "auth.h"
+#include "backlightapplier.h"
 #include "powerbridge.h"
 #include "qrtrlink.h"
 #include "rgbapplier.h"
@@ -59,6 +60,7 @@ int main(int argc, char **argv)
     schema.addApplier(u"alsa"_s);
     schema.addApplier(u"ssc"_s);
     schema.addApplier(u"rgb"_s);
+    schema.addApplier(u"backlight"_s);
     schema.addProvider(u"sessions"_s, [&sessions] { return sessions.defaults(); });
     schema.load(qEnvironmentVariable("MICROSET_SCHEMA_DIR", QStringLiteral(MICROSET_SCHEMA_DIR)));
 
@@ -73,7 +75,10 @@ int main(int argc, char **argv)
 
     PowerBridge bridge(bus, settings);
     Auth auth(bus, qEnvironmentVariable("MICROOS_PROC", u"/proc"_s));
-    Service service(bus, settings, auth, bridge);
+    const QString backlight = qEnvironmentVariable("MICROSET_BACKLIGHT", u"/sys/class/backlight/backlight"_s);
+    BacklightApplier light(settings, backlight, qEnvironmentVariable("RUNTIME_DIRECTORY", u"/run/microset"_s));
+    light.start();
+    Service service(bus, settings, auth, bridge, light);
     service.addLive(u"display.rotation"_s);
     SleepInhibitor sleep(bus, u"stop the rotation sensor and the stick LEDs"_s);
     SscRotation rotation(new QrtrLink, &sleep);
@@ -95,8 +100,7 @@ int main(int argc, char **argv)
     AlsaLibControl control(qEnvironmentVariable("MICROSET_ALSA_CARD", u"PocketMICRO2"_s));
     AlsaApplier alsa(bus, settings, control, qEnvironmentVariable("MICROSET_ALSA_DEVICES", u"/dev/snd"_s));
     alsa.start();
-    RgbApplier rgb(settings, &sleep, qEnvironmentVariable("MICROSET_RGB_DEVICE", u"/dev/ttyHS2"_s),
-                   qEnvironmentVariable("MICROSET_BACKLIGHT", u"/sys/class/backlight/backlight"_s));
+    RgbApplier rgb(settings, &sleep, qEnvironmentVariable("MICROSET_RGB_DEVICE", u"/dev/ttyHS2"_s), backlight);
     rgb.start();
     QObject::connect(&sleep, &SleepInhibitor::prepareForSleep, &settings, [&settings](bool start) {
         if (start)

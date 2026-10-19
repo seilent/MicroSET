@@ -1,4 +1,5 @@
 #include "auth.h"
+#include "backlightapplier.h"
 #include "fakelogind.h"
 #include "harness.h"
 #include "powerbridge.h"
@@ -257,12 +258,13 @@ private:
         Settings settings{schema, store};
         std::unique_ptr<PowerBridge> bridge;
         std::unique_ptr<Auth> auth;
+        std::unique_ptr<BacklightApplier> backlight;
         std::unique_ptr<Service> service;
         std::unique_ptr<SscApplier> applier;
 
         Daemon()
         {
-            for (const QString &name : {u"power"_s, u"alsa"_s, u"ssc"_s, u"rgb"_s})
+            for (const QString &name : {u"power"_s, u"alsa"_s, u"ssc"_s, u"rgb"_s, u"backlight"_s})
                 schema.addApplier(name);
             schema.addProvider(u"sessions"_s, [] { return QStringList{u"steam"_s}; });
             schema.load(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
@@ -275,6 +277,7 @@ private:
         {
             applier.reset();
             service.reset();
+            backlight.reset();
             QDBusConnection::disconnectFromBus(u"microsetd"_s);
         }
 
@@ -283,7 +286,8 @@ private:
             QDBusConnection bus = QDBusConnection::connectToBus(h.address(), u"microsetd"_s);
             bridge = std::make_unique<PowerBridge>(bus, settings);
             auth = std::make_unique<Auth>(bus, h.path(u"proc"_s));
-            service = std::make_unique<Service>(bus, settings, *auth, *bridge);
+            backlight = std::make_unique<BacklightApplier>(settings, h.path(u"backlight"_s), h.path(u"run"_s));
+            service = std::make_unique<Service>(bus, settings, *auth, *bridge, *backlight);
             service->addLive(Rotation);
             applier = std::make_unique<SscApplier>(settings, rotation);
             QObject::connect(service.get(), &Service::subscribersChanged, applier.get(),
