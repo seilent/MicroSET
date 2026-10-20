@@ -574,9 +574,12 @@ private slots:
     void undervoltOwnerChangeWhilePending()
     {
         QVERIFY(up());
+        QVERIFY(h->client().connect(u"net.seilent.MicroSet"_s, u"/net/seilent/MicroSet"_s, u"net.seilent.MicroSet1"_s,
+                                    u"HoldRefused"_s, this, SLOT(holdRefused(QString, QString))));
         QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"net.seilent.MicroSet1.Error.HoldPending"_s);
         powerd->stop();
         QTRY_VERIFY(h->daemonLog().contains("powerd left the bus"_L1));
+        QTRY_COMPARE(refusals, QStringList{u"power.gpu_undervolt powerd restarted"_s});
         powerd = std::make_unique<FakePowerd>(h->address());
         QVERIFY(powerd->start());
         waitPushes(2);
@@ -584,6 +587,11 @@ private slots:
         QTest::qWait(300);
         QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"off"_s));
         QCOMPARE(powerd->undervolts, QStringList{u"off"_s});
+        QCOMPARE(refusals, QStringList{u"power.gpu_undervolt powerd restarted"_s});
+        powerd->stop();
+        QTRY_VERIFY(h->daemonLog().count("powerd left the bus"_L1) == 2);
+        QTest::qWait(100);
+        QCOMPARE(refusals.size(), 1);
     }
 
     void powerdAbsent()

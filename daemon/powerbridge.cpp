@@ -135,6 +135,8 @@ void PowerBridge::ownerChanged(const QString &, const QString &, const QString &
 {
     if (owner == m_owner)
         return;
+    if (m_pending)
+        emit holdRefused(UndervoltKey, u"powerd restarted"_s);
     m_owner = owner;
     ++m_generation;
     m_recording = false;
