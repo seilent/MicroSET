@@ -52,9 +52,10 @@ once the override is gone.
 100 %, and bit perfect output needs 100. `audio.power_on_volume` (0 keeps the last level, else 10 to 100 % in steps of
 5) is set once per boot on the default output. `audio.bt_codec_headphones` (the device streaming to headphones) is
 `auto`, `aptx`, `aptx_hd`, `aac`, `ldac` or `sbc`. `audio.bt_codec` (a phone streaming to the device, off the page) is
-`auto`, `aptx`, `aac`, `ldac` or `sbc`. A store that holds a non `auto` `audio.bt_codec` and no
-`audio.bt_codec_headphones` gets it moved to `audio.bt_codec_headphones` once at start, in one write with
-`meta.moved_bt_codec`. An `Import` with `audio.bt_codec` and no `audio.bt_codec_headphones` takes the value as
+`auto`, `aptx`, `aac` or `sbc`. A store that holds a non `auto` `audio.bt_codec` valid for `audio.bt_codec_headphones`
+(`ldac` included) and no `audio.bt_codec_headphones` gets it moved to `audio.bt_codec_headphones` once at start, in one
+write with `meta.moved_bt_codec`; any other stored `audio.bt_codec` outside its values is written back as `auto` at
+start. An `Import` with `audio.bt_codec` and no `audio.bt_codec_headphones` takes the value as
 `audio.bt_codec_headphones`.
 
 Power settings are applied by MicroOS `microos-powerd`; `microsetd` pushes the stored values to it and records the

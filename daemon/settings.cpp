@@ -97,21 +97,32 @@ void Settings::moveBtCodec()
     const QString marker = QStringLiteral("meta.moved_bt_codec");
     const QString receiver = QStringLiteral("audio.bt_codec");
     const QString headphones = QStringLiteral("audio.bt_codec_headphones");
-    if (!m_schema.key(marker) || !m_schema.key(headphones) || value(marker).toBool())
+    const Key *target = m_schema.key(headphones);
+    if (!m_schema.key(marker) || !m_schema.key(receiver) || !target)
         return;
-    const QVariant old = stored(receiver);
-    const bool move = old.isValid() && old != QStringLiteral("auto") && !isStored(headphones);
-    QVariantMap batch = {{marker, true}};
-    if (move) {
+    const bool moved = value(marker).toBool();
+    const QVariant old =
+        m_store.contains(receiver) ? Schema::fromJson(target->type, m_store.value(receiver)) : QVariant();
+    const bool move = !moved && old.isValid() && m_schema.accepts(*target, old) && old != QStringLiteral("auto")
+        && !isStored(headphones);
+    const bool drop = !move && m_store.contains(receiver) && !stored(receiver).isValid();
+    QVariantMap batch;
+    if (!moved)
+        batch.insert(marker, true);
+    if (move)
         batch.insert(headphones, old);
+    if (move || drop)
         batch.insert(receiver, QStringLiteral("auto"));
-    }
+    if (batch.isEmpty())
+        return;
     if (store(batch) == Failed) {
         qWarning("cannot write the state file, %s not moved", qPrintable(receiver));
         return;
     }
     if (move)
         qInfo("moved %s %s to %s", qPrintable(receiver), qPrintable(old.toString()), qPrintable(headphones));
+    else if (drop)
+        qInfo("stored %s %s is not a phone codec offer, now auto", qPrintable(receiver), qPrintable(old.toString()));
 }
 
 Settings::Result Settings::store(const QVariantMap &values)

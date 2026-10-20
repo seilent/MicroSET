@@ -172,14 +172,14 @@ private slots:
         QTest::newRow("nothing stored") << QByteArray("{}") << u"auto"_s << u"auto"_s;
         QTest::newRow("auto") << QByteArray(R"({"audio.bt_codec": "auto"})") << u"auto"_s << u"auto"_s;
         QTest::newRow("headphones stored")
-            << QByteArray(R"({"audio.bt_codec": "ldac", "audio.bt_codec_headphones": "sbc"})") << u"ldac"_s << u"sbc"_s;
+            << QByteArray(R"({"audio.bt_codec": "aac", "audio.bt_codec_headphones": "sbc"})") << u"aac"_s << u"sbc"_s;
         QTest::newRow("headphones stored auto")
-            << QByteArray(R"({"audio.bt_codec": "ldac", "audio.bt_codec_headphones": "auto"})") << u"ldac"_s
+            << QByteArray(R"({"audio.bt_codec": "aac", "audio.bt_codec_headphones": "auto"})") << u"aac"_s
             << u"auto"_s;
         QTest::newRow("invalid receiver")
-            << QByteArray(R"({"audio.bt_codec": "aptx_hd"})") << u"auto"_s << u"auto"_s;
+            << QByteArray(R"({"audio.bt_codec": "foo"})") << u"auto"_s << u"auto"_s;
         QTest::newRow("invalid headphones")
-            << QByteArray(R"({"audio.bt_codec": "ldac", "audio.bt_codec_headphones": "foo"})") << u"ldac"_s
+            << QByteArray(R"({"audio.bt_codec": "aac", "audio.bt_codec_headphones": "foo"})") << u"aac"_s
             << u"auto"_s;
         QTest::newRow("moved before")
             << QByteArray(R"({"audio.bt_codec": "aac", "meta.moved_bt_codec": true})") << u"aac"_s << u"auto"_s;

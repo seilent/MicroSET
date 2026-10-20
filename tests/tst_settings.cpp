@@ -119,6 +119,66 @@ private slots:
         QVERIFY(f.settings->clearOverride(u"microdap.level"_s, u":1.5"_s));
         QCOMPARE(f.settings->value(u"microdap.level"_s), QVariant(20u));
     }
+
+    void phoneCodecOutsideEnumReadsDefault()
+    {
+        Harness h;
+        Schema schema;
+        schema.addApplier(u"power"_s);
+        schema.addApplier(u"alsa"_s);
+        schema.addProvider(u"sessions"_s, [] { return QStringList{u"steam"_s}; });
+        schema.load(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+        h.writeState(R"({"audio.bt_codec": "ldac", "meta.moved_bt_codec": true})");
+        Store store(h.path(u"state"_s));
+        store.load();
+        Settings settings(schema, store);
+        QCOMPARE(settings.value(u"audio.bt_codec"_s), QVariant(u"auto"_s));
+        QVERIFY(!settings.stored(u"audio.bt_codec"_s).isValid());
+        QTest::ignoreMessage(QtInfoMsg, "stored audio.bt_codec ldac is not a phone codec offer, now auto");
+        settings.moveBtCodec();
+        QCOMPARE(settings.value(u"audio.bt_codec_headphones"_s), QVariant(u"auto"_s));
+        Store reread(h.path(u"state"_s));
+        reread.load();
+        QCOMPARE(reread.value(u"audio.bt_codec"_s).toString(), u"auto"_s);
+        QCOMPARE(settings.stored(u"audio.bt_codec"_s), QVariant(u"auto"_s));
+    }
+
+    void phoneCodecOutsideEnumRewrittenBesideHeadphones()
+    {
+        Harness h;
+        Schema schema;
+        schema.addApplier(u"power"_s);
+        schema.addApplier(u"alsa"_s);
+        schema.addProvider(u"sessions"_s, [] { return QStringList{u"steam"_s}; });
+        schema.load(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+        h.writeState(R"({"audio.bt_codec": "ldac", "audio.bt_codec_headphones": "sbc"})");
+        Store store(h.path(u"state"_s));
+        store.load();
+        Settings settings(schema, store);
+        settings.moveBtCodec();
+        Store reread(h.path(u"state"_s));
+        reread.load();
+        QCOMPARE(reread.value(u"audio.bt_codec"_s).toString(), u"auto"_s);
+        QCOMPARE(reread.value(u"audio.bt_codec_headphones"_s).toString(), u"sbc"_s);
+        QVERIFY(reread.value(u"meta.moved_bt_codec"_s).toBool());
+    }
+
+    void phoneCodecLdacMovesToHeadphones()
+    {
+        Harness h;
+        Schema schema;
+        schema.addApplier(u"power"_s);
+        schema.addApplier(u"alsa"_s);
+        schema.addProvider(u"sessions"_s, [] { return QStringList{u"steam"_s}; });
+        schema.load(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+        h.writeState(R"({"audio.bt_codec": "ldac"})");
+        Store store(h.path(u"state"_s));
+        store.load();
+        Settings settings(schema, store);
+        settings.moveBtCodec();
+        QCOMPARE(settings.value(u"audio.bt_codec_headphones"_s), QVariant(u"ldac"_s));
+        QCOMPARE(settings.value(u"audio.bt_codec"_s), QVariant(u"auto"_s));
+    }
 };
 
 QTEST_GUILESS_MAIN(SettingsTest)

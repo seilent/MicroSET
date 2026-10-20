@@ -305,7 +305,7 @@
     "audio.bt_codec": {
       "type": "s",
       "default": "auto",
-      "enum": ["auto", "aptx", "aac", "ldac", "sbc"],
+      "enum": ["auto", "aptx", "aac", "sbc"],
       "applier": null,
       "group": null,
       "label": "Bluetooth phone codec"

@@ -547,7 +547,7 @@ private slots:
         h->writeState(R"({"audio.hp_amp": "ulp", "audio.output": "bt"})");
         QVERIFY(up());
         QCOMPARE(stored(u"audio.output"_s), (QVariantMap{{u"audio.output"_s, u"bt"_s}}));
-        QCOMPARE(set(u"audio.bt_codec"_s, u"ldac"_s), QString());
+        QCOMPARE(set(u"audio.bt_codec"_s, u"aptx"_s), QString());
         MicroSet::Client client(h->client());
         QSignalSpy spy(&client, &MicroSet::Client::changed);
         const int fd = ::inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
@@ -581,7 +581,7 @@ private slots:
         ::close(fd);
         QCOMPARE(get(u"audio.output"_s), QVariant(u"bt"_s));
         QCOMPARE(get(u"audio.hp_amp"_s), QVariant(u"ulp"_s));
-        QCOMPARE(get(u"audio.bt_codec"_s), QVariant(u"ldac"_s));
+        QCOMPARE(get(u"audio.bt_codec"_s), QVariant(u"aptx"_s));
         QCOMPARE(get(u"audio.bt_codec_headphones"_s), QVariant(u"aac"_s));
         QCOMPARE(get(u"audio.volume_step"_s), QVariant(10u));
         QCOMPARE(get(u"audio.eq.usb.filters"_s), QVariant(filters));
@@ -619,11 +619,13 @@ private slots:
     {
         QVERIFY(up());
         QCOMPARE(get(u"audio.bt_codec_headphones"_s), QVariant(u"auto"_s));
-        QCOMPARE(set(u"audio.bt_codec"_s, u"ldac"_s), QString());
+        QCOMPARE(set(u"audio.bt_codec"_s, u"ldac"_s), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        QCOMPARE(set(u"audio.bt_codec"_s, u"aac"_s), QString());
         QCOMPARE(set(u"audio.bt_codec_headphones"_s, u"aptx_hd"_s), QString());
         QCOMPARE(get(u"audio.bt_codec_headphones"_s), QVariant(u"aptx_hd"_s));
-        QCOMPARE(get(u"audio.bt_codec"_s), QVariant(u"ldac"_s));
+        QCOMPARE(get(u"audio.bt_codec"_s), QVariant(u"aac"_s));
         QCOMPARE(set(u"audio.bt_codec"_s, u"aptx_hd"_s), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        QCOMPARE(set(u"audio.bt_codec_headphones"_s, u"ldac"_s), QString());
     }
 
     void btCodecMoved()
@@ -635,10 +637,10 @@ private slots:
         QCOMPARE(get(u"meta.moved_bt_codec"_s), QVariant(true));
         QVERIFY(h->daemonLog().contains("moved audio.bt_codec aptx to audio.bt_codec_headphones\n"_L1));
         QCOMPARE(set(u"meta.moved_bt_codec"_s, false), u"net.seilent.MicroSet1.Error.ReadOnly"_s);
-        QCOMPARE(set(u"audio.bt_codec"_s, u"ldac"_s), QString());
+        QCOMPARE(set(u"audio.bt_codec"_s, u"sbc"_s), QString());
         h->stopDaemon();
         QVERIFY(h->startDaemon());
-        QCOMPARE(get(u"audio.bt_codec"_s), QVariant(u"ldac"_s));
+        QCOMPARE(get(u"audio.bt_codec"_s), QVariant(u"sbc"_s));
         QCOMPARE(get(u"audio.bt_codec_headphones"_s), QVariant(u"aptx"_s));
         QVERIFY(!h->daemonLog().contains("moved audio.bt_codec"_L1));
     }

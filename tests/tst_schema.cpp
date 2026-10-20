@@ -134,7 +134,7 @@ private slots:
         }
         QCOMPARE(schema.key(u"audio.bt_codec"_s)->defaultValue, QVariant(u"auto"_s));
         QCOMPARE(schema.key(u"audio.bt_codec"_s)->enumValues,
-                 (QVariantList{u"auto"_s, u"aptx"_s, u"aac"_s, u"ldac"_s, u"sbc"_s}));
+                 (QVariantList{u"auto"_s, u"aptx"_s, u"aac"_s, u"sbc"_s}));
         QCOMPARE(schema.key(u"audio.bt_codec_headphones"_s)->defaultValue, QVariant(u"auto"_s));
         QCOMPARE(schema.key(u"audio.bt_codec_headphones"_s)->enumValues,
                  (QVariantList{u"auto"_s, u"aptx"_s, u"aptx_hd"_s, u"aac"_s, u"ldac"_s, u"sbc"_s}));
