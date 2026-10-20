@@ -48,5 +48,9 @@
       <arg name="key" type="s"/>
       <arg name="value" type="v"/>
     </signal>
+    <signal name="HoldRefused">
+      <arg name="key" type="s"/>
+      <arg name="reason" type="s"/>
+    </signal>
   </interface>
 </node>

@@ -9,6 +9,7 @@
 #include "sleepinhibitor.h"
 #include "sscapplier.h"
 #include "ssclink.h"
+#include "undervoltsprovider.h"
 #include "sscrotation.h"
 #include "sscwire.h"
 #include "store.h"
@@ -256,6 +257,7 @@ private:
         Schema schema;
         Store store{h.path(u"state"_s)};
         Settings settings{schema, store};
+        UndervoltsProvider undervolts{h.path(u"gpu-undervolt.conf"_s), h.path(u"available_frequencies"_s)};
         std::unique_ptr<PowerBridge> bridge;
         std::unique_ptr<Auth> auth;
         std::unique_ptr<BacklightApplier> backlight;
@@ -267,6 +269,8 @@ private:
             for (const QString &name : {u"power"_s, u"alsa"_s, u"ssc"_s, u"rgb"_s, u"backlight"_s})
                 schema.addApplier(name);
             schema.addProvider(u"sessions"_s, [] { return QStringList{u"steam"_s}; });
+            schema.addProvider(u"gpu_undervolts"_s, [this] { return undervolts.names(); },
+                               [this] { return undervolts.labels(); });
             schema.load(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
             if (!h.startBus())
                 qFatal("no test bus");
@@ -284,7 +288,7 @@ private:
         void start(SscRotation &rotation)
         {
             QDBusConnection bus = QDBusConnection::connectToBus(h.address(), u"microsetd"_s);
-            bridge = std::make_unique<PowerBridge>(bus, settings);
+            bridge = std::make_unique<PowerBridge>(bus, settings, undervolts);
             auth = std::make_unique<Auth>(bus, h.path(u"proc"_s));
             backlight = std::make_unique<BacklightApplier>(settings, h.path(u"backlight"_s), h.path(u"run"_s));
             service = std::make_unique<Service>(bus, settings, *auth, *bridge, *backlight);

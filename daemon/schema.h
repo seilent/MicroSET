@@ -45,9 +45,10 @@ class Schema
 {
 public:
     using Provider = std::function<QStringList()>;
+    using Labels = std::function<QJsonObject()>;
 
     void addApplier(const QString &name);
-    void addProvider(const QString &name, Provider provider);
+    void addProvider(const QString &name, Provider provider, Labels labels = {});
     void load(const QString &dir);
 
     const Key *key(const QString &name) const;
@@ -72,4 +73,5 @@ private:
     QMap<QString, Group> m_groups;
     QSet<QString> m_appliers;
     QMap<QString, Provider> m_providers;
+    QMap<QString, Labels> m_labels;
 };

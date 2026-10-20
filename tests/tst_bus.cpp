@@ -26,13 +26,28 @@ class BusTest : public QObject
 {
     Q_OBJECT
 
+public slots:
+    void holdRefused(const QString &key, const QString &reason) { refusals << key + u' ' + reason; }
+
 private:
+    static inline const QString Low =
+        u"305000000:64,400000000:128,441600000:128,490000000:128,525000000:144,587000000:192"_s;
+    static inline const QByteArray Freqs = "305000000 400000000 441600000 490000000 525000000 587000000\n";
+
     std::unique_ptr<Harness> h;
     std::unique_ptr<FakePowerd> powerd;
+    QStringList refusals;
+
+    void writeUndervolts() const
+    {
+        h->writeFile(u"gpu-undervolt.conf"_s, "low Low " + Low.toUtf8() + '\n');
+        h->writeFile(u"available_frequencies"_s, Freqs);
+    }
 
     bool up(bool withPowerd = true)
     {
         h->writeSessions();
+        writeUndervolts();
         if (!h->startBus())
             return false;
         powerd = std::make_unique<FakePowerd>(h->address());
@@ -149,6 +164,7 @@ private slots:
     void init()
     {
         h = std::make_unique<Harness>();
+        refusals.clear();
     }
 
     void cleanup()
@@ -168,7 +184,7 @@ private slots:
         QFile xml(QStringLiteral(MICROSET_SOURCE_DIR) + u"/data/net.seilent.MicroSet1.xml"_s);
         QVERIFY(xml.open(QIODevice::ReadOnly));
         const QStringList shipped = members(QString::fromUtf8(xml.readAll()));
-        QCOMPARE(shipped.size(), 11);
+        QCOMPARE(shipped.size(), 12);
         QCOMPARE(members(reply.arguments().value(0).toString()), shipped);
     }
 
@@ -353,6 +369,223 @@ private slots:
         QCOMPARE(powerd->sets, QStringList{u"Power1.Profile=performance"_s});
     }
 
+    void undervoltBootPush()
+    {
+        QVERIFY(up());
+        QCOMPARE(powerd->undervolts, QStringList{u"off"_s});
+        QVERIFY(h->daemonLog().contains("and power.gpu_undervolt=off"_L1));
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"off"_s));
+    }
+
+    void undervoltPresets()
+    {
+        QVERIFY(up());
+        QJsonObject keys = QJsonDocument::fromJson(h->call(u"Schema"_s, {u"power.gpu_undervolt"_s})
+                                                       .arguments().value(0).toString().toUtf8()).object();
+        QCOMPARE(keys.value(u"power.gpu_undervolt"_s).toObject().value(u"enum_from"_s).toString(), u"gpu_undervolts"_s);
+        QCOMPARE(keys.value(u"power.gpu_undervolt"_s).toObject().value(u"ui"_s).toObject().value(u"values"_s).toObject(),
+                 (QJsonObject{{u"off"_s, u"Off"_s}, {u"low"_s, u"Low"_s}}));
+        h->writeFile(u"available_frequencies"_s, "305000000 400000000 441600000 490000000 525000000\n");
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        QVERIFY(powerd->requests.isEmpty());
+        h->writeFile(u"available_frequencies"_s, Freqs);
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"lower"_s), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        QCOMPARE(set(u"power.gpu_undervolt_levels"_s, Low), u"net.seilent.MicroSet1.Error.ReadOnly"_s);
+        QCOMPARE(set(u"power.gpu_tuning_fallback"_s, QString()), u"net.seilent.MicroSet1.Error.ReadOnly"_s);
+        QCOMPARE(set(u"power.gpu_tuning_trip"_s, QString()), u"net.seilent.MicroSet1.Error.ReadOnly"_s);
+    }
+
+    void undervoltDeeperPendingThenAccepted()
+    {
+        QVERIFY(up());
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"net.seilent.MicroSet1.Error.HoldPending"_s);
+        QCOMPARE(powerd->requests, QStringList{u"1 low "_s + Low});
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"off"_s));
+        QVERIFY(!h->readState().contains("\"power.gpu_undervolt\""));
+        powerd->emitUndervoltDone(1, u"accepted"_s, u"low"_s, Low);
+        QTRY_COMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"low"_s));
+        QCOMPARE(get(u"power.gpu_undervolt_levels"_s), QVariant(Low));
+        QTRY_COMPARE(powerd->undervolts.last(), u"low "_s + Low);
+        powerd->stop();
+        QTRY_VERIFY(h->daemonLog().contains("powerd left the bus"_L1));
+        powerd = std::make_unique<FakePowerd>(h->address());
+        QVERIFY(powerd->start());
+        waitPushes(2);
+        QCOMPARE(powerd->undervolts, QStringList{u"low "_s + Low});
+    }
+
+    void undervoltAcceptShallowerAccept()
+    {
+        QVERIFY(up());
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"net.seilent.MicroSet1.Error.HoldPending"_s);
+        powerd->emitUndervoltDone(1, u"accepted"_s, u"low"_s, Low);
+        QTRY_COMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"low"_s));
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), QString());
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"off"_s), QString());
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"off"_s));
+        QTRY_COMPARE(powerd->undervolts.last(), u"off"_s);
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"net.seilent.MicroSet1.Error.HoldPending"_s);
+        QCOMPARE(powerd->requests, (QStringList{u"1 low "_s + Low, u"2 low "_s + Low}));
+        powerd->emitUndervoltDone(1, u"accepted"_s, u"low"_s, Low);
+        QTest::qWait(300);
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"off"_s));
+        powerd->emitUndervoltDone(2, u"accepted"_s, u"low"_s, Low);
+        QTRY_COMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"low"_s));
+        QTRY_COMPARE(powerd->undervolts.last(), u"low "_s + Low);
+    }
+
+    void undervoltTwoRefusals()
+    {
+        QVERIFY(up());
+        QVERIFY(h->client().connect(u"net.seilent.MicroSet"_s, u"/net/seilent/MicroSet"_s, u"net.seilent.MicroSet1"_s,
+                                    u"HoldRefused"_s, this, SLOT(holdRefused(QString, QString))));
+        for (uint serial : {1u, 2u}) {
+            QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"net.seilent.MicroSet1.Error.HoldPending"_s);
+            powerd->emitUndervoltDone(serial, u"refused A not held"_s, u"low"_s, Low);
+            QTRY_COMPARE(refusals.size(), int(serial));
+        }
+        QCOMPARE(refusals, (QStringList{u"power.gpu_undervolt A not held"_s, u"power.gpu_undervolt A not held"_s}));
+        powerd->emitUndervoltDone(2, u"accepted"_s, u"low"_s, Low);
+        QTest::qWait(300);
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"off"_s));
+        powerd->requestError = u"org.freedesktop.DBus.Error.LimitsExceeded"_s;
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"org.freedesktop.DBus.Error.LimitsExceeded"_s);
+        powerd->requestError = u"org.freedesktop.DBus.Error.InvalidArgs"_s;
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"off"_s));
+    }
+
+    void undervoltFallbackBeforePush()
+    {
+        h->writeState(R"({"power.gpu_undervolt": "low", "power.gpu_undervolt_levels": ")" + Low.toUtf8() + R"("})");
+        h->writeSessions();
+        writeUndervolts();
+        QVERIFY(h->startBus());
+        powerd = std::make_unique<FakePowerd>(h->address());
+        powerd->values[FakePowerd::Power1][u"GpuTuningFallback"_s] = u"unclean"_s;
+        QVERIFY(powerd->start());
+        QVERIFY(h->startDaemon());
+        waitPushes(1);
+        QCOMPARE(powerd->undervolts, QStringList{u"off"_s});
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"off"_s));
+        QCOMPARE(get(u"power.gpu_tuning_fallback"_s), QVariant(u"unclean"_s));
+        QCOMPARE(get(u"power.gpu_undervolt_levels"_s), QVariant(QString()));
+    }
+
+    void undervoltLiveFallback()
+    {
+        QVERIFY(up());
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"net.seilent.MicroSet1.Error.HoldPending"_s);
+        powerd->emitUndervoltDone(1, u"accepted"_s, u"low"_s, Low);
+        QTRY_COMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"low"_s));
+        powerd->emitChanged(FakePowerd::Power1, {{u"GpuUndervoltActive"_s, u"low"_s}});
+        QTRY_COMPARE(get(u"power.gpu_undervolt_active"_s), QVariant(u"low"_s));
+        QVERIFY(!h->readState().contains("power.gpu_undervolt_active"));
+        powerd->emitChanged(FakePowerd::Power1, {{u"GpuTuningFallback"_s, u"turbo"_s}});
+        QTRY_VERIFY(h->daemonLog().contains("power.gpu_tuning_fallback=turbo, outside the schema"_L1));
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"low"_s));
+        powerd->emitChanged(FakePowerd::Power1, {{u"GpuTuningFallback"_s, u"hang"_s}});
+        QTRY_COMPARE(get(u"power.gpu_tuning_fallback"_s), QVariant(u"hang"_s));
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"off"_s));
+        QTRY_COMPARE(powerd->undervolts.last(), u"off"_s);
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"net.seilent.MicroSet1.Error.HoldPending"_s);
+        powerd->emitUndervoltDone(2, u"accepted"_s, u"low"_s, Low);
+        QTRY_COMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"low"_s));
+        QCOMPARE(get(u"power.gpu_tuning_fallback"_s), QVariant(QString()));
+    }
+
+    void tuningTripKeepsKeys()
+    {
+        QVERIFY(up());
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"net.seilent.MicroSet1.Error.HoldPending"_s);
+        powerd->emitUndervoltDone(1, u"accepted"_s, u"low"_s, Low);
+        QTRY_COMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"low"_s));
+        QCOMPARE(get(u"power.gpu_tuning_trip"_s), QVariant(QString()));
+        powerd->emitChanged(FakePowerd::Power1, {{u"GpuTuningTrip"_s, u"turbo"_s}});
+        QTRY_VERIFY(h->daemonLog().contains("power.gpu_tuning_trip=turbo, outside the schema"_L1));
+        QCOMPARE(get(u"power.gpu_tuning_trip"_s), QVariant(QString()));
+        powerd->emitChanged(FakePowerd::Power1, {{u"GpuTuningTrip"_s, u"unclean"_s}});
+        QTRY_VERIFY(h->daemonLog().contains("power.gpu_tuning_trip=unclean, outside the schema"_L1));
+        powerd->emitChanged(FakePowerd::Power1, {{u"GpuTuningTrip"_s, u"hang"_s}});
+        QTRY_COMPARE(get(u"power.gpu_tuning_trip"_s), QVariant(u"hang"_s));
+        QTest::qWait(300);
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"low"_s));
+        QCOMPARE(get(u"power.gpu_undervolt_levels"_s), QVariant(Low));
+        QCOMPARE(get(u"power.gpu_tuning_fallback"_s), QVariant(QString()));
+        QCOMPARE(powerd->undervolts.last(), u"low "_s + Low);
+        QVERIFY(!h->readState().contains("power.gpu_tuning_trip"));
+        powerd->stop();
+        QTRY_VERIFY(h->daemonLog().contains("powerd left the bus"_L1));
+        QCOMPARE(get(u"power.gpu_tuning_trip"_s), QVariant(QString()));
+        powerd = std::make_unique<FakePowerd>(h->address());
+        QVERIFY(powerd->start());
+        waitPushes(2);
+        QCOMPARE(get(u"power.gpu_tuning_trip"_s), QVariant(QString()));
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"low"_s));
+        QCOMPARE(powerd->undervolts, QStringList{u"low "_s + Low});
+    }
+
+    void tuningTripBeforePush()
+    {
+        h->writeState(R"({"power.gpu_undervolt": "low", "power.gpu_undervolt_levels": ")" + Low.toUtf8() + R"("})");
+        h->writeSessions();
+        writeUndervolts();
+        QVERIFY(h->startBus());
+        powerd = std::make_unique<FakePowerd>(h->address());
+        powerd->values[FakePowerd::Power1][u"GpuTuningTrip"_s] = u"gmu"_s;
+        QVERIFY(powerd->start());
+        QVERIFY(h->startDaemon());
+        waitPushes(1);
+        QCOMPARE(powerd->undervolts, QStringList{u"low "_s + Low});
+        QCOMPARE(get(u"power.gpu_tuning_trip"_s), QVariant(u"gmu"_s));
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"low"_s));
+        QCOMPARE(get(u"power.gpu_tuning_fallback"_s), QVariant(QString()));
+    }
+
+    void undervoltRowGoneStillPushed()
+    {
+        h->writeState(R"({"power.gpu_undervolt": "low", "power.gpu_undervolt_levels": ")" + Low.toUtf8() + R"("})");
+        h->writeSessions();
+        h->writeFile(u"gpu-undervolt.conf"_s, "");
+        h->writeFile(u"available_frequencies"_s, Freqs);
+        QVERIFY(h->startBus());
+        powerd = std::make_unique<FakePowerd>(h->address());
+        QVERIFY(powerd->start());
+        QVERIFY(h->startDaemon());
+        waitPushes(1);
+        QCOMPARE(powerd->undervolts, QStringList{u"low "_s + Low});
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"off"_s));
+        powerd->emitChanged(FakePowerd::Power1, {{u"GpuTuningFallback"_s, u"changed"_s}});
+        QTRY_COMPARE(get(u"power.gpu_tuning_fallback"_s), QVariant(u"changed"_s));
+        QTRY_COMPARE(powerd->undervolts.last(), u"off"_s);
+    }
+
+    void undervoltShallowerDropsPending()
+    {
+        QVERIFY(up());
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"net.seilent.MicroSet1.Error.HoldPending"_s);
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"off"_s), QString());
+        powerd->emitUndervoltDone(1, u"accepted"_s, u"low"_s, Low);
+        QTest::qWait(300);
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"off"_s));
+        QCOMPARE(powerd->undervolts.last(), u"off"_s);
+    }
+
+    void undervoltOwnerChangeWhilePending()
+    {
+        QVERIFY(up());
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"net.seilent.MicroSet1.Error.HoldPending"_s);
+        powerd->stop();
+        QTRY_VERIFY(h->daemonLog().contains("powerd left the bus"_L1));
+        powerd = std::make_unique<FakePowerd>(h->address());
+        QVERIFY(powerd->start());
+        waitPushes(2);
+        powerd->emitUndervoltDone(1, u"accepted"_s, u"low"_s, Low);
+        QTest::qWait(300);
+        QCOMPARE(get(u"power.gpu_undervolt"_s), QVariant(u"off"_s));
+        QCOMPARE(powerd->undervolts, QStringList{u"off"_s});
+    }
+
     void powerdAbsent()
     {
         QVERIFY(up(false));
@@ -360,6 +593,9 @@ private slots:
         QCOMPARE(get(u"power.profile"_s), QVariant(u"balanced"_s));
         QCOMPARE(set(u"session.default"_s, u"microdap"_s), QString());
         QCOMPARE(get(u"session.default"_s), QVariant(u"microdap"_s));
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"low"_s), u"org.freedesktop.DBus.Error.ServiceUnknown"_s);
+        QCOMPARE(set(u"power.gpu_undervolt"_s, u"off"_s), QString());
+        QVERIFY(h->readState().contains("\"power.gpu_undervolt\": \"off\""));
     }
 
     void typeAndRange()
@@ -401,7 +637,7 @@ private slots:
         h->writeState(R"({"future.key": 1, "power.gpu_clock": 9999, "session.default": "gone"})");
         QVERIFY(up());
         const QVariantMap all = qdbus_cast<QVariantMap>(h->call(u"List"_s, {QString()}).arguments().value(0));
-        QCOMPARE(all.size(), 43);
+        QCOMPARE(all.size(), 50);
         QVERIFY(!all.contains(u"future.key"_s));
         QCOMPARE(all.value(u"power.gpu_clock"_s), QVariant(587u));
         QCOMPARE(all.value(u"session.default"_s), QVariant(u"steam"_s));
@@ -412,7 +648,7 @@ private slots:
         QCOMPARE(values.value("session.default"_L1).toString(), u"gone"_s);
         QCOMPARE(values.value("power.tdp"_L1).toInt(), 5);
         const QVariantMap power = qdbus_cast<QVariantMap>(h->call(u"List"_s, {u"power"_s}).arguments().value(0));
-        QCOMPARE(power.size(), 6);
+        QCOMPARE(power.size(), 11);
     }
 
     void audioStoredWithoutCard()
@@ -504,7 +740,10 @@ private slots:
         QCOMPARE(h->cli({u"get"_s, u"meta.imported_power"_s}, {}, Harness::RootCgroup, &out), 0);
         QCOMPARE(out, u"false\n"_s);
         QCOMPARE(h->cli({u"list"_s, u"power"_s}, {}, Harness::RootCgroup, &out), 0);
-        QCOMPARE(out, u"power.game_floor\t68\npower.governor\tschedutil\npower.gpu_clock\t587\npower.gpu_level\tauto\npower.profile\tbalanced\npower.tdp\t6\n"_s);
+        QCOMPARE(out, u"power.game_floor\t68\npower.governor\tschedutil\npower.gpu_clock\t587\npower.gpu_level\tauto\n"
+                      "power.gpu_tuning_fallback\t\npower.gpu_tuning_trip\t\n"
+                      "power.gpu_undervolt\toff\npower.gpu_undervolt_active\tstock\n"
+                      "power.gpu_undervolt_levels\t\npower.profile\tbalanced\npower.tdp\t6\n"_s);
         QCOMPARE(h->cli({u"schema"_s, u"session"_s}, {}, Harness::RootCgroup, &out), 0);
         const QJsonObject session = QJsonDocument::fromJson(out.toUtf8()).object().value("session.default"_L1).toObject();
         QCOMPARE(session.value("enum"_L1).toVariant().toStringList(), (QStringList{u"microdap"_s, u"steam"_s}));
@@ -719,12 +958,12 @@ private slots:
     {
         QVERIFY(up());
         QVariantMap values;
-        for (int i = 0; i < 44; ++i)
+        for (int i = 0; i < 51; ++i)
             values.insert(u"nope.k%1"_s.arg(i), true);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         values.remove(u"nope.k0"_s);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), QString());
-        QVERIFY(h->daemonLog().contains("import by uid 0 refused 43 unknown keys\n"_L1));
+        QVERIFY(h->daemonLog().contains("import by uid 0 refused 50 unknown keys\n"_L1));
     }
 
     void importWriteFailure()

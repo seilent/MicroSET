@@ -21,12 +21,16 @@ public:
     void stop();
     QString unique() const;
     void emitChanged(const QString &interface, const QVariantMap &changed);
+    void emitUndervoltDone(uint serial, const QString &result, const QString &name, const QString &levels);
 
     QString introspect(const QString &path) const override;
     bool handleMessage(const QDBusMessage &message, const QDBusConnection &connection) override;
 
     QMap<QString, QVariantMap> values;
     QStringList sets;
+    QStringList undervolts;
+    QStringList requests;
+    QString requestError;
     int failSets = 0;
     QVariantMap beforeReply;
     QVariantMap afterFailure;

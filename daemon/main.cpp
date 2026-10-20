@@ -13,6 +13,7 @@
 #include "sscapplier.h"
 #include "sscrotation.h"
 #include "store.h"
+#include "undervoltsprovider.h"
 
 #include <QCoreApplication>
 #include <QDBusConnection>
@@ -61,7 +62,12 @@ int main(int argc, char **argv)
     schema.addApplier(u"ssc"_s);
     schema.addApplier(u"rgb"_s);
     schema.addApplier(u"backlight"_s);
+    UndervoltsProvider undervolts(
+        qEnvironmentVariable("MICROSET_GPU_UNDERVOLTS", u"/usr/lib/microos/gpu-undervolt.conf"_s),
+        qEnvironmentVariable("MICROSET_GPU_FREQUENCIES", u"/sys/class/devfreq/3d00000.gpu/available_frequencies"_s));
     schema.addProvider(u"sessions"_s, [&sessions] { return sessions.defaults(); });
+    schema.addProvider(u"gpu_undervolts"_s, [&undervolts] { return undervolts.names(); },
+                       [&undervolts] { return undervolts.labels(); });
     schema.load(qEnvironmentVariable("MICROSET_SCHEMA_DIR", QStringLiteral(MICROSET_SCHEMA_DIR)));
 
     Store store(qEnvironmentVariable("STATE_DIRECTORY", u"/var/lib/microset"_s));
@@ -74,7 +80,7 @@ int main(int argc, char **argv)
     PowerBridge::importState(qEnvironmentVariable("MICROSET_POWER_CONF", u"/var/lib/microos/power.conf"_s), settings);
     settings.moveBtCodec();
 
-    PowerBridge bridge(bus, settings);
+    PowerBridge bridge(bus, settings, undervolts);
     Auth auth(bus, qEnvironmentVariable("MICROOS_PROC", u"/proc"_s));
     const QString backlight = qEnvironmentVariable("MICROSET_BACKLIGHT", u"/sys/class/backlight/backlight"_s);
     BacklightApplier light(settings, backlight, qEnvironmentVariable("RUNTIME_DIRECTORY", u"/run/microset"_s));

@@ -58,6 +58,56 @@
       "label": "TDP limit",
       "ui": {"order": 1, "step": 1, "unit": "w"}
     },
+    "power.gpu_undervolt": {
+      "type": "s",
+      "default": "off",
+      "enum_from": "gpu_undervolts",
+      "applier": "power",
+      "group": null,
+      "label": "GPU undervolt"
+    },
+    "power.gpu_undervolt_levels": {
+      "type": "s",
+      "default": "",
+      "writable": false,
+      "applier": "power",
+      "group": null,
+      "label": "GPU levels of the undervolt preset"
+    },
+    "power.gpu_tuning_fallback": {
+      "type": "s",
+      "default": "",
+      "enum": ["", "hang", "gmu", "hfi", "oob", "start", "unclean", "changed", "refused"],
+      "writable": false,
+      "applier": "power",
+      "group": null,
+      "label": "Undervolt turned off"
+    },
+    "power.gpu_tuning_trip": {
+      "type": "s",
+      "default": "",
+      "enum": ["", "hang", "gmu", "hfi", "oob", "start"],
+      "writable": false,
+      "applier": "power",
+      "group": null,
+      "label": "Stock until reboot"
+    },
+    "power.gpu_undervolt_active": {
+      "type": "s",
+      "default": "stock",
+      "writable": false,
+      "applier": "power",
+      "group": null,
+      "label": "GPU undervolt the GPU runs"
+    },
+    "meta.gpu_undervolt_serial": {
+      "type": "u",
+      "default": 0,
+      "writable": false,
+      "applier": null,
+      "group": null,
+      "label": "Last GPU undervolt request"
+    },
     "meta.imported_power": {
       "type": "b",
       "default": false,
