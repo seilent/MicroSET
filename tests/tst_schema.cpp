@@ -486,19 +486,28 @@ private slots:
                                         "microdap.l": {"type": "s", "default": "x", "ui": {"values": {"x": 1}}},
                                         "microdap.m": {"type": "s", "default": "x", "ui": {"values": {"x": ""}}},
                                         "microdap.n": {"type": "s", "default": "x", "ui": {"label": "x"}},
-                                        "microdap.o": {"type": "s", "default": "x", "ui": "none"})"));
-        for (const char *key : {"e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o"})
+                                        "microdap.o": {"type": "s", "default": "x", "ui": "none"},
+                                        "microdap.p": {"type": "i", "default": 0, "min": -20, "max": 20,
+                                                       "ui": {"widget": "edit", "bounded": true}},
+                                        "microdap.q": {"type": "u", "default": 1, "max": 9, "ui": {"widget": "edit"}},
+                                        "microdap.r": {"type": "u", "default": 2, "enum": [2, 5], "ui": {"widget": "edit"}},
+                                        "microdap.s": {"type": "s", "default": "x", "enum": ["x"], "ui": {"bounded": 1}},
+                                        "microdap.t": {"type": "s", "default": "x", "enum": ["x"], "ui": {"bounded": false}})"));
+        for (const char *key : {"e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "q", "r", "s"})
             QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"20-microdap.json: microdap.%1: .*, ui hint dropped"_s
                                                                       .arg(QLatin1StringView(key))));
         const Schema schema = make(h.path(u"s"_s));
-        QCOMPARE(schema.keys({}).size(), 15);
+        QCOMPARE(schema.keys({}).size(), 20);
         QCOMPARE(schema.key(u"microdap.a"_s)->ui, (QJsonObject{{u"order"_s, 2}, {u"step"_s, 2}}));
         QCOMPARE(schema.key(u"microdap.b"_s)->ui.value("values"_L1).toObject().value("y"_L1).toString(), u"second"_s);
         QCOMPARE(schema.key(u"microdap.c"_s)->ui.value("widget"_L1).toString(), u"hue"_s);
         QCOMPARE(schema.key(u"microdap.d"_s)->ui.value("widget"_L1).toString(), u"none"_s);
-        for (const char *key : {"e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o"})
+        QCOMPARE(schema.key(u"microdap.p"_s)->ui, (QJsonObject{{u"widget"_s, u"edit"_s}, {u"bounded"_s, true}}));
+        QCOMPARE(schema.key(u"microdap.t"_s)->ui, (QJsonObject{{u"bounded"_s, false}}));
+        for (const char *key : {"e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "q", "r", "s"})
             QVERIFY(schema.key(u"microdap."_s + QLatin1StringView(key))->ui.isEmpty());
         const QJsonObject described = schema.describe(u"microdap"_s);
+        QCOMPARE(described.value("microdap.p"_L1).toObject().value("ui"_L1).toObject().value("bounded"_L1).toBool(), true);
         QCOMPARE(described.value("microdap.a"_L1).toObject().value("ui"_L1).toObject().value("order"_L1).toInt(), 2);
         QCOMPARE(described.value("microdap.e"_L1).toObject().value("ui"_L1).toObject(), QJsonObject());
         QVERIFY(described.value("microdap.a"_L1).toObject().value("group_ui"_L1).isNull());

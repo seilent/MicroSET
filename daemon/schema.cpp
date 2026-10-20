@@ -20,9 +20,9 @@ const QStringList Reserved = {u"microset"_s, u"power"_s, u"meta"_s, u"session"_s
                                u"audio"_s, u"display"_s, u"rgb"_s, u"system"_s};
 const QStringList Types = {u"s"_s, u"b"_s, u"u"_s, u"i"_s, u"d"_s, u"as"_s};
 const QStringList Validators = {u"eq_filters"_s};
-const QStringList Widgets = {u"none"_s, u"hue"_s};
+const QStringList Widgets = {u"none"_s, u"hue"_s, u"edit"_s};
 const QStringList UiFields = {u"order"_s, u"widget"_s, u"step"_s, u"steps"_s, u"values"_s, u"unit"_s, u"scale"_s, u"apply"_s,
-                               u"lock"_s};
+                               u"bounded"_s, u"lock"_s};
 const QStringList Applies = {u"live"_s, u"confirm"_s};
 const QStringList LockFields = {u"key"_s, u"is"_s, u"text"_s, u"show"_s};
 const QRegularExpression KeyPattern(u"^[a-z][a-z0-9]*(\\.[A-Za-z0-9_]+)+$"_s);
@@ -80,7 +80,7 @@ std::optional<QJsonObject> uiHint(const Key &key, const QJsonValue &value, QStri
 {
     const QJsonObject ui = value.toObject();
     if (!value.isObject() || !onlyFields(ui, UiFields)) {
-        *why = u"not an object of order, widget, step, steps, values, unit, scale, apply and lock"_s;
+        *why = u"not an object of order, widget, step, steps, values, unit, scale, apply, bounded and lock"_s;
         return {};
     }
     if (ui.contains("order"_L1) && !isOrder(ui.value("order"_L1))) {
@@ -88,7 +88,9 @@ std::optional<QJsonObject> uiHint(const Key &key, const QJsonValue &value, QStri
         return {};
     }
     const QString widget = ui.value("widget"_L1).toString();
-    if (ui.contains("widget"_L1) && (!Widgets.contains(widget) || (widget == "hue"_L1 && key.type != "u"_L1))) {
+    const bool range = isNumeric(key.type) && key.enumValues.isEmpty() && key.min && key.max;
+    if (ui.contains("widget"_L1)
+        && (!Widgets.contains(widget) || (widget == "hue"_L1 && key.type != "u"_L1) || (widget == "edit"_L1 && !range))) {
         *why = u"bad widget"_s;
         return {};
     }
@@ -137,6 +139,10 @@ std::optional<QJsonObject> uiHint(const Key &key, const QJsonValue &value, QStri
     }
     if (ui.contains("apply"_L1) && !Applies.contains(ui.value("apply"_L1).toString())) {
         *why = u"bad apply"_s;
+        return {};
+    }
+    if (ui.contains("bounded"_L1) && !ui.value("bounded"_L1).isBool()) {
+        *why = u"bad bounded"_s;
         return {};
     }
     if (ui.contains("lock"_L1) && !validLock(ui.value("lock"_L1))) {
