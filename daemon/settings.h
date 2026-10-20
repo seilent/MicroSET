@@ -18,6 +18,7 @@ public:
     const Schema &schema() const;
     QVariant value(const QString &key) const;
     QVariant stored(const QString &key) const;
+    QVariant storedUnchecked(const QString &key) const;
     bool isStored(const QString &key) const;
     Result store(const QString &key, const QVariant &value);
     Result store(const QVariantMap &values);

@@ -238,9 +238,11 @@ void Schema::addApplier(const QString &name)
     m_appliers.insert(name);
 }
 
-void Schema::addProvider(const QString &name, Provider provider)
+void Schema::addProvider(const QString &name, Provider provider, Labels labels)
 {
     m_providers.insert(name, std::move(provider));
+    if (labels)
+        m_labels.insert(name, std::move(labels));
 }
 
 void Schema::load(const QString &dir)
@@ -577,6 +579,16 @@ QJsonObject Schema::describe(const QString &prefix) const
         if (!key.enumFrom.isEmpty()) {
             entry.insert(u"enum_from"_s, key.enumFrom);
             entry.insert(u"enum"_s, QJsonArray::fromStringList(provided(key)));
+            const auto labels = m_labels.constFind(key.enumFrom);
+            if (labels != m_labels.cend()) {
+                QJsonObject ui = key.ui;
+                QJsonObject values = (*labels)();
+                const QJsonObject own = key.ui.value("values"_L1).toObject();
+                for (auto it = own.begin(); it != own.end(); ++it)
+                    values.insert(it.key(), it.value());
+                ui.insert(u"values"_s, values);
+                entry.insert(u"ui"_s, ui);
+            }
         } else if (!key.enumValues.isEmpty()) {
             QJsonArray values;
             for (const QVariant &value : key.enumValues)

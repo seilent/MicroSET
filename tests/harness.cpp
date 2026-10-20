@@ -180,6 +180,8 @@ QProcessEnvironment Harness::environment() const
     env.insert(u"STATE_DIRECTORY"_s, path(u"state"_s));
     env.insert(u"MICROSET_POWER_CONF"_s, path(u"power.conf"_s));
     env.insert(u"MICROSET_SESSIONS_ROOT"_s, path(u"root"_s));
+    env.insert(u"MICROSET_GPU_UNDERVOLTS"_s, path(u"gpu-undervolt.conf"_s));
+    env.insert(u"MICROSET_GPU_FREQUENCIES"_s, path(u"available_frequencies"_s));
     env.insert(u"MICROOS_PROC"_s, path(u"proc"_s));
     env.insert(u"MICROSET_ALSA_CARD"_s, u"MicroSetTest"_s);
     env.insert(u"MICROSET_ALSA_DEVICES"_s, path(u"dev/snd"_s));

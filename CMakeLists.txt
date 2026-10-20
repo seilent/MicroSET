@@ -39,6 +39,7 @@ add_library(microsetd_core STATIC
     daemon/sscrotation.cpp
     daemon/sscwire.cpp
     daemon/store.cpp
+    daemon/undervoltsprovider.cpp
 )
 target_include_directories(microsetd_core PUBLIC daemon lib)
 target_link_libraries(microsetd_core PUBLIC microset_common Qt6::Core Qt6::DBus ALSA::ALSA)

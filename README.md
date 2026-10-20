@@ -50,6 +50,11 @@ once the override is gone.
 Power settings are applied by MicroOS `microos-powerd`; `microsetd` pushes the stored values to it and records the
 changes Steam makes there.
 
+`power.gpu_undervolt` is `off` or a preset from `/usr/lib/microos/gpu-undervolt.conf` whose frequencies match the GPU.
+A deeper preset needs A held 1 s: `Set` returns `HoldPending`, a refusal comes as `HoldRefused`. It applies from the
+next boot. powerd turns it off after a GPU hang, a GMU fault or timeout, or a boot that ended without a clean shutdown,
+and `power.gpu_undervolt_fallback` holds the reason.
+
 Headphone gain, headphone amp mode and speaker gain go straight to the ALSA controls of card `PocketMICRO2`.
 `microsetd` writes them at start, on every change and 5 s after the card appears, and writes them again when a readback
 differs.

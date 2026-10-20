@@ -39,6 +39,7 @@ public slots:
 
 signals:
     Q_SCRIPTABLE void Changed(const QString &key, const QDBusVariant &value);
+    Q_SCRIPTABLE void HoldRefused(const QString &key, const QString &reason);
     void subscribersChanged(const QString &key, bool held);
 
 private:

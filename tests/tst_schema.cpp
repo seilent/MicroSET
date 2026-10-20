@@ -22,6 +22,7 @@ private:
         schema.addApplier(u"ssc"_s);
         schema.addApplier(u"rgb"_s);
         schema.addProvider(u"sessions"_s, [this] { return m_sessions; });
+        schema.addProvider(u"gpu_undervolts"_s, [] { return QStringList{u"off"_s, u"low"_s}; });
         schema.load(dir);
         return schema;
     }
@@ -46,11 +47,14 @@ private slots:
                                                u"audio.eq.usb.on"_s, u"audio.hp_amp"_s, u"audio.hp_gain"_s,
                                                u"audio.max_volume"_s, u"audio.output"_s, u"audio.power_on_volume"_s,
                                                u"audio.speaker_gain"_s, u"audio.volume_step"_s, u"display.auto_rotate"_s,
-                                               u"display.orientation"_s, u"display.rotation"_s, u"meta.imported_power"_s,
+                                               u"display.orientation"_s, u"display.rotation"_s,
+                                               u"meta.gpu_undervolt_serial"_s, u"meta.imported_power"_s,
                                                u"power.governor"_s, u"power.gpu_clock"_s, u"power.gpu_level"_s,
+                                               u"power.gpu_undervolt"_s, u"power.gpu_undervolt_active"_s,
+                                               u"power.gpu_undervolt_fallback"_s, u"power.gpu_undervolt_levels"_s,
                                                u"power.profile"_s, u"power.tdp"_s, u"rgb.brightness"_s, u"rgb.enabled"_s,
                                                u"rgb.hue"_s, u"rgb.saturation"_s, u"session.default"_s}));
-        QCOMPARE(schema.keys(u"power"_s).size(), 5);
+        QCOMPARE(schema.keys(u"power"_s).size(), 9);
         QCOMPARE(schema.key(u"power.profile"_s)->defaultValue, QVariant(u"balanced"_s));
         QCOMPARE(schema.key(u"power.gpu_clock"_s)->defaultValue, QVariant(587u));
         QCOMPARE(schema.key(u"power.tdp"_s)->defaultValue, QVariant(10u));
@@ -552,14 +556,14 @@ private slots:
     {
         const Schema schema = make(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
         const QJsonObject power = schema.describe(u"power"_s);
-        QCOMPARE(power.size(), 5);
+        QCOMPARE(power.size(), 9);
         const QJsonObject clock = power.value("power.gpu_clock"_L1).toObject();
         QCOMPARE(clock.value("min"_L1).toInt(), 305);
         QCOMPARE(clock.value("max"_L1).toInt(), 587);
         QCOMPARE(clock.value("type"_L1).toString(), u"u"_s);
         QCOMPARE(schema.describe(u"power.tdp"_s).size(), 1);
         QCOMPARE(schema.describe(u"powe"_s).size(), 0);
-        QCOMPARE(schema.describe({}).size(), 40);
+        QCOMPARE(schema.describe({}).size(), 45);
         QCOMPARE(schema.describe(u"audio"_s).size(), 26);
         QVERIFY(schema.describe(u"meta"_s).value("meta.imported_power"_L1).toObject().value("group"_L1).isNull());
     }

@@ -26,6 +26,7 @@ Service::Service(const QDBusConnection &bus, Settings &settings, const Auth &aut
     connect(&m_settings, &Settings::changed, this, [this](const QString &key, const QVariant &value) {
         emit Changed(key, QDBusVariant(value));
     });
+    connect(&m_bridge, &PowerBridge::holdRefused, this, &Service::HoldRefused);
 }
 
 QDBusVariant Service::Get(const QString &key)

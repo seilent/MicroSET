@@ -35,6 +35,14 @@ QVariant Settings::stored(const QString &name) const
     return stored.isValid() && m_schema.accepts(*key, stored) ? stored : QVariant();
 }
 
+QVariant Settings::storedUnchecked(const QString &name) const
+{
+    const Key *key = m_schema.key(name);
+    if (!key || !m_store.contains(name))
+        return {};
+    return Schema::fromJson(key->type, m_store.value(name));
+}
+
 QVariant Settings::base(const QString &name) const
 {
     const Key *key = m_schema.key(name);

@@ -142,7 +142,8 @@ private slots:
         f.run();
         Store reread(f.h.path(u"state"_s));
         reread.load();
-        for (const QString &key : f.schema.keys(u"power"_s))
+        for (const QString &key : {u"power.profile"_s, u"power.gpu_level"_s, u"power.gpu_clock"_s, u"power.governor"_s,
+                                   u"power.tdp"_s})
             QVERIFY(reread.contains(key));
         QVERIFY(reread.value(u"meta.imported_power"_s).toBool());
     }

@@ -22,6 +22,7 @@ FakePowerd::FakePowerd(const QString &address)
         {u"GpuLevel"_s, u"auto"_s},
         {u"ManualGpuClock"_s, 587u},
         {u"CpuGovernor"_s, u"schedutil"_s},
+        {u"GpuUndervolt"_s, u"unset"_s},
     };
     values[Tdp1] = {{u"TdpLimit"_s, 10u}, {u"TdpLimitMin"_s, 3u}, {u"TdpLimitMax"_s, 10u}};
 }
@@ -59,6 +60,13 @@ void FakePowerd::emitChanged(const QString &interface, const QVariantMap &change
     QDBusConnection(m_connection).send(signal);
 }
 
+void FakePowerd::emitUndervoltDone(uint serial, const QString &result, const QString &name, const QString &levels)
+{
+    QDBusMessage signal = QDBusMessage::createSignal(PowerPath, Power1, u"UndervoltRequestDone"_s);
+    signal << serial << result << name << levels;
+    QDBusConnection(m_connection).send(signal);
+}
+
 QString FakePowerd::introspect(const QString &) const
 {
     return {};
@@ -66,6 +74,13 @@ QString FakePowerd::introspect(const QString &) const
 
 bool FakePowerd::handleMessage(const QDBusMessage &message, const QDBusConnection &connection)
 {
+    if (message.interface() == Power1 && message.member() == "RequestUndervolt"_L1) {
+        const QVariantList args = message.arguments();
+        requests << u"%1 %2 %3"_s.arg(args.value(0).toUInt()).arg(args.value(1).toString(), args.value(2).toString());
+        connection.send(requestError.isEmpty() ? message.createReply()
+                                               : message.createErrorReply(requestError, u"refused"_s));
+        return true;
+    }
     const QString interface = message.arguments().value(0).toString();
     if (message.interface() != Properties || !values.contains(interface)) {
         connection.send(message.createErrorReply(u"org.freedesktop.DBus.Error.UnknownInterface"_s, interface));
@@ -79,6 +94,12 @@ bool FakePowerd::handleMessage(const QDBusMessage &message, const QDBusConnectio
         connection.send(message.createReply(QVariant::fromValue(QDBusVariant(props.value(name)))));
     } else if (message.member() == "Set"_L1) {
         QVariant value = message.arguments().value(2).value<QDBusVariant>().variant();
+        if (name == "GpuUndervolt"_L1) {
+            undervolts << value.toString();
+            props.insert(name, value);
+            connection.send(message.createReply());
+            return true;
+        }
         sets << interface.section(u'.', -1) + u'.' + name + u'=' + value.toString();
         if (failSets > 0) {
             --failSets;
