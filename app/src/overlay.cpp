@@ -104,6 +104,11 @@ QString Overlay::hintDevice() const
     return m_hintDevice;
 }
 
+QString Overlay::hintKind() const
+{
+    return m_hintKind;
+}
+
 int Overlay::created() const
 {
     return m_created;
@@ -383,12 +388,13 @@ void Overlay::destroyWindow()
     step("destroyed");
 }
 
-void Overlay::setHint(bool active, const QString &device)
+void Overlay::setHint(bool active, const QString &device, const QString &kind)
 {
-    if (active == m_hint && device == m_hintDevice)
+    if (active == m_hint && device == m_hintDevice && kind == m_hintKind)
         return;
     m_hint = active;
     m_hintDevice = device;
+    m_hintKind = kind;
     if (!active)
         m_pageHinted = false;
     emit hintChanged();

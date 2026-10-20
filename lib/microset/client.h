@@ -44,6 +44,7 @@ public:
 
 Q_SIGNALS:
     void changed(const QString &key, const QVariant &value);
+    void holdRefused(const QString &key, const QString &reason);
 
 private Q_SLOTS:
     void onChanged(const QString &key, const QDBusVariant &value);

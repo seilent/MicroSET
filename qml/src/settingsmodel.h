@@ -34,8 +34,14 @@ public:
     static inline const QString UpdatesGroup = QStringLiteral("updates");
     static inline const QString AccentKey = QStringLiteral("microdap.accent_hue");
     static inline const QString LedHueKey = QStringLiteral("rgb.hue");
+    static inline const QString UndervoltKey = QStringLiteral("power.gpu_undervolt");
+    static inline const QString UndervoltActiveKey = QStringLiteral("power.gpu_undervolt_active");
+    static inline const QString TuningFallbackKey = QStringLiteral("power.gpu_tuning_fallback");
+    static inline const QString TuningTripKey = QStringLiteral("power.gpu_tuning_trip");
+    static inline const QString HoldPending = QStringLiteral("net.seilent.MicroSet1.Error.HoldPending");
     static inline const QString SetFailed = QStringLiteral("set failed");
     static inline const QString NotAvailable = QStringLiteral("not available");
+    static inline const QString TryLater = QStringLiteral("try again shortly");
 
     explicit SettingsModel(QObject *parent = nullptr);
     explicit SettingsModel(const QDBusConnection &bus, QObject *parent = nullptr);
@@ -111,6 +117,7 @@ private:
     void setAvailable(bool available);
     void bump();
     void onChanged(const QString &key, const QVariant &value);
+    void onHoldRefused(const QString &key, const QString &reason);
     void onOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
     void settle(const QString &key, const QString &error);
     void refreshStored(const QString &key);
@@ -119,6 +126,7 @@ private:
     bool locked(const Entry &entry) const;
     QString kindOf(const Entry &entry) const;
     QString textOf(const Entry &entry, const QVariant &value) const;
+    QString undervoltText(const Entry &entry) const;
     QVariantMap rowOf(const Entry &entry) const;
     QList<const Entry *> visible(const QString &group) const;
     QVariantList updateRows() const;

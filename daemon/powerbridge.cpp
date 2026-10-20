@@ -30,6 +30,8 @@ const QString TuningTripKey = u"power.gpu_tuning_trip"_s;
 const QString UndervoltActiveKey = u"power.gpu_undervolt_active"_s;
 const QString UndervoltSerialKey = u"meta.gpu_undervolt_serial"_s;
 const QString Off = u"off"_s;
+const QStringList Trips = {u"hang"_s, u"gmu"_s, u"hfi"_s, u"oob"_s, u"start"_s};
+const QStringList Reasons = Trips + QStringList{u"unclean"_s, u"changed"_s, u"refused"_s};
 
 }
 
@@ -330,7 +332,7 @@ bool PowerBridge::recordUndervolt(const QVariantMap &values)
     const QVariant trip = values.value(u"GpuTuningTrip"_s);
     const Key *tripKey = schema.key(TuningTripKey);
     if (tripKey && trip.isValid()) {
-        if (schema.accepts(*tripKey, trip))
+        if (schema.accepts(*tripKey, trip) && (trip.toString().isEmpty() || Trips.contains(trip.toString())))
             m_settings.setLive(TuningTripKey, trip);
         else
             qWarning("powerd reported %s=%s, outside the schema, not recorded", qPrintable(TuningTripKey),
@@ -340,7 +342,7 @@ bool PowerBridge::recordUndervolt(const QVariantMap &values)
     const Key *reasonKey = schema.key(TuningFallbackKey);
     if (!reasonKey || !reason.isValid() || reason.toString().isEmpty())
         return false;
-    if (!schema.accepts(*reasonKey, reason)) {
+    if (!schema.accepts(*reasonKey, reason) || !Reasons.contains(reason.toString())) {
         qWarning("powerd reported %s=%s, outside the schema, not stored", qPrintable(TuningFallbackKey),
                  qPrintable(Schema::text(reason)));
         return false;

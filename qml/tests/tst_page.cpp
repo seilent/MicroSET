@@ -71,6 +71,22 @@ class PageTest : public QObject
         page()->setProperty("focusIndex", index);
     }
 
+    void reachable(const QString &k)
+    {
+        int index = -1;
+        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, k)));
+        QTRY_COMPARE(page()->property("focusIndex").toInt(), index);
+        QVERIFY(QMetaObject::invokeMethod(page(), "completeScroll"));
+        qreal top = 0;
+        qreal height = 0;
+        QVERIFY(QMetaObject::invokeMethod(page(), "rowTopOf", Q_RETURN_ARG(qreal, top), Q_ARG(int, index)));
+        QVERIFY(QMetaObject::invokeMethod(page(), "rowHeightOf", Q_RETURN_ARG(qreal, height), Q_ARG(QVariant, QVariant(row(k)))));
+        auto *flick = qvariant_cast<QObject *>(page()->property("flick"));
+        QVERIFY(flick);
+        const qreal y = flick->property("contentY").toReal();
+        QVERIFY2(top >= y && top + height <= y + flick->property("height").toReal(), qPrintable(k));
+    }
+
 private slots:
     void init()
     {
@@ -198,6 +214,34 @@ private slots:
         QCOMPARE(toast()->property("artist").toString(), u"Output"_s);
         QCOMPARE(toast()->property("title").toString(), u"set failed"_s);
         QTRY_COMPARE(value(u"audio.output"_s), u"auto"_s);
+    }
+
+    void undervoltHoldPending()
+    {
+        fake->refuse(u"power.gpu_undervolt"_s, u"net.seilent.MicroSet1.Error.HoldPending"_s);
+        open(u"power"_s);
+        focus(u"power.gpu_undervolt"_s);
+        QCOMPARE(value(u"power.gpu_undervolt"_s), u"Off"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Right);
+        QTRY_COMPARE(fake->sets().size(), 1);
+        QCOMPARE(fake->sets().at(0).second, QVariant(u"low"_s));
+        QTRY_COMPARE(value(u"power.gpu_undervolt"_s), u"Off"_s);
+        QTest::qWait(200);
+        QVERIFY(!toast()->property("shown").toBool());
+        fake->emitHoldRefused(u"power.gpu_undervolt"_s, u"A not held"_s);
+        QTRY_VERIFY(toast()->property("shown").toBool());
+        QCOMPARE(toast()->property("artist").toString(), u"GPU undervolt"_s);
+        QCOMPARE(toast()->property("title").toString(), u"A not held"_s);
+        fake->refuse(u"power.gpu_undervolt"_s, u"org.freedesktop.DBus.Error.LimitsExceeded"_s);
+        if (page()->property("editing").toBool())
+            key(Qt::Key_Return);
+        QTRY_VERIFY(!page()->property("editing").toBool());
+        key(Qt::Key_Return);
+        key(Qt::Key_Right);
+        QTRY_COMPARE(fake->sets().size(), 2);
+        QTRY_COMPARE(toast()->property("title").toString(), u"try again shortly"_s);
+        QCOMPARE(toast()->property("artist").toString(), u"GPU undervolt"_s);
     }
 
     void echoHeldDuringEdit()
@@ -346,6 +390,29 @@ private slots:
         auto *outputValue = qvariant_cast<QQuickItem *>(outputRow->property("valueItem"));
         QCOMPARE(valueItem->x() + valueItem->width(), outputValue->x() + outputValue->width());
         QVERIFY(title->x() + title->width() < valueItem->x());
+    }
+
+    void tuningFallbackHidesTrip()
+    {
+        fake->setValues({{u"power.gpu_undervolt"_s, u"off"_s}, {u"power.gpu_undervolt_active"_s, u"stock"_s},
+                         {u"power.gpu_tuning_fallback"_s, u"start"_s}, {u"power.gpu_tuning_trip"_s, u"start"_s}});
+        model->load();
+        open(u"power"_s);
+        QTRY_COMPARE(value(u"power.gpu_tuning_fallback"_s), u"GPU failed to start"_s);
+        QVERIFY(row(u"power.gpu_tuning_trip"_s).isEmpty());
+        focus(u"power.gpu_undervolt"_s);
+        QVERIFY(QMetaObject::invokeMethod(page(), "keepFocusVisible"));
+        key(Qt::Key_Down);
+        reachable(u"power.gpu_tuning_fallback"_s);
+        key(Qt::Key_Down);
+        reachable(u"power.gpu_tuning_fallback"_s);
+        fake->emitChanged(u"power.gpu_tuning_fallback"_s, QString());
+        QTRY_COMPARE(value(u"power.gpu_tuning_trip"_s), u"GPU failed to start"_s);
+        QVERIFY(row(u"power.gpu_tuning_fallback"_s).isEmpty());
+        focus(u"power.gpu_undervolt"_s);
+        QVERIFY(QMetaObject::invokeMethod(page(), "keepFocusVisible"));
+        key(Qt::Key_Down);
+        reachable(u"power.gpu_tuning_trip"_s);
     }
 
     void microsetdGoneAndBack()

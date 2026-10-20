@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
 
     HoldHint hint(u"/run/microos/hold"_s, u"/proc"_s);
     QObject::connect(&hint, &HoldHint::activeChanged, &overlay, [&overlay, &hint] {
-        overlay.setHint(hint.active(), hint.device());
+        overlay.setHint(hint.active(), hint.device(), hint.kind());
     });
 
     Auth auth(session, u"/proc"_s);
@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
         fail(u"cannot own %1 on the session bus"_s.arg(OverlayService::service()));
         return 1;
     }
-    overlay.setHint(hint.active(), hint.device());
+    overlay.setHint(hint.active(), hint.device(), hint.kind());
 
     QTimer watchdog;
     watchdog.setTimerType(Qt::CoarseTimer);

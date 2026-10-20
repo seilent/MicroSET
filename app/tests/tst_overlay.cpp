@@ -512,6 +512,40 @@ private slots:
         QCOMPARE(late.device(), u"/dev/mmcblk1"_s);
     }
 
+    void hintFollowsPowerdUndervolt()
+    {
+        const QString dir = m_h.path(u"hold-uv"_s);
+        QDir().mkpath(dir);
+        const QString proc = m_h.path(u"hintproc-uv"_s);
+        m_h.writeFile(u"hintproc-uv/5252/cmdline"_s, cmdline({"python3", "/usr/libexec/microos/microos-powerd"}));
+        m_h.writeFile(u"hintproc-uv/5353/cmdline"_s, cmdline({"python3", "/tmp/microos-powerd"}));
+        m_h.writeFile(u"hintproc-uv/5454/cmdline"_s, cmdline({"python3", "/usr/libexec/microos/microos-powerd"}));
+        QVERIFY(::chown(QFile::encodeName(proc + u"/5454"_s).constData(), 65534, 65534) == 0);
+        m_h.writeFile(u"hintproc-uv/4242/cmdline"_s,
+                      cmdline({"bash", "/usr/libexec/microos/microos-storage", "format", "--device", "/dev/mmcblk0"}));
+        HoldHint hint(dir, proc);
+        QVERIFY(!hint.active());
+        m_h.writeFile(u"hold-uv/gpu-undervolt"_s, "5252\ngpu-undervolt\n");
+        QTRY_VERIFY(hint.active());
+        QCOMPARE(hint.kind(), u"undervolt"_s);
+        QCOMPARE(hint.device(), QString());
+        m_h.writeFile(u"hold-uv/storage"_s, "4242\n/dev/mmcblk0\n");
+        QTRY_COMPARE(hint.kind(), u"format"_s);
+        QCOMPARE(hint.device(), u"/dev/mmcblk0"_s);
+        QFile::remove(dir + u"/storage"_s);
+        QTRY_COMPARE(hint.kind(), u"undervolt"_s);
+        for (const QByteArray &text : {QByteArray("5252\nstorage\n"), QByteArray("5353\ngpu-undervolt\n"),
+                                       QByteArray("5454\ngpu-undervolt\n"), QByteArray("5555\ngpu-undervolt\n")}) {
+            m_h.writeFile(u"hold-uv/gpu-undervolt"_s, text);
+            QTRY_VERIFY2(!hint.active(), text.constData());
+            m_h.writeFile(u"hold-uv/gpu-undervolt"_s, "5252\ngpu-undervolt\n");
+            QTRY_VERIFY(hint.active());
+        }
+        QFile::remove(dir + u"/gpu-undervolt"_s);
+        QTRY_VERIFY(!hint.active());
+        QCOMPARE(hint.kind(), QString());
+    }
+
     void serviceRefusesGames()
     {
         Auth auth(bus(u"other"_s), m_h.path(u"proc"_s));

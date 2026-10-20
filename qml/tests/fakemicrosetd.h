@@ -28,6 +28,7 @@ public:
     void stop();
     void release(int count = -1);
     void emitChanged(const QString &key, const QVariant &value);
+    void emitHoldRefused(const QString &key, const QString &reason);
 
     void setSchema(const QJsonObject &schema);
     void setValues(const QVariantMap &values);
