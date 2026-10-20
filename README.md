@@ -50,7 +50,8 @@ once the override is gone.
 `audio.crossfeed.headphones` and `audio.crossfeed.usb` are `off`, `default`, `chuMoy` or `janMeier`.
 `audio.max_volume` (50 to 100 % in steps of 5) caps every sink volume: at the default 100 a level above 100 % folds to
 100 %, and bit perfect output needs 100. `audio.power_on_volume` (0 keeps the last level, else 10 to 100 % in steps of
-5) is set once per boot on the default output. `audio.bt_codec` is `auto`, `aptx`, `aac`, `ldac` or `sbc`.
+5) is set once per boot on the default output. `audio.bt_codec` (a phone streaming to the device) is `auto`, `aptx`,
+`aac`, `ldac` or `sbc`; `audio.bt_codec_headphones` (the device streaming to headphones) adds `aptx_hd`.
 
 Power settings are applied by MicroOS `microos-powerd`; `microsetd` pushes the stored values to it and records the
 changes Steam makes there.

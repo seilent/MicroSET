@@ -363,7 +363,7 @@ private slots:
         h->writeState(R"({"future.key": 1, "power.gpu_clock": 9999, "session.default": "gone"})");
         QVERIFY(up());
         const QVariantMap all = qdbus_cast<QVariantMap>(h->call(u"List"_s, {QString()}).arguments().value(0));
-        QCOMPARE(all.size(), 41);
+        QCOMPARE(all.size(), 42);
         QVERIFY(!all.contains(u"future.key"_s));
         QCOMPARE(all.value(u"power.gpu_clock"_s), QVariant(587u));
         QCOMPARE(all.value(u"session.default"_s), QVariant(u"steam"_s));
@@ -610,16 +610,27 @@ private slots:
         QCOMPARE(get(u"audio.eq.bt.on"_s), QVariant(false));
     }
 
+    void headphonesCodec()
+    {
+        QVERIFY(up());
+        QCOMPARE(get(u"audio.bt_codec_headphones"_s), QVariant(u"auto"_s));
+        QCOMPARE(set(u"audio.bt_codec"_s, u"ldac"_s), QString());
+        QCOMPARE(set(u"audio.bt_codec_headphones"_s, u"aptx_hd"_s), QString());
+        QCOMPARE(get(u"audio.bt_codec_headphones"_s), QVariant(u"aptx_hd"_s));
+        QCOMPARE(get(u"audio.bt_codec"_s), QVariant(u"ldac"_s));
+        QCOMPARE(set(u"audio.bt_codec"_s, u"aptx_hd"_s), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+    }
+
     void importTooManyKeys()
     {
         QVERIFY(up());
         QVariantMap values;
-        for (int i = 0; i < 42; ++i)
+        for (int i = 0; i < 43; ++i)
             values.insert(u"nope.k%1"_s.arg(i), true);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         values.remove(u"nope.k0"_s);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), QString());
-        QVERIFY(h->daemonLog().contains("import by uid 0 refused 41 unknown keys\n"_L1));
+        QVERIFY(h->daemonLog().contains("import by uid 0 refused 42 unknown keys\n"_L1));
     }
 
     void importWriteFailure()

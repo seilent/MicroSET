@@ -303,6 +303,15 @@
       "label": "Bluetooth codec",
       "ui": {"order": 7}
     },
+    "audio.bt_codec_headphones": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "aptx", "aptx_hd", "aac", "ldac", "sbc"],
+      "applier": null,
+      "group": "audio",
+      "label": "Bluetooth headphones codec",
+      "ui": {"order": 7}
+    },
     "display.brightness": {
       "type": "u",
       "default": 2442,

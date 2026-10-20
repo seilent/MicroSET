@@ -38,6 +38,7 @@ private slots:
         const Schema schema = make(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
         QCOMPARE(schema.keys({}), (QStringList{u"audio.balance.bt"_s, u"audio.balance.headphones"_s,
                                                u"audio.balance.speaker"_s, u"audio.balance.usb"_s, u"audio.bt_codec"_s,
+                                               u"audio.bt_codec_headphones"_s,
                                                u"audio.crossfeed.headphones"_s, u"audio.crossfeed.usb"_s,
                                                u"audio.eq.bt.filters"_s, u"audio.eq.bt.name"_s,
                                                u"audio.eq.bt.on"_s, u"audio.eq.headphones.filters"_s,
@@ -133,6 +134,10 @@ private slots:
         QCOMPARE(schema.key(u"audio.bt_codec"_s)->defaultValue, QVariant(u"auto"_s));
         QCOMPARE(schema.key(u"audio.bt_codec"_s)->enumValues,
                  (QVariantList{u"auto"_s, u"aptx"_s, u"aac"_s, u"ldac"_s, u"sbc"_s}));
+        QCOMPARE(schema.key(u"audio.bt_codec_headphones"_s)->defaultValue, QVariant(u"auto"_s));
+        QCOMPARE(schema.key(u"audio.bt_codec_headphones"_s)->enumValues,
+                 (QVariantList{u"auto"_s, u"aptx"_s, u"aptx_hd"_s, u"aac"_s, u"ldac"_s, u"sbc"_s}));
+        QVERIFY(schema.key(u"audio.bt_codec_headphones"_s)->applier.isEmpty());
         for (const QString &slot : {u"headphones"_s, u"speaker"_s, u"usb"_s, u"bt"_s}) {
             const Key &balance = *schema.key(u"audio.balance."_s + slot);
             QCOMPARE(balance.type, u"i"_s);
@@ -627,8 +632,8 @@ private slots:
         QCOMPARE(clock.value("type"_L1).toString(), u"u"_s);
         QCOMPARE(schema.describe(u"power.tdp"_s).size(), 1);
         QCOMPARE(schema.describe(u"powe"_s).size(), 0);
-        QCOMPARE(schema.describe({}).size(), 41);
-        QCOMPARE(schema.describe(u"audio"_s).size(), 26);
+        QCOMPARE(schema.describe({}).size(), 42);
+        QCOMPARE(schema.describe(u"audio"_s).size(), 27);
         QVERIFY(schema.describe(u"meta"_s).value("meta.imported_power"_L1).toObject().value("group"_L1).isNull());
     }
 };
