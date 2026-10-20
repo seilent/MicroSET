@@ -41,4 +41,11 @@ foreach(size 960x640 640x960)
         set_tests_properties(overlay-shot-${state}-${size} PROPERTIES
             ENVIRONMENT "QT_QPA_PLATFORM=offscreen;MICROSET_FONT_DIR=${MICROSET_TEST_FONT_DIR}")
     endforeach()
+    foreach(state hint-page hint)
+        add_test(NAME overlay-shot-undervolt-${state}-${size}
+            COMMAND microset-overlayshot --screenshot ${CMAKE_CURRENT_BINARY_DIR}/shots/undervolt-${state}-${size}.png
+                --size ${size} --state ${state} --hint-kind undervolt)
+        set_tests_properties(overlay-shot-undervolt-${state}-${size} PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen;MICROSET_FONT_DIR=${MICROSET_TEST_FONT_DIR}")
+    endforeach()
 endforeach()

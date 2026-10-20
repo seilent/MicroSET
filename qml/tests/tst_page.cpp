@@ -200,6 +200,34 @@ private slots:
         QTRY_COMPARE(value(u"audio.output"_s), u"auto"_s);
     }
 
+    void undervoltHoldPending()
+    {
+        fake->refuse(u"power.gpu_undervolt"_s, u"net.seilent.MicroSet1.Error.HoldPending"_s);
+        open(u"power"_s);
+        focus(u"power.gpu_undervolt"_s);
+        QCOMPARE(value(u"power.gpu_undervolt"_s), u"Off"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Right);
+        QTRY_COMPARE(fake->sets().size(), 1);
+        QCOMPARE(fake->sets().at(0).second, QVariant(u"low"_s));
+        QTRY_COMPARE(value(u"power.gpu_undervolt"_s), u"Off"_s);
+        QTest::qWait(200);
+        QVERIFY(!toast()->property("shown").toBool());
+        fake->emitHoldRefused(u"power.gpu_undervolt"_s, u"A not held"_s);
+        QTRY_VERIFY(toast()->property("shown").toBool());
+        QCOMPARE(toast()->property("artist").toString(), u"GPU undervolt"_s);
+        QCOMPARE(toast()->property("title").toString(), u"A not held"_s);
+        fake->refuse(u"power.gpu_undervolt"_s, u"org.freedesktop.DBus.Error.LimitsExceeded"_s);
+        if (page()->property("editing").toBool())
+            key(Qt::Key_Return);
+        QTRY_VERIFY(!page()->property("editing").toBool());
+        key(Qt::Key_Return);
+        key(Qt::Key_Right);
+        QTRY_COMPARE(fake->sets().size(), 2);
+        QTRY_COMPARE(toast()->property("title").toString(), u"try again shortly"_s);
+        QCOMPARE(toast()->property("artist").toString(), u"GPU undervolt"_s);
+    }
+
     void echoHeldDuringEdit()
     {
         fake->setHold(true);

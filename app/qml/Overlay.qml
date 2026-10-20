@@ -17,8 +17,8 @@ Window {
     readonly property bool following: root.portraitScreen
         && (root.screenshot || root.overlay.shown || root.overlay.hintShown)
     readonly property string rotation: root.model === null ? "" : String(root.model.value("display.rotation", root.model.revision))
-    readonly property string holdText: root.overlay.hintDevice === "" ? "Hold A to format"
-        : "Hold A to format " + root.overlay.hintDevice
+    readonly property string holdText: root.overlay.hintKind === "undervolt" ? "Hold A to apply undervolt"
+        : root.overlay.hintDevice === "" ? "Hold A to format" : "Hold A to format " + root.overlay.hintDevice
     readonly property real stripDepth: Ui.px(Ui.toastHeight)
     property alias view: view
     property alias router: router

@@ -22,6 +22,7 @@ class Overlay : public QObject
     Q_PROPERTY(bool hintShown READ hintShown NOTIFY hintShownChanged)
     Q_PROPERTY(bool hint READ hint NOTIFY hintChanged)
     Q_PROPERTY(QString hintDevice READ hintDevice NOTIFY hintChanged)
+    Q_PROPERTY(QString hintKind READ hintKind NOTIFY hintChanged)
 
 public:
     static constexpr int ShowMs = 200;
@@ -44,6 +45,7 @@ public:
     bool hintShown() const;
     bool hint() const;
     QString hintDevice() const;
+    QString hintKind() const;
     int created() const;
     int destroyed() const;
     QWindow *window() const;
@@ -53,7 +55,7 @@ public:
     Q_INVOKABLE void hide();
     Q_INVOKABLE void toggle();
     Q_INVOKABLE void hintDone();
-    void setHint(bool active, const QString &device = {});
+    void setHint(bool active, const QString &device = {}, const QString &kind = {});
 
 signals:
     void shownChanged();
@@ -119,6 +121,7 @@ private:
     bool m_hintShown = false;
     bool m_pageHinted = false;
     QString m_hintDevice;
+    QString m_hintKind;
     qreal m_opacity = 0.0;
     int m_created = 0;
     int m_destroyed = 0;

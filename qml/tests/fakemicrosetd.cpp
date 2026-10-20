@@ -51,6 +51,8 @@ QJsonObject FakeMicroSetd::describe(const QStringList &files)
     for (const QString &applier : {u"power"_s, u"alsa"_s, u"ssc"_s, u"rgb"_s})
         schema.addApplier(applier);
     schema.addProvider(u"sessions"_s, [] { return QStringList{u"microdap"_s, u"microemu"_s, u"steam"_s}; });
+    schema.addProvider(u"gpu_undervolts"_s, [] { return QStringList{u"off"_s, u"low"_s}; },
+                       [] { return QJsonObject{{u"off"_s, u"Off"_s}, {u"low"_s, u"Low"_s}}; });
     schema.load(dir.path());
     QJsonObject out = schema.describe({});
     if (out.contains("display.rotation"_L1)) {
@@ -122,6 +124,13 @@ void FakeMicroSetd::emitChanged(const QString &key, const QVariant &value)
 {
     QDBusMessage signal = QDBusMessage::createSignal(Path, Interface, u"Changed"_s);
     signal << key << QVariant::fromValue(QDBusVariant(value));
+    QDBusConnection(m_connection).send(signal);
+}
+
+void FakeMicroSetd::emitHoldRefused(const QString &key, const QString &reason)
+{
+    QDBusMessage signal = QDBusMessage::createSignal(Path, Interface, u"HoldRefused"_s);
+    signal << key << reason;
     QDBusConnection(m_connection).send(signal);
 }
 

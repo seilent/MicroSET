@@ -43,6 +43,7 @@ Client::Client(const QDBusConnection &bus, QObject *parent)
 {
     qDBusRegisterMetaType<QMap<QString, QString>>();
     m_bus.connect(Service, Path, Interface, u"Changed"_s, this, SLOT(onChanged(QString, QDBusVariant)));
+    m_bus.connect(Service, Path, Interface, u"HoldRefused"_s, this, SIGNAL(holdRefused(QString, QString)));
     auto *watcher = new QDBusServiceWatcher(Service, m_bus, QDBusServiceWatcher::WatchForOwnerChange, this);
     connect(watcher, &QDBusServiceWatcher::serviceOwnerChanged, this, &Client::onOwnerChanged);
 }

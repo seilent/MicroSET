@@ -81,7 +81,7 @@ private slots:
                               u"audio.eq.bt.on"_s, u"audio.balance.bt"_s}));
         QCOMPARE(keysOf(m->rows(u"power"_s, 0)),
                  (QStringList{u"label-microset"_s, u"power.profile"_s, u"power.tdp"_s, u"power.governor"_s,
-                              u"power.gpu_level"_s, u"power.gpu_clock"_s}));
+                              u"power.gpu_level"_s, u"power.gpu_clock"_s, u"power.gpu_undervolt"_s}));
         QCOMPARE(keysOf(m->rows(u"display"_s, 0)),
                  (QStringList{u"label-microset"_s, u"display.orientation"_s, u"display.auto_rotate"_s}));
         QCOMPARE(keysOf(m->rows(u"stick leds"_s, 0)),
@@ -137,6 +137,55 @@ private slots:
         QCOMPARE(m->text(u"display.orientation"_s, u"portrait-flipped"_s), u"portrait flipped"_s);
         QCOMPARE(m->text(u"power.gpu_clock"_s, 442u), u"441.6 mhz"_s);
         QCOMPARE(m->text(u"power.gpu_clock"_s, 490u), u"490 mhz"_s);
+    }
+
+    void undervoltStates()
+    {
+        fake->setValues({{u"power.gpu_undervolt"_s, u"low"_s}, {u"power.gpu_undervolt_active"_s, u"low"_s}});
+        const auto m = model();
+        QSignalSpy refused(m.get(), &SettingsModel::refused);
+        const auto power = [&m] { return m->rows(u"power"_s, m->revision()); };
+        QCOMPARE(rowOf(power(), u"power.gpu_undervolt"_s).value(u"kind"_s).toString(), u"row"_s);
+        QCOMPARE(rowOf(power(), u"power.gpu_undervolt"_s).value(u"title"_s).toString(), u"GPU undervolt"_s);
+        QCOMPARE(value(power(), u"power.gpu_undervolt"_s), u"Low"_s);
+        QCOMPARE(m->text(u"power.gpu_undervolt"_s, u"off"_s), u"Off"_s);
+        QVERIFY(!keysOf(power()).contains(u"power.gpu_undervolt_fallback"_s));
+        fake->emitChanged(u"power.gpu_undervolt_active"_s, u"waiting"_s);
+        QTRY_COMPARE(value(power(), u"power.gpu_undervolt"_s), u"Stock until GPU restart"_s);
+        fake->emitChanged(u"power.gpu_undervolt_active"_s, u"stock"_s);
+        QTRY_COMPARE(value(power(), u"power.gpu_undervolt"_s), u"Low, next boot"_s);
+        fake->emitChanged(u"power.gpu_undervolt"_s, u"off"_s);
+        QTRY_COMPARE(value(power(), u"power.gpu_undervolt"_s), u"Off"_s);
+        fake->emitChanged(u"power.gpu_undervolt_active"_s, u"waiting"_s);
+        QTRY_COMPARE(value(power(), u"power.gpu_undervolt"_s), u"Off, next boot"_s);
+        fake->emitChanged(u"power.gpu_undervolt_active"_s, u"low"_s);
+        QTRY_COMPARE(value(power(), u"power.gpu_undervolt"_s), u"Off, next boot"_s);
+        fake->emitChanged(u"power.gpu_undervolt_fallback"_s, u"unclean"_s);
+        QTRY_COMPARE(value(power(), u"power.gpu_undervolt_fallback"_s), u"Unclean shutdown"_s);
+        const QVariantMap reason = rowOf(power(), u"power.gpu_undervolt_fallback"_s);
+        QCOMPARE(reason.value(u"kind"_s).toString(), u"info"_s);
+        QCOMPARE(reason.value(u"title"_s).toString(), u"Undervolt turned off"_s);
+        QVERIFY(reason.value(u"readOnly"_s).toBool());
+        QCOMPARE(keysOf(power()).indexOf(u"power.gpu_undervolt_fallback"_s),
+                 keysOf(power()).indexOf(u"power.gpu_undervolt"_s) + 1);
+        QCOMPARE(m->text(u"power.gpu_undervolt_fallback"_s, u"hfi"_s), u"GMU timeout"_s);
+        fake->emitChanged(u"power.gpu_undervolt_fallback"_s, QString());
+        QTRY_VERIFY(!keysOf(power()).contains(u"power.gpu_undervolt_fallback"_s));
+        fake->refuse(u"power.gpu_undervolt"_s, u"net.seilent.MicroSet1.Error.HoldPending"_s);
+        QVERIFY(m->set(u"power.gpu_undervolt"_s, u"low"_s));
+        QTRY_COMPARE(value(power(), u"power.gpu_undervolt"_s), u"Off, next boot"_s);
+        QTest::qWait(100);
+        QCOMPARE(refused.count(), 0);
+        fake->emitHoldRefused(u"power.gpu_undervolt"_s, u"A not held"_s);
+        fake->emitHoldRefused(u"power.gpu_undervolt"_s, u"A not held"_s);
+        fake->emitHoldRefused(u"nope.key"_s, u"A not held"_s);
+        QTRY_COMPARE(refused.count(), 2);
+        QCOMPARE(refused.at(0).at(0).toString(), u"GPU undervolt"_s);
+        QCOMPARE(refused.at(0).at(1).toString(), u"A not held"_s);
+        fake->refuse(u"power.gpu_undervolt"_s, u"org.freedesktop.DBus.Error.LimitsExceeded"_s);
+        QVERIFY(m->set(u"power.gpu_undervolt"_s, u"low"_s));
+        QTRY_COMPARE(refused.count(), 3);
+        QCOMPARE(refused.at(2).at(1).toString(), u"try again shortly"_s);
     }
 
     void locks()
@@ -260,6 +309,7 @@ private slots:
         QCOMPARE(SettingsModel::toastText(u"org.freedesktop.DBus.Error.AccessDenied"_s), u"set failed"_s);
         QCOMPARE(SettingsModel::toastText(u"org.freedesktop.DBus.Error.ServiceUnknown"_s), u"not available"_s);
         QCOMPARE(SettingsModel::toastText(u"org.freedesktop.DBus.Error.NoReply"_s), u"not available"_s);
+        QCOMPARE(SettingsModel::toastText(u"org.freedesktop.DBus.Error.LimitsExceeded"_s), u"try again shortly"_s);
     }
 
     void groupsMerged()

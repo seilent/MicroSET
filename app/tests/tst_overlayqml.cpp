@@ -29,6 +29,7 @@ class FakeOverlay : public QObject
     Q_PROPERTY(bool hintShown READ hintShown CONSTANT)
     Q_PROPERTY(bool hint READ hint NOTIFY hintChanged)
     Q_PROPERTY(QString hintDevice READ hintDevice CONSTANT)
+    Q_PROPERTY(QString hintKind READ hintKind NOTIFY hintChanged)
 
 public:
     bool shown() const { return true; }
@@ -37,9 +38,11 @@ public:
     bool hintShown() const { return false; }
     bool hint() const { return m_hint; }
     QString hintDevice() const { return u"/dev/mmcblk0"_s; }
-    void setHint(bool hint)
+    QString hintKind() const { return m_kind; }
+    void setHint(bool hint, const QString &kind = u"format"_s)
     {
         m_hint = hint;
+        m_kind = kind;
         emit hintChanged();
     }
     Q_INVOKABLE void hide() { ++hides; }
@@ -54,6 +57,7 @@ signals:
 
 private:
     bool m_hint = false;
+    QString m_kind;
 };
 
 class FakePad : public QObject
@@ -188,6 +192,17 @@ private slots:
         QCOMPARE(toast()->property("title").toString(), hold);
         m_overlay->setHint(false);
         QVERIFY(!toast()->property("sticky").toBool());
+        QTRY_COMPARE(toast()->property("phase").toString(), u"hidden"_s);
+    }
+
+    void undervoltHoldText()
+    {
+        m_overlay->setHint(true, u"undervolt"_s);
+        emit m_overlay->pageHint();
+        QTRY_COMPARE(toast()->property("phase").toString(), u"hold"_s);
+        QCOMPARE(toast()->property("title").toString(), u"Hold A to apply undervolt"_s);
+        QVERIFY(toast()->property("sticky").toBool());
+        m_overlay->setHint(false);
         QTRY_COMPARE(toast()->property("phase").toString(), u"hidden"_s);
     }
 

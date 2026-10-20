@@ -35,7 +35,9 @@ const QStringList &states()
     static const QStringList names{
         u"top"_s,     u"audio"_s, u"display"_s,  u"rgb"_s,  u"rgb-off"_s,  u"power"_s,  u"system"_s,  u"updates"_s,
         u"edit"_s,    u"hue-edit"_s, u"draft-edit"_s, u"toast"_s, u"long-label"_s, u"long-value"_s, u"merged"_s,
-        u"top-sections"_s,
+        u"top-sections"_s, u"undervolt-off"_s, u"undervolt"_s, u"undervolt-next"_s, u"undervolt-waiting"_s, u"undervolt-fallback"_s,
+        u"undervolt-long"_s, u"undervolt-changed"_s, u"undervolt-reason-focus"_s, u"undervolt-hold"_s,
+        u"undervolt-refused"_s, u"undervolt-busy"_s,
     };
     return names;
 }
@@ -65,6 +67,19 @@ int main(int argc, char *argv[])
     QStringList files{FakeMicroSetd::shipped()};
     if (state == "long-label"_L1 || state == "merged"_L1 || state == "top-sections"_L1)
         files << FakeMicroSetd::fixture(u"50-fixture.json"_s) << FakeMicroSetd::fixture(u"60-microdap.json"_s);
+    const QMap<QString, QStringList> undervolt{
+        {u"undervolt"_s, {u"low"_s, u"low"_s, QString()}},
+        {u"undervolt-next"_s, {u"low"_s, u"stock"_s, QString()}},
+        {u"undervolt-waiting"_s, {u"low"_s, u"waiting"_s, QString()}},
+        {u"undervolt-fallback"_s, {u"off"_s, u"stock"_s, u"hang"_s}},
+        {u"undervolt-long"_s, {u"off"_s, u"stock"_s, u"unclean"_s}},
+        {u"undervolt-changed"_s, {u"off"_s, u"stock"_s, u"changed"_s}},
+        {u"undervolt-reason-focus"_s, {u"off"_s, u"stock"_s, u"changed"_s}},
+        {u"undervolt-hold"_s, {u"off"_s, u"stock"_s, QString()}},
+        {u"undervolt-refused"_s, {u"off"_s, u"stock"_s, QString()}},
+        {u"undervolt-busy"_s, {u"off"_s, u"stock"_s, QString()}},
+    };
+    const QStringList preset = undervolt.value(state, {u"off"_s, u"stock"_s, QString()});
     SettingsModel model;
     model.updates()->setFixture(u"testing-38784f1"_s, u"none"_s, {});
     model.setFixture(FakeMicroSetd::describe(files),
@@ -74,7 +89,10 @@ int main(int argc, char *argv[])
                       {u"fixture.long"_s, u"extended"_s},
                       {u"microdap.accent_hue"_s, 200u},
                       {u"display.rotation"_s, u"landscape-flipped"_s},
-                      {u"rgb.brightness"_s, 50u}},
+                      {u"rgb.brightness"_s, 50u},
+                      {u"power.gpu_undervolt"_s, preset.at(0)},
+                      {u"power.gpu_undervolt_active"_s, preset.at(1)},
+                      {u"power.gpu_undervolt_fallback"_s, preset.at(2)}},
                      {{u"rgb.enabled"_s, state != "rgb-off"_L1}, {u"rgb.hue"_s, 200u}, {u"rgb.saturation"_s, 60u}});
 
     QQmlApplicationEngine engine;

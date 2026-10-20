@@ -29,6 +29,7 @@ const QString UndervoltFallbackKey = u"power.gpu_undervolt_fallback"_s;
 const QString UndervoltActiveKey = u"power.gpu_undervolt_active"_s;
 const QString UndervoltSerialKey = u"meta.gpu_undervolt_serial"_s;
 const QString Off = u"off"_s;
+const QStringList Reasons = {u"hang"_s, u"gmu"_s, u"hfi"_s, u"oob"_s, u"start"_s, u"unclean"_s, u"changed"_s, u"refused"_s};
 
 }
 
@@ -328,7 +329,7 @@ bool PowerBridge::recordUndervolt(const QVariantMap &values)
     const Key *reasonKey = schema.key(UndervoltFallbackKey);
     if (!reasonKey || !reason.isValid() || reason.toString().isEmpty())
         return false;
-    if (!schema.accepts(*reasonKey, reason)) {
+    if (!schema.accepts(*reasonKey, reason) || !Reasons.contains(reason.toString())) {
         qWarning("powerd reported %s=%s, outside the schema, not stored", qPrintable(UndervoltFallbackKey),
                  qPrintable(Schema::text(reason)));
         return false;

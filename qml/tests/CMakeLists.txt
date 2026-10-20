@@ -39,7 +39,9 @@ if(NOT MICROSET_TEST_FONT_DIR)
 endif()
 
 foreach(size 960x640 640x960)
-    foreach(state top audio display rgb rgb-off power system updates edit hue-edit draft-edit toast long-label long-value merged top-sections)
+    foreach(state top audio display rgb rgb-off power system updates edit hue-edit draft-edit toast long-label long-value merged top-sections
+            undervolt-off undervolt undervolt-next undervolt-waiting undervolt-fallback undervolt-long undervolt-changed
+            undervolt-reason-focus undervolt-hold undervolt-refused undervolt-busy)
         add_test(NAME page-shot-${state}-${size}
             COMMAND microset-pageshot --screenshot ${CMAKE_CURRENT_BINARY_DIR}/shots/${state}-${size}.png
                 --size ${size} --state ${state})

@@ -71,6 +71,7 @@ SettingsModel::SettingsModel(const QDBusConnection &bus, QObject *parent)
     , m_bus(bus)
 {
     connect(m_client.get(), &MicroSet::Client::changed, this, &SettingsModel::onChanged);
+    connect(m_client.get(), &MicroSet::Client::holdRefused, this, &SettingsModel::onHoldRefused);
     auto *watcher = new QDBusServiceWatcher(Service, bus, QDBusServiceWatcher::WatchForOwnerChange, this);
     connect(watcher, &QDBusServiceWatcher::serviceOwnerChanged, this, &SettingsModel::onOwnerChanged);
     connect(&m_updates, &UpdateInfo::changed, this, &SettingsModel::bump);
@@ -168,6 +169,8 @@ QString SettingsModel::toastText(const QString &error)
     static const QStringList gone = {u"org.freedesktop.DBus.Error.ServiceUnknown"_s, u"org.freedesktop.DBus.Error.NoReply"_s,
                                      u"org.freedesktop.DBus.Error.Disconnected"_s, u"org.freedesktop.DBus.Error.NameHasNoOwner"_s,
                                      u"org.freedesktop.DBus.Error.Timeout"_s};
+    if (error == "org.freedesktop.DBus.Error.LimitsExceeded"_L1)
+        return TryLater;
     return gone.contains(error) ? NotAvailable : SetFailed;
 }
 
@@ -253,6 +256,8 @@ void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, 
             referenced << entry.lockKey;
         if (!entry.lockShow.isEmpty())
             referenced << entry.lockShow;
+        if (entry.key == UndervoltKey)
+            referenced << UndervoltActiveKey;
         entry.writable = object.value("writable"_L1).toBool(true);
         entry.overridable = object.value("override"_L1).toBool(false);
         entry.defaultValue = coerce(entry.type, object.value("default"_L1).toVariant());
@@ -328,6 +333,13 @@ void SettingsModel::onChanged(const QString &key, const QVariant &value)
     }
 }
 
+void SettingsModel::onHoldRefused(const QString &key, const QString &reason)
+{
+    const auto it = m_entries.constFind(key);
+    if (it != m_entries.cend())
+        emit refused(it->title, reason);
+}
+
 void SettingsModel::onOwnerChanged(const QString &, const QString &, const QString &newOwner)
 {
     if (newOwner.isEmpty()) {
@@ -383,11 +395,23 @@ QString SettingsModel::textOf(const Entry &entry, const QVariant &value) const
     return entry.unit.isEmpty() || text.isEmpty() ? text : text + u' ' + entry.unit;
 }
 
+QString SettingsModel::undervoltText(const Entry &entry) const
+{
+    const QString preset = entry.shown.toString();
+    const QString active = m_values.value(UndervoltActiveKey).toString();
+    const QString text = textOf(entry, entry.shown);
+    if (entry.inflight > 0 || preset == active || (preset == "off"_L1 && (active.isEmpty() || active == "stock"_L1)))
+        return text;
+    if (active == "waiting"_L1 && preset != "off"_L1)
+        return u"Stock until GPU restart"_s;
+    return text + u", next boot"_s;
+}
+
 QVariantMap SettingsModel::rowOf(const Entry &entry) const
 {
     const QString kind = kindOf(entry);
     const bool lockedNow = locked(entry);
-    QString value = textOf(entry, entry.shown);
+    QString value = entry.key == UndervoltKey ? undervoltText(entry) : textOf(entry, entry.shown);
     if (lockedNow)
         value = entry.lockShow.isEmpty() ? entry.lockText : textOf(entry, coerce(entry.type, m_values.value(entry.lockShow)));
     QVariantMap row{
@@ -608,7 +632,7 @@ void SettingsModel::settle(const QString &key, const QString &error)
     if (it == m_entries.end())
         return;
     it->inflight = std::max(0, it->inflight - 1);
-    if (!error.isEmpty())
+    if (!error.isEmpty() && error != HoldPending)
         emit refused(it->title, toastText(error));
     if (it->inflight > 0)
         return;

@@ -53,8 +53,9 @@
       "default": "off",
       "enum_from": "gpu_undervolts",
       "applier": "power",
-      "group": null,
-      "label": "GPU undervolt"
+      "group": "power",
+      "label": "GPU undervolt",
+      "ui": {"order": 5}
     },
     "power.gpu_undervolt_levels": {
       "type": "s",
@@ -67,11 +68,11 @@
     "power.gpu_undervolt_fallback": {
       "type": "s",
       "default": "",
-      "enum": ["", "hang", "gmu", "hfi", "oob", "start", "unclean", "changed", "refused"],
       "writable": false,
       "applier": "power",
-      "group": null,
-      "label": "Undervolt turned off"
+      "group": "power",
+      "label": "Undervolt turned off",
+      "ui": {"order": 6, "values": {"hang": "GPU hang", "gmu": "GMU fault", "hfi": "GMU timeout", "oob": "GMU timeout", "start": "GPU failed to start", "unclean": "Unclean shutdown", "changed": "Preset changed by an update", "refused": "Rejected by the kernel"}}
     },
     "power.gpu_undervolt_active": {
       "type": "s",

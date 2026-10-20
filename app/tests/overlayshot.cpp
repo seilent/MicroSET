@@ -44,6 +44,7 @@ class ShotOverlay : public QObject
     Q_PROPERTY(bool hintShown READ hintShown CONSTANT)
     Q_PROPERTY(bool hint READ hint CONSTANT)
     Q_PROPERTY(QString hintDevice READ hintDevice CONSTANT)
+    Q_PROPERTY(QString hintKind MEMBER kind CONSTANT)
 
 public:
     bool shown() const { return true; }
@@ -53,6 +54,8 @@ public:
     QString hintDevice() const { return QStringLiteral("/dev/mmcblk0"); }
     Q_INVOKABLE void hide() {}
     Q_INVOKABLE void hintDone() {}
+
+    QString kind;
 
 signals:
     void pageHint();
@@ -70,7 +73,8 @@ int main(int argc, char *argv[])
     const QCommandLineOption screenshotOption(u"screenshot"_s, u"Render offscreen to <png> and exit."_s, u"png"_s);
     const QCommandLineOption sizeOption(u"size"_s, u"X screen size."_s, u"WxH"_s, u"960x640"_s);
     const QCommandLineOption stateOption(u"state"_s, u"Fixture state."_s, u"name"_s, u"top"_s);
-    parser.addOptions({screenshotOption, sizeOption, stateOption});
+    const QCommandLineOption kindOption(u"hint-kind"_s, u"Hold hint kind."_s, u"format|undervolt"_s, u"format"_s);
+    parser.addOptions({screenshotOption, sizeOption, stateOption, kindOption});
     parser.process(app);
 
     const QString state = parser.value(stateOption);
@@ -92,6 +96,7 @@ int main(int argc, char *argv[])
                       {u"rgb.brightness"_s, 50u}},
                      {{u"rgb.enabled"_s, true}, {u"rgb.hue"_s, 200u}, {u"rgb.saturation"_s, 60u}});
     ShotOverlay overlay;
+    overlay.kind = parser.value(kindOption);
 
     QQmlApplicationEngine engine;
     bool warned = false;
