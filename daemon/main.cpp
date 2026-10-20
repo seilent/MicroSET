@@ -72,6 +72,7 @@ int main(int argc, char **argv)
     if (delayOk && delay > 0)
         settings.setCoalesceDelay(delay);
     PowerBridge::importState(qEnvironmentVariable("MICROSET_POWER_CONF", u"/var/lib/microos/power.conf"_s), settings);
+    settings.moveBtCodec();
 
     PowerBridge bridge(bus, settings);
     Auth auth(bus, qEnvironmentVariable("MICROOS_PROC", u"/proc"_s));

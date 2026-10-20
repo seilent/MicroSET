@@ -56,6 +56,14 @@
       "group": null,
       "label": "Power settings imported from powerd"
     },
+    "meta.moved_bt_codec": {
+      "type": "b",
+      "default": false,
+      "writable": false,
+      "applier": null,
+      "group": null,
+      "label": "Bluetooth codec moved to the headphones key"
+    },
     "session.default": {
       "type": "s",
       "default": "steam",
@@ -299,9 +307,8 @@
       "default": "auto",
       "enum": ["auto", "aptx", "aac", "ldac", "sbc"],
       "applier": null,
-      "group": "audio",
-      "label": "Bluetooth codec",
-      "ui": {"order": 7}
+      "group": null,
+      "label": "Bluetooth phone codec"
     },
     "audio.bt_codec_headphones": {
       "type": "s",

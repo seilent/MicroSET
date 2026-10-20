@@ -106,8 +106,11 @@ QVariantMap Service::Stored(const QString &prefix)
     return out;
 }
 
-QStringList Service::Import(const QVariantMap &values, QMap<QString, QString> &refused)
+QStringList Service::Import(const QVariantMap &requested, QMap<QString, QString> &refused)
 {
+    QVariantMap values = requested;
+    if (values.contains(u"audio.bt_codec"_s) && !values.contains(u"audio.bt_codec_headphones"_s))
+        values.insert(u"audio.bt_codec_headphones"_s, values.take(u"audio.bt_codec"_s));
     qint64 uid = -1;
     const QString refusal = m_auth.refusal(message().service(), &uid);
     if (!refusal.isEmpty()) {

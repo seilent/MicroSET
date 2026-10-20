@@ -340,7 +340,7 @@ private slots:
         QCOMPARE(set(u"nope.key"_s, true), u"net.seilent.MicroSet1.Error.UnknownKey"_s);
         QCOMPARE(errorOf(h->call(u"Get"_s, {u"nope.key"_s})), u"net.seilent.MicroSet1.Error.UnknownKey"_s);
         QVERIFY(powerd->sets.isEmpty());
-        QVERIFY(h->readState().isEmpty());
+        QCOMPARE(onDisk(), (QJsonObject{{u"meta.moved_bt_codec"_s, true}}));
     }
 
     void sameValueNoSignal()
@@ -349,7 +349,7 @@ private slots:
         MicroSet::Client client(h->client());
         QSignalSpy spy(&client, &MicroSet::Client::changed);
         QCOMPARE(set(u"session.default"_s, u"steam"_s), QString());
-        QVERIFY(h->readState().isEmpty());
+        QCOMPARE(onDisk(), (QJsonObject{{u"meta.moved_bt_codec"_s, true}}));
         QCOMPARE(set(u"session.default"_s, u"microdap"_s), QString());
         QTRY_COMPARE(spy.count(), 1);
         QCOMPARE(set(u"session.default"_s, u"microdap"_s), QString());
@@ -363,7 +363,7 @@ private slots:
         h->writeState(R"({"future.key": 1, "power.gpu_clock": 9999, "session.default": "gone"})");
         QVERIFY(up());
         const QVariantMap all = qdbus_cast<QVariantMap>(h->call(u"List"_s, {QString()}).arguments().value(0));
-        QCOMPARE(all.size(), 42);
+        QCOMPARE(all.size(), 43);
         QVERIFY(!all.contains(u"future.key"_s));
         QCOMPARE(all.value(u"power.gpu_clock"_s), QVariant(587u));
         QCOMPARE(all.value(u"session.default"_s), QVariant(u"steam"_s));
@@ -522,7 +522,9 @@ private slots:
     {
         h->writeState(R"({"future.key": 1, "power.gpu_clock": 9999, "audio.output": "usb", "rgb.hue": 255})");
         QVERIFY(up());
-        QCOMPARE(stored(), (QVariantMap{{u"audio.output"_s, u"usb"_s}, {u"rgb.hue"_s, 255u}}));
+        QCOMPARE(stored(), (QVariantMap{{u"audio.output"_s, u"usb"_s},
+                                        {u"rgb.hue"_s, 255u},
+                                        {u"meta.moved_bt_codec"_s, true}}));
         QCOMPARE(set(u"audio.volume_step"_s, 10u), QString());
         QCOMPARE(set(u"audio.eq.usb.filters"_s, QStringList{u"preamp -3"_s, u"peak 100 2 1"_s}), QString());
         QCOMPARE(stored(u"audio"_s), (QVariantMap{{u"audio.output"_s, u"usb"_s}, {u"audio.volume_step"_s, 10u},
@@ -535,7 +537,7 @@ private slots:
         h->stopDaemon();
         h->writeFile(u"state/settings.json"_s, "{\"version\": 1, \"values\": {");
         QVERIFY(h->startDaemon());
-        QCOMPARE(stored(), QVariantMap());
+        QCOMPARE(stored(), (QVariantMap{{u"meta.moved_bt_codec"_s, true}}));
         QCOMPARE(get(u"audio.output"_s), QVariant(u"auto"_s));
     }
 
@@ -565,7 +567,8 @@ private slots:
         const QDBusMessage reply = h->call(u"Import"_s, {values});
         QCOMPARE(errorOf(reply), QString());
         QCOMPARE(reply.arguments().value(0).toStringList(),
-                 (QStringList{u"audio.eq.usb.filters"_s, u"audio.eq.usb.on"_s, u"audio.hp_gain"_s, u"audio.volume_step"_s}));
+                 (QStringList{u"audio.bt_codec_headphones"_s, u"audio.eq.usb.filters"_s, u"audio.eq.usb.on"_s,
+                              u"audio.hp_gain"_s, u"audio.volume_step"_s}));
         const QMap<QString, QString> refused = qdbus_cast<QMap<QString, QString>>(reply.arguments().value(1));
         QCOMPARE(refused, (QMap<QString, QString>{{u"audio.speaker_gain"_s, u"not a valid value"_s},
                                                    {u"audio.eq.bt.filters"_s, u"not a valid value"_s},
@@ -579,20 +582,22 @@ private slots:
         QCOMPARE(get(u"audio.output"_s), QVariant(u"bt"_s));
         QCOMPARE(get(u"audio.hp_amp"_s), QVariant(u"ulp"_s));
         QCOMPARE(get(u"audio.bt_codec"_s), QVariant(u"ldac"_s));
+        QCOMPARE(get(u"audio.bt_codec_headphones"_s), QVariant(u"aac"_s));
         QCOMPARE(get(u"audio.volume_step"_s), QVariant(10u));
         QCOMPARE(get(u"audio.eq.usb.filters"_s), QVariant(filters));
         QCOMPARE(get(u"audio.eq.usb.on"_s), QVariant(true));
         QCOMPARE(get(u"audio.hp_gain"_s), QVariant(u"normal"_s));
         QCOMPARE(get(u"power.tdp"_s), QVariant(10u));
         QVERIFY(powerd->sets.isEmpty());
-        QTRY_COMPARE(spy.count(), 4);
+        QTRY_COMPARE(spy.count(), 5);
         QStringList moved;
         for (const QList<QVariant> &signal : spy)
             moved << signal.at(0).toString();
         moved.sort();
         QCOMPARE(moved, reply.arguments().value(0).toStringList());
         const QString log = h->daemonLog();
-        QVERIFY(log.contains("import by uid 0: audio.eq.usb.filters audio.eq.usb.on audio.hp_gain audio.volume_step\n"_L1));
+        QVERIFY(log.contains("import by uid 0: audio.bt_codec_headphones audio.eq.usb.filters audio.eq.usb.on audio.hp_gain "
+                                "audio.volume_step\n"_L1));
         QVERIFY(log.contains("import audio.speaker_gain by uid 0 refused: not a valid value\n"_L1));
         QVERIFY(log.contains("import by uid 0 refused 2 unknown keys\n"_L1));
         QVERIFY(!log.contains("nope."_L1));
@@ -621,16 +626,57 @@ private slots:
         QCOMPARE(set(u"audio.bt_codec"_s, u"aptx_hd"_s), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
     }
 
+    void btCodecMoved()
+    {
+        h->writeState(R"({"audio.bt_codec": "aptx"})");
+        QVERIFY(up());
+        QCOMPARE(get(u"audio.bt_codec_headphones"_s), QVariant(u"aptx"_s));
+        QCOMPARE(get(u"audio.bt_codec"_s), QVariant(u"auto"_s));
+        QCOMPARE(get(u"meta.moved_bt_codec"_s), QVariant(true));
+        QVERIFY(h->daemonLog().contains("moved audio.bt_codec aptx to audio.bt_codec_headphones\n"_L1));
+        QCOMPARE(set(u"meta.moved_bt_codec"_s, false), u"net.seilent.MicroSet1.Error.ReadOnly"_s);
+        QCOMPARE(set(u"audio.bt_codec"_s, u"ldac"_s), QString());
+        h->stopDaemon();
+        QVERIFY(h->startDaemon());
+        QCOMPARE(get(u"audio.bt_codec"_s), QVariant(u"ldac"_s));
+        QCOMPARE(get(u"audio.bt_codec_headphones"_s), QVariant(u"aptx"_s));
+        QVERIFY(!h->daemonLog().contains("moved audio.bt_codec"_L1));
+    }
+
+    void importOldCodec()
+    {
+        qDBusRegisterMetaType<QMap<QString, QString>>();
+        QVERIFY(up());
+        QCOMPARE(get(u"meta.moved_bt_codec"_s), QVariant(true));
+        QDBusMessage reply = h->call(u"Import"_s, {QVariantMap{{u"audio.bt_codec"_s, u"ldac"_s}}});
+        QCOMPARE(errorOf(reply), QString());
+        QCOMPARE(reply.arguments().value(0).toStringList(), QStringList{u"audio.bt_codec_headphones"_s});
+        QCOMPARE(get(u"audio.bt_codec_headphones"_s), QVariant(u"ldac"_s));
+        QCOMPARE(get(u"audio.bt_codec"_s), QVariant(u"auto"_s));
+        QCOMPARE(stored(u"audio"_s), (QVariantMap{{u"audio.bt_codec_headphones"_s, u"ldac"_s}}));
+        h->stopDaemon();
+        h->writeState(R"({"meta.moved_bt_codec": true})");
+        QVERIFY(h->startDaemon());
+        const QVariantMap both{{u"audio.bt_codec"_s, u"aac"_s}, {u"audio.bt_codec_headphones"_s, u"sbc"_s}};
+        reply = h->call(u"Import"_s, {both});
+        QCOMPARE(errorOf(reply), QString());
+        QCOMPARE(get(u"audio.bt_codec"_s), QVariant(u"aac"_s));
+        QCOMPARE(get(u"audio.bt_codec_headphones"_s), QVariant(u"sbc"_s));
+        reply = h->call(u"Import"_s, {QVariantMap{{u"audio.bt_codec"_s, u"aptx_hd"_s}}});
+        QCOMPARE(errorOf(reply), QString());
+        QCOMPARE(reply.arguments().value(0).toStringList(), QStringList());
+    }
+
     void importTooManyKeys()
     {
         QVERIFY(up());
         QVariantMap values;
-        for (int i = 0; i < 43; ++i)
+        for (int i = 0; i < 44; ++i)
             values.insert(u"nope.k%1"_s.arg(i), true);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         values.remove(u"nope.k0"_s);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), QString());
-        QVERIFY(h->daemonLog().contains("import by uid 0 refused 42 unknown keys\n"_L1));
+        QVERIFY(h->daemonLog().contains("import by uid 0 refused 43 unknown keys\n"_L1));
     }
 
     void importWriteFailure()
@@ -641,7 +687,7 @@ private slots:
         const QDBusMessage reply = h->call(u"Import"_s, {QVariantMap{{u"audio.volume_step"_s, 2u}, {u"nope.key"_s, 1u}}});
         QCOMPARE(errorOf(reply), u"org.freedesktop.DBus.Error.Failed"_s);
         QCOMPARE(get(u"audio.volume_step"_s), QVariant(5u));
-        QCOMPARE(stored(), QVariantMap());
+        QCOMPARE(stored(), (QVariantMap{{u"meta.moved_bt_codec"_s, true}}));
     }
 
     void coalescedBrightness()

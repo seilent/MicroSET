@@ -147,6 +147,75 @@ private slots:
         QVERIFY(reread.value(u"meta.imported_power"_s).toBool());
     }
 
+    void btCodecMoved()
+    {
+        Fixture f;
+        f.h.writeState(R"({"audio.bt_codec": "ldac", "audio.output": "bt"})");
+        f.store.load();
+        f.settings.moveBtCodec();
+        QCOMPARE(f.settings.value(u"audio.bt_codec_headphones"_s), QVariant(u"ldac"_s));
+        QCOMPARE(f.settings.value(u"audio.bt_codec"_s), QVariant(u"auto"_s));
+        QCOMPARE(f.settings.value(u"meta.moved_bt_codec"_s), QVariant(true));
+        Store reread(f.h.path(u"state"_s));
+        reread.load();
+        QCOMPARE(reread.value(u"audio.bt_codec_headphones"_s).toString(), u"ldac"_s);
+        QCOMPARE(reread.value(u"audio.bt_codec"_s).toString(), u"auto"_s);
+        QVERIFY(reread.value(u"meta.moved_bt_codec"_s).toBool());
+        QCOMPARE(reread.value(u"audio.output"_s).toString(), u"bt"_s);
+    }
+
+    void btCodecNotMoved_data()
+    {
+        QTest::addColumn<QByteArray>("state");
+        QTest::addColumn<QString>("receiver");
+        QTest::addColumn<QString>("headphones");
+        QTest::newRow("nothing stored") << QByteArray("{}") << u"auto"_s << u"auto"_s;
+        QTest::newRow("auto") << QByteArray(R"({"audio.bt_codec": "auto"})") << u"auto"_s << u"auto"_s;
+        QTest::newRow("headphones stored")
+            << QByteArray(R"({"audio.bt_codec": "ldac", "audio.bt_codec_headphones": "sbc"})") << u"ldac"_s << u"sbc"_s;
+        QTest::newRow("headphones stored auto")
+            << QByteArray(R"({"audio.bt_codec": "ldac", "audio.bt_codec_headphones": "auto"})") << u"ldac"_s
+            << u"auto"_s;
+        QTest::newRow("invalid receiver")
+            << QByteArray(R"({"audio.bt_codec": "aptx_hd"})") << u"auto"_s << u"auto"_s;
+        QTest::newRow("invalid headphones")
+            << QByteArray(R"({"audio.bt_codec": "ldac", "audio.bt_codec_headphones": "foo"})") << u"ldac"_s
+            << u"auto"_s;
+        QTest::newRow("moved before")
+            << QByteArray(R"({"audio.bt_codec": "aac", "meta.moved_bt_codec": true})") << u"aac"_s << u"auto"_s;
+    }
+
+    void btCodecNotMoved()
+    {
+        QFETCH(QByteArray, state);
+        QFETCH(QString, receiver);
+        QFETCH(QString, headphones);
+        Fixture f;
+        f.h.writeState(state);
+        f.store.load();
+        f.settings.moveBtCodec();
+        QCOMPARE(f.settings.value(u"audio.bt_codec"_s), QVariant(receiver));
+        QCOMPARE(f.settings.value(u"audio.bt_codec_headphones"_s), QVariant(headphones));
+        Store reread(f.h.path(u"state"_s));
+        reread.load();
+        QVERIFY(reread.value(u"meta.moved_bt_codec"_s).toBool());
+    }
+
+    void btCodecFailedWriteMovesNothing()
+    {
+        Fixture f;
+        f.h.writeState(R"({"audio.bt_codec": "aptx"})");
+        f.store.load();
+        QVERIFY(QDir(f.h.path(u"state"_s)).removeRecursively());
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"cannot create a temp file"_s));
+        QTest::ignoreMessage(QtWarningMsg,
+                             QRegularExpression(u"cannot write the state file, audio.bt_codec not moved"_s));
+        f.settings.moveBtCodec();
+        QCOMPARE(f.settings.value(u"audio.bt_codec"_s), QVariant(u"aptx"_s));
+        QCOMPARE(f.settings.value(u"audio.bt_codec_headphones"_s), QVariant(u"auto"_s));
+        QCOMPARE(f.settings.value(u"meta.moved_bt_codec"_s), QVariant(false));
+    }
+
     void missingFile()
     {
         Fixture f;

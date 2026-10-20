@@ -30,6 +30,7 @@ public:
     bool overridden(const QString &key) const;
     bool flush();
     void setCoalesceDelay(int ms);
+    void moveBtCodec();
 
 signals:
     void changed(const QString &key, const QVariant &value);

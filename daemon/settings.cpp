@@ -92,6 +92,28 @@ void Settings::setCoalesceDelay(int ms)
     m_delay = ms;
 }
 
+void Settings::moveBtCodec()
+{
+    const QString marker = QStringLiteral("meta.moved_bt_codec");
+    const QString receiver = QStringLiteral("audio.bt_codec");
+    const QString headphones = QStringLiteral("audio.bt_codec_headphones");
+    if (!m_schema.key(marker) || !m_schema.key(headphones) || value(marker).toBool())
+        return;
+    const QVariant old = stored(receiver);
+    const bool move = old.isValid() && old != QStringLiteral("auto") && !isStored(headphones);
+    QVariantMap batch = {{marker, true}};
+    if (move) {
+        batch.insert(headphones, old);
+        batch.insert(receiver, QStringLiteral("auto"));
+    }
+    if (store(batch) == Failed) {
+        qWarning("cannot write the state file, %s not moved", qPrintable(receiver));
+        return;
+    }
+    if (move)
+        qInfo("moved %s %s to %s", qPrintable(receiver), qPrintable(old.toString()), qPrintable(headphones));
+}
+
 Settings::Result Settings::store(const QVariantMap &values)
 {
     QVariantMap before;

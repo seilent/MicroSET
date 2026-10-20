@@ -140,9 +140,10 @@ private slots:
                       });
         QTRY_VERIFY(result.has_value());
         QVERIFY(std::get<2>(*result).ok());
-        QCOMPARE(std::get<0>(*result), QStringList{u"audio.bt_codec"_s});
+        QCOMPARE(std::get<0>(*result), QStringList{u"audio.bt_codec_headphones"_s});
         QCOMPARE(std::get<1>(*result), (QMap<QString, QString>{{u"nope.key"_s, u"no key"_s}}));
-        QCOMPARE(client.stored(u"audio"_s), (QVariantMap{{u"audio.output"_s, u"bt"_s}, {u"audio.bt_codec"_s, u"aptx"_s}}));
+        QCOMPARE(client.stored(u"audio"_s),
+                 (QVariantMap{{u"audio.output"_s, u"bt"_s}, {u"audio.bt_codec_headphones"_s, u"aptx"_s}}));
     }
 
     void overrideAgainAfterRestart()
