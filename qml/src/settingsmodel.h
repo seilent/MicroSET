@@ -59,6 +59,12 @@ public:
     Q_INVOKABLE QVariantList groups(int revision) const;
     Q_INVOKABLE QVariantList rows(const QString &group, int revision) const;
     Q_INVOKABLE bool beginEdit(const QString &key);
+    Q_INVOKABLE bool busy(const QString &key) const;
+    Q_INVOKABLE QVariantMap sheet(const QString &key) const;
+    Q_INVOKABLE bool preview(const QVariant &value);
+    Q_INVOKABLE void endPreview(const QVariant &value);
+    Q_INVOKABLE void cancelPreview();
+    Q_INVOKABLE void endPreviews();
     Q_INVOKABLE QVariant next(const QString &key, const QVariant &from, int delta) const;
     Q_INVOKABLE QString text(const QString &key, const QVariant &value) const;
     Q_INVOKABLE bool set(const QString &key, const QVariant &value);
@@ -76,6 +82,7 @@ signals:
     void availableChanged();
     void revisionChanged();
     void refused(const QString &title, const QString &text);
+    void previewEnded(const QString &key);
 
 private:
     struct Entry
@@ -100,6 +107,7 @@ private:
         bool writable = true;
         bool overridable = false;
         bool confirm = false;
+        bool bounded = false;
         QString lockKey;
         QJsonValue lockIs;
         QString lockText;
@@ -108,6 +116,16 @@ private:
         QVariant store;
         QVariant shown;
         int inflight = 0;
+    };
+
+    struct Preview
+    {
+        QString key;
+        QVariant start;
+        QVariant last;
+        bool override = false;
+        bool draft = false;
+        QVariantList ours;
     };
 
     using Reply = std::function<void(const QDBusMessage &)>;
@@ -125,6 +143,15 @@ private:
     bool editable(const Entry &entry) const;
     bool locked(const Entry &entry) const;
     QString kindOf(const Entry &entry) const;
+    QString pickOf(const Entry &entry) const;
+    QVariantList sheetValues(const Entry &entry) const;
+    QVariant shownOf(const Entry &entry) const;
+    bool write(const QString &key, const QVariant &value);
+    bool overrideTo(const QString &key, const QVariant &value);
+    void clearOverride(const QString &key);
+    void closePreview(const QString &key);
+    void dropPreview();
+    void watchPreview(const Entry &entry);
     QString textOf(const Entry &entry, const QVariant &value) const;
     QString undervoltText(const Entry &entry) const;
     QVariantMap rowOf(const Entry &entry) const;
@@ -143,6 +170,7 @@ private:
     QSet<QString> m_live;
     QSet<QString> m_referenced;
     QMap<QString, int> m_watching;
+    std::optional<Preview> m_preview;
     bool m_available = false;
     bool m_fixture = false;
     int m_revision = 0;

@@ -3,9 +3,11 @@
 #include "settingsmodel.h"
 
 #include <QFile>
+#include <QJsonObject>
 #include <QSignalSpy>
 #include <QTest>
 
+#include <algorithm>
 #include <memory>
 
 using namespace Qt::StringLiterals;
@@ -46,6 +48,21 @@ class ModelTest : public QObject
     {
         return rowOf(rows, key).value(u"value"_s).toString();
     }
+
+    static QStringList words(const QVariantMap &sheet)
+    {
+        return sheet.value(u"words"_s).toStringList();
+    }
+
+    static QStringList allFiles()
+    {
+        return {FakeMicroSetd::shipped(), FakeMicroSetd::fixture(MicroDapSchema), FakeMicroSetd::fixture(MicroEmuSchema)};
+    }
+
+    static inline const QString MicroDapSchema = u"50-microdap.json"_s;
+    static inline const QString MicroDapCommit = u"MicroDAP d80c538"_s;
+    static inline const QString MicroEmuSchema = u"50-microemu.json"_s;
+    static inline const QString MicroEmuCommit = u"MicroEMU 6f179c6"_s;
 
 private slots:
     void init()
@@ -498,6 +515,267 @@ private slots:
         QVERIFY(fake->start());
         QTRY_VERIFY(m.available());
         QVERIFY(!m.rows(u"audio"_s, 0).isEmpty());
+    }
+
+    void picks()
+    {
+        const QJsonObject schema = FakeMicroSetd::describe(allFiles());
+        QVERIFY2(schema.contains("microdap.scale"_L1), qPrintable(MicroDapCommit));
+        QVERIFY2(schema.contains("microemu.esde.theme_color_scheme"_L1), qPrintable(MicroEmuCommit));
+        fake->setSchema(schema);
+        fake->setValues({{u"power.gpu_level"_s, u"manual"_s}, {u"display.auto_rotate"_s, false}});
+        fake->setStored({{u"rgb.enabled"_s, true}});
+        const auto m = model();
+        const QStringList edits{u"rgb.hue"_s, u"microdap.accent_hue"_s, u"audio.balance.headphones"_s,
+                                u"audio.balance.speaker"_s, u"audio.balance.usb"_s, u"audio.balance.bt"_s,
+                                u"microemu.retroarch.audio_block_frames"_s, u"microemu.retroarch.savestate_max_keep"_s};
+        QStringList seenEdits;
+        int sheets = 0;
+        for (const QVariant &group : m->groups(0)) {
+            const QString title = group.toMap().value(u"group"_s).toString();
+            if (title.isEmpty())
+                continue;
+            for (const QVariant &item : m->rows(title, 0)) {
+                const QVariantMap row = item.toMap();
+                const QString key = row.value(u"key"_s).toString();
+                const QString pick = row.value(u"pick"_s).toString();
+                const QJsonObject entry = schema.value(key).toObject();
+                if (row.value(u"readOnly"_s).toBool()) {
+                    QVERIFY2(pick.isEmpty(), qPrintable(key));
+                } else if (entry.value("type"_L1).toString() == "b"_L1) {
+                    QCOMPARE(pick, u"flip"_s);
+                } else if (edits.contains(key)) {
+                    QVERIFY2(pick == "edit"_L1, qPrintable(key));
+                    seenEdits << key;
+                } else {
+                    QVERIFY2(pick == "sheet"_L1, qPrintable(key + u' ' + pick));
+                    QVERIFY2(!words(m->sheet(key)).isEmpty(), qPrintable(key));
+                    ++sheets;
+                }
+            }
+        }
+        std::sort(seenEdits.begin(), seenEdits.end());
+        QStringList wanted = edits;
+        std::sort(wanted.begin(), wanted.end());
+        QCOMPARE(seenEdits, wanted);
+        QVERIFY(sheets > 30);
+        QCOMPARE(words(m->sheet(u"microemu.esde.theme_color_scheme"_s)).size(), 37);
+        QCOMPARE(words(m->sheet(u"microemu.retroarch.menu_shader_pipeline"_s)).size(), 7);
+        QVERIFY(m->sheet(u"microemu.retroarch.audio_block_frames"_s).isEmpty());
+        QVERIFY(m->sheet(u"audio.eq.headphones.on"_s).isEmpty());
+    }
+
+    void sheetOrderAndMarks()
+    {
+        fake->setSchema(FakeMicroSetd::describe(allFiles()));
+        fake->setValues({{u"power.gpu_level"_s, u"manual"_s}, {u"power.gpu_clock"_s, 490u}, {u"power.tdp"_s, 7u},
+                         {u"power.game_floor"_s, 0u}, {u"microdap.scale"_s, 1.0}, {u"audio.volume_step"_s, 5u},
+                         {u"audio.hp_gain"_s, u"normal"_s}});
+        fake->setStored({{u"display.brightness"_s, 2442u}});
+        const auto m = model();
+        const QVariantMap clock = m->sheet(u"power.gpu_clock"_s);
+        QCOMPARE(words(clock), (QStringList{u"587 mhz"_s, u"525 mhz"_s, u"490 mhz"_s, u"441.6 mhz"_s, u"400 mhz"_s,
+                                            u"305 mhz"_s}));
+        QCOMPARE(clock.value(u"mark"_s).toInt(), 2);
+        QCOMPARE(clock.value(u"focus"_s).toInt(), 2);
+        QVERIFY(clock.value(u"wrap"_s).toBool());
+        const QVariantMap tdp = m->sheet(u"power.tdp"_s);
+        QCOMPARE(words(tdp), (QStringList{u"10 w"_s, u"9 w"_s, u"8 w"_s, u"7 w"_s, u"6 w"_s, u"5 w"_s, u"4 w"_s, u"3 w"_s}));
+        QCOMPARE(tdp.value(u"mark"_s).toInt(), 3);
+        const QVariantMap floor = m->sheet(u"power.game_floor"_s);
+        QCOMPARE(words(floor), (QStringList{u"83 %"_s, u"68 %"_s, u"49 %"_s, u"28 %"_s, u"off"_s}));
+        QCOMPARE(floor.value(u"mark"_s).toInt(), 4);
+        QCOMPARE(words(m->sheet(u"power.profile"_s)), (QStringList{u"low power"_s, u"balanced"_s, u"performance"_s}));
+        QCOMPARE(words(m->sheet(u"audio.output"_s)),
+                 (QStringList{u"auto"_s, u"speaker"_s, u"headphones"_s, u"usb"_s, u"bt"_s}));
+        QCOMPARE(words(m->sheet(u"session.default"_s)), (QStringList{u"microdap"_s, u"microemu"_s, u"steam"_s}));
+        QCOMPARE(words(m->sheet(u"power.gpu_undervolt"_s)), (QStringList{u"Off"_s, u"Low"_s}));
+        QCOMPARE(words(m->sheet(u"audio.volume_step"_s)), (QStringList{u"10%"_s, u"5%"_s, u"2%"_s}));
+        const QVariantMap gain = m->sheet(u"audio.hp_gain"_s);
+        QCOMPARE(gain.value(u"mark"_s).toInt(), 1);
+        QVERIFY(!gain.value(u"wrap"_s).toBool());
+        const QVariantMap brightness = m->sheet(u"display.brightness"_s);
+        QCOMPARE(words(brightness).size(), 19);
+        QCOMPARE(words(brightness).first(), u"100 %"_s);
+        QCOMPARE(words(brightness).last(), u"10 %"_s);
+        QCOMPARE(brightness.value(u"mark"_s).toInt(), -1);
+        QCOMPARE(brightness.value(u"values"_s).toList().at(brightness.value(u"focus"_s).toInt()), QVariant(2500u));
+        QVERIFY(!brightness.value(u"wrap"_s).toBool());
+        const QVariantMap scale = m->sheet(u"microdap.scale"_s);
+        QCOMPARE(words(scale), (QStringList{u"1.4"_s, u"1.3"_s, u"1.2"_s, u"1.1"_s, u"1.0"_s, u"0.9"_s, u"0.8"_s}));
+        QCOMPARE(scale.value(u"mark"_s).toInt(), 4);
+        QVERIFY(!scale.value(u"wrap"_s).toBool());
+        const QVariantMap saturation = m->sheet(u"rgb.saturation"_s);
+        QVERIFY(saturation.isEmpty());
+    }
+
+    void decimalsFromStep()
+    {
+        fake->setSchema(FakeMicroSetd::describe(allFiles()));
+        fake->setValues({{u"microdap.scale"_s, 1.0}});
+        const auto m = model();
+        QCOMPARE(value(m->rows(u"display"_s, 0), u"microdap.scale"_s), u"1.0"_s);
+        QCOMPARE(m->text(u"microdap.scale"_s, 1.4), u"1.4"_s);
+        QCOMPARE(m->text(u"microdap.scale"_s, 0.8), u"0.8"_s);
+        QCOMPARE(m->text(u"microdap.scale"_s, 0.8 + 2 * 0.1), u"1.0"_s);
+        QCOMPARE(m->text(u"power.tdp"_s, 7u), u"7 w"_s);
+    }
+
+    void overridePreview()
+    {
+        fake->setValues({{u"rgb.enabled"_s, true}, {u"rgb.saturation"_s, 60u}});
+        fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.saturation"_s, 60u}});
+        const auto m = model();
+        QCOMPARE(m->sheet(u"rgb.saturation"_s).value(u"mark"_s).toInt(), 8);
+        QVERIFY(m->beginEdit(u"rgb.saturation"_s));
+        QVERIFY(m->preview(55u));
+        QVERIFY(m->preview(50u));
+        QTRY_COMPARE(fake->calls(), (QStringList{u"Override rgb.saturation 55"_s, u"Override rgb.saturation 50"_s}));
+        QCOMPARE(value(m->rows(u"stick leds"_s, m->revision()), u"rgb.saturation"_s), u"50 %"_s);
+        QSignalSpy ended(m.get(), &SettingsModel::previewEnded);
+        m->endPreview(50u);
+        QCOMPARE(ended.count(), 1);
+        QTRY_COMPARE(fake->calls().size(), 4);
+        QCOMPARE(fake->calls().mid(2), (QStringList{u"Set rgb.saturation 50"_s, u"ClearOverride rgb.saturation"_s}));
+        QTRY_COMPARE(value(m->rows(u"stick leds"_s, m->revision()), u"rgb.saturation"_s), u"50 %"_s);
+        QVERIFY(m->beginEdit(u"rgb.saturation"_s));
+        QVERIFY(m->preview(45u));
+        m->cancelPreview();
+        QTRY_COMPARE(fake->calls().size(), 6);
+        QCOMPARE(fake->calls().mid(4), (QStringList{u"Override rgb.saturation 45"_s, u"ClearOverride rgb.saturation"_s}));
+        m->cancelPreview();
+        m->endPreviews();
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 6);
+        QCOMPARE(fake->stored().value(u"rgb.saturation"_s), QVariant(50u));
+    }
+
+    void livePreview()
+    {
+        const auto m = model();
+        QVERIFY(m->beginEdit(u"audio.volume_step"_s));
+        QVERIFY(m->preview(10u));
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set audio.volume_step 10"_s});
+        m->endPreview(10u);
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 1);
+        QVERIFY(m->beginEdit(u"audio.volume_step"_s));
+        QVERIFY(m->preview(2u));
+        m->cancelPreview();
+        QTRY_COMPARE(fake->calls().size(), 3);
+        QCOMPARE(fake->calls().mid(1), (QStringList{u"Set audio.volume_step 2"_s, u"Set audio.volume_step 10"_s}));
+        QVERIFY(m->beginEdit(u"audio.volume_step"_s));
+        QVERIFY(m->preview(5u));
+        m->endPreview(2u);
+        QTRY_COMPARE(fake->calls().size(), 5);
+        QCOMPARE(fake->calls().mid(3), (QStringList{u"Set audio.volume_step 5"_s, u"Set audio.volume_step 2"_s}));
+        QVERIFY(m->beginEdit(u"audio.max_volume"_s));
+        QVERIFY(m->preview(90u));
+        QVERIFY(m->preview(80u));
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 5);
+        m->endPreview(80u);
+        QTRY_COMPARE(fake->calls().size(), 6);
+        QCOMPARE(fake->calls().last(), u"Set audio.max_volume 80"_s);
+        QVERIFY(m->beginEdit(u"audio.max_volume"_s));
+        QVERIFY(m->preview(70u));
+        m->cancelPreview();
+        QVERIFY(m->beginEdit(u"audio.max_volume"_s));
+        m->endPreviews();
+        QVERIFY(m->beginEdit(u"power.tdp"_s));
+        QVERIFY(m->preview(9u));
+        m->endPreviews();
+        QTRY_COMPARE(fake->calls().size(), 7);
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().last(), u"Set power.tdp 9"_s);
+        QCOMPARE(fake->calls().size(), 7);
+    }
+
+    void outsideChangeEndsPreview()
+    {
+        fake->setValues({{u"rgb.enabled"_s, true}});
+        fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.saturation"_s, 60u}});
+        const auto m = model();
+        QSignalSpy ended(m.get(), &SettingsModel::previewEnded);
+        QVERIFY(m->beginEdit(u"audio.volume_step"_s));
+        QVERIFY(m->preview(10u));
+        QTRY_COMPARE(fake->calls().size(), 1);
+        fake->emitChanged(u"audio.volume_step"_s, 5u);
+        QTest::qWait(100);
+        QCOMPARE(ended.count(), 0);
+        fake->emitChanged(u"audio.volume_step"_s, 2u);
+        QTRY_COMPARE(ended.count(), 1);
+        QCOMPARE(ended.at(0).at(0).toString(), u"audio.volume_step"_s);
+        m->cancelPreview();
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 1);
+        QVERIFY(m->beginEdit(u"rgb.saturation"_s));
+        QVERIFY(m->preview(40u));
+        QTRY_COMPARE(fake->calls().size(), 2);
+        fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.saturation"_s, 20u}});
+        fake->emitChanged(u"rgb.saturation"_s, 20u);
+        QTRY_COMPARE(ended.count(), 2);
+        QTRY_COMPARE(fake->calls().size(), 3);
+        QCOMPARE(fake->calls().last(), u"ClearOverride rgb.saturation"_s);
+    }
+
+    void unavailableEndsWithoutWrite()
+    {
+        fake->setValues({{u"rgb.enabled"_s, true}});
+        fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.saturation"_s, 60u}});
+        const auto m = model();
+        QSignalSpy ended(m.get(), &SettingsModel::previewEnded);
+        QVERIFY(m->beginEdit(u"rgb.saturation"_s));
+        QVERIFY(m->preview(40u));
+        QTRY_COMPARE(fake->calls().size(), 1);
+        fake->stop();
+        QTRY_VERIFY(!m->available());
+        QCOMPARE(ended.count(), 1);
+        m->endPreviews();
+        m->cancelPreview();
+        m->endPreview(40u);
+        QVERIFY(fake->start());
+        QTRY_VERIFY(m->available());
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 1);
+    }
+
+    void destructionSettlesOverride()
+    {
+        fake->setValues({{u"rgb.enabled"_s, true}});
+        fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.saturation"_s, 60u}});
+        {
+            auto m = model();
+            QVERIFY(m->beginEdit(u"rgb.saturation"_s));
+            QVERIFY(m->preview(55u));
+            QVERIFY(m->preview(45u));
+            QTRY_COMPARE(fake->calls().size(), 2);
+            m->endPreviews();
+            m->endPreviews();
+            QTRY_COMPARE(fake->calls().size(), 4);
+            QCOMPARE(fake->calls().mid(2), (QStringList{u"Set rgb.saturation 45"_s, u"ClearOverride rgb.saturation"_s}));
+            QVERIFY(m->beginEdit(u"rgb.saturation"_s));
+            QVERIFY(m->preview(30u));
+            QTRY_COMPARE(fake->calls().size(), 5);
+        }
+        QTRY_COMPARE(fake->calls().size(), 7);
+        QCOMPARE(fake->calls().mid(5), (QStringList{u"Set rgb.saturation 30"_s, u"ClearOverride rgb.saturation"_s}));
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 7);
+    }
+
+    void busyWhileSetWaits()
+    {
+        const auto m = model();
+        fake->setHold(true);
+        QVERIFY(!m->busy(u"audio.volume_step"_s));
+        QVERIFY(m->set(u"audio.volume_step"_s, 10u));
+        QVERIFY(m->busy(u"audio.volume_step"_s));
+        QTRY_COMPARE(fake->sets().size(), 1);
+        fake->setValues({{u"audio.volume_step"_s, 10u}});
+        fake->release();
+        QTRY_VERIFY(!m->busy(u"audio.volume_step"_s));
+        QVERIFY(!m->busy(u"nope.key"_s));
     }
 };
 

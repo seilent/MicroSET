@@ -1,0 +1,372 @@
+{
+  "owner": "microdap",
+  "keys": {
+    "microdap.output_level": {
+      "type": "s",
+      "default": "off",
+      "enum": ["off", "bitperfect", "exclusive"],
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Bit perfect",
+      "ui": {"order": 0, "values": {"bitperfect": "on"}, "apply": "confirm"}
+    },
+    "microdap.sample_rate": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "44100", "48000", "88200", "96000", "176400", "192000", "352800", "384000"],
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Sample rate",
+      "ui": {"order": 1, "apply": "confirm"}
+    },
+    "microdap.play_through": {
+      "type": "s",
+      "default": "off",
+      "enum": ["off", "folders", "albums"],
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Play through",
+      "ui": {"order": 2}
+    },
+    "microdap.resume": {
+      "type": "s",
+      "default": "position",
+      "enum": ["off", "track", "position"],
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Resume",
+      "ui": {"order": 3}
+    },
+    "microdap.auto_now_playing": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Auto now playing",
+      "ui": {"order": 4}
+    },
+    "microdap.replaygain": {
+      "type": "s",
+      "default": "off",
+      "enum": ["off", "track", "album"],
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "ReplayGain",
+      "ui": {"order": 5, "apply": "confirm"}
+    },
+    "microdap.crossfade_ms": {
+      "type": "u",
+      "default": 0,
+      "enum": [0, 1000, 2000, 3000, 5000],
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Crossfade",
+      "ui": {"order": 6, "values": {"0": "off", "1000": "1 s", "2000": "2 s", "3000": "3 s", "5000": "5 s"}, "apply": "confirm"}
+    },
+    "microdap.eq_mode_headphones": {
+      "type": "s",
+      "default": "parametric",
+      "enum": ["parametric", "graphic"],
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "EQ mode headphones",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_graphic_headphones": {
+      "type": "as",
+      "default": ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+      "max_items": 10,
+      "max_len": 8,
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Graphic EQ headphones",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_graphic_preset_headphones": {
+      "type": "s",
+      "default": "flat",
+      "max_len": 256,
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Graphic EQ preset headphones",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_parametric_on_headphones": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Parametric EQ on headphones",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_mode_usb": {
+      "type": "s",
+      "default": "parametric",
+      "enum": ["parametric", "graphic"],
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "EQ mode usb",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_graphic_usb": {
+      "type": "as",
+      "default": ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+      "max_items": 10,
+      "max_len": 8,
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Graphic EQ usb",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_graphic_preset_usb": {
+      "type": "s",
+      "default": "flat",
+      "max_len": 256,
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Graphic EQ preset usb",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_parametric_on_usb": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Parametric EQ on usb",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_mode_speaker": {
+      "type": "s",
+      "default": "parametric",
+      "enum": ["parametric", "graphic"],
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "EQ mode speaker",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_graphic_speaker": {
+      "type": "as",
+      "default": ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+      "max_items": 10,
+      "max_len": 8,
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Graphic EQ speaker",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_graphic_preset_speaker": {
+      "type": "s",
+      "default": "flat",
+      "max_len": 256,
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Graphic EQ preset speaker",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_parametric_on_speaker": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Parametric EQ on speaker",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_mode_bt": {
+      "type": "s",
+      "default": "parametric",
+      "enum": ["parametric", "graphic"],
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "EQ mode bt",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_graphic_bt": {
+      "type": "as",
+      "default": ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+      "max_items": 10,
+      "max_len": 8,
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Graphic EQ bt",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_graphic_preset_bt": {
+      "type": "s",
+      "default": "flat",
+      "max_len": 256,
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Graphic EQ preset bt",
+      "ui": {"widget": "none"}
+    },
+    "microdap.eq_parametric_on_bt": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "microdap_audio",
+      "label": "Parametric EQ on bt",
+      "ui": {"widget": "none"}
+    },
+    "microdap.roots": {
+      "type": "as",
+      "default": [],
+      "max_items": 64,
+      "max_len": 4096,
+      "applier": null,
+      "group": "microdap_library",
+      "label": "Library folders",
+      "ui": {"widget": "none"}
+    },
+    "microdap.accent_hue": {
+      "type": "u",
+      "default": 350,
+      "min": 0,
+      "max": 350,
+      "applier": null,
+      "group": "microdap_display",
+      "label": "Accent hue",
+      "ui": {"order": 0, "widget": "hue"}
+    },
+    "microdap.accent_from_art": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "microdap_display",
+      "label": "Accent from art",
+      "ui": {"order": 1}
+    },
+    "microdap.scale": {
+      "type": "d",
+      "default": 1.0,
+      "min": 0.8,
+      "max": 1.4,
+      "applier": null,
+      "group": "microdap_display",
+      "label": "Scale",
+      "ui": {"order": 3, "step": 0.1, "apply": "confirm", "bounded": true}
+    },
+    "microdap.saver_seconds": {
+      "type": "u",
+      "default": 30,
+      "enum": [10, 15, 30, 60, 120, 300],
+      "applier": null,
+      "group": "microdap_display",
+      "label": "Screen saver after",
+      "ui": {"order": 4, "values": {"10": "10 s", "15": "15 s", "30": "30 s", "60": "1 min", "120": "2 min", "300": "5 min"}}
+    },
+    "microdap.saver_lyrics": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "microdap_display",
+      "label": "Saver lyrics",
+      "ui": {"order": 5}
+    },
+    "microdap.touch": {
+      "type": "b",
+      "default": true,
+      "applier": null,
+      "group": "microdap_display",
+      "label": "Touch",
+      "ui": {"order": 2}
+    },
+    "microdap.rgb": {
+      "type": "s",
+      "default": "system",
+      "enum": ["system", "accent", "off"],
+      "applier": null,
+      "group": "microdap_display",
+      "label": "RGB",
+      "ui": {"order": 6}
+    },
+    "microdap.overlay_toasts": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "microdap_display",
+      "label": "Toasts in game",
+      "ui": {"order": 7}
+    },
+    "microdap.clock": {
+      "type": "s",
+      "default": "24h",
+      "enum": ["24h", "12h", "off"],
+      "applier": null,
+      "group": "microdap_display",
+      "label": "Clock",
+      "ui": {"order": 8}
+    },
+    "microdap.battery_percent": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "microdap_display",
+      "label": "Battery percent",
+      "ui": {"order": 9}
+    },
+    "microdap.artist_photo": {
+      "type": "b",
+      "default": true,
+      "applier": null,
+      "group": "microdap_display",
+      "label": "Artist photo",
+      "ui": {"order": 11}
+    },
+    "microdap.quickplay": {
+      "type": "b",
+      "default": true,
+      "applier": null,
+      "group": "microdap_display",
+      "label": "Quickplay",
+      "ui": {"order": 10}
+    },
+    "microdap.screen_off_seconds": {
+      "type": "u",
+      "default": 300,
+      "enum": [0, 60, 120, 300, 600, 1800],
+      "applier": null,
+      "group": "microdap_power",
+      "label": "Screen off after",
+      "ui": {"order": 0, "values": {"0": "off", "60": "1 min", "120": "2 min", "300": "5 min", "600": "10 min", "1800": "30 min"}}
+    },
+    "microdap.suspend_minutes": {
+      "type": "u",
+      "default": 10,
+      "enum": [0, 5, 10, 30, 60],
+      "applier": null,
+      "group": "microdap_power",
+      "label": "Suspend after",
+      "ui": {"order": 1, "unit": "min", "values": {"0": "off"}}
+    },
+    "microdap.wifi_off_screen_off": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "microdap_power",
+      "label": "Wi-Fi off with the screen",
+      "ui": {"order": 2}
+    },
+    "microdap.companion": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "microdap_power",
+      "label": "Phone app",
+      "ui": {"order": 3}
+    },
+    "microdap.companion_phone": {
+      "type": "s",
+      "default": "",
+      "applier": null,
+      "group": "microdap_power",
+      "label": "Phone app phone",
+      "ui": {"order": 4}
+    }
+  },
+  "groups": {
+    "microdap_audio": {"label": "audio", "order": 0},
+    "microdap_library": {"label": "library", "order": 1},
+    "microdap_display": {"label": "display", "order": 2},
+    "microdap_power": {"label": "power", "order": 3}
+  }
+}

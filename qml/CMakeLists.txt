@@ -17,6 +17,7 @@ set(microset_qml
     MicroSet/components/CroppedHeader.qml
     MicroSet/components/Dialog.qml
     MicroSet/components/Toast.qml
+    MicroSet/components/Sheet.qml
     MicroSet/SettingsRow.qml
     MicroSet/SettingsPage.qml
     MicroSet/GroupsPage.qml

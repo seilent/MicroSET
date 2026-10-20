@@ -1,7 +1,9 @@
 #include "dbuspad.h"
 #include "fakemicrosetd.h"
+#include "harness.h"
 #include "overlay.h"
 #include "settingsmodel.h"
+#include "uirelease.h"
 
 #include <QElapsedTimer>
 #include <QGuiApplication>
@@ -23,7 +25,7 @@ using namespace Qt::StringLiterals;
 class FakeOverlay : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(bool shown READ shown CONSTANT)
+    Q_PROPERTY(bool shown READ shown NOTIFY shownChanged)
     Q_PROPERTY(bool mapped READ mapped CONSTANT)
     Q_PROPERTY(qreal opacity READ opacity CONSTANT)
     Q_PROPERTY(bool hintShown READ hintShown CONSTANT)
@@ -32,7 +34,12 @@ class FakeOverlay : public QObject
     Q_PROPERTY(QString hintKind READ hintKind NOTIFY hintChanged)
 
 public:
-    bool shown() const { return true; }
+    bool shown() const { return m_shown; }
+    void setShown(bool shown)
+    {
+        m_shown = shown;
+        emit shownChanged();
+    }
     bool mapped() const { return true; }
     qreal opacity() const { return 1.0; }
     bool hintShown() const { return false; }
@@ -51,11 +58,13 @@ public:
     int hides = 0;
 
 signals:
+    void shownChanged();
     void pageHint();
     void hintShownChanged();
     void hintChanged();
 
 private:
+    bool m_shown = true;
     bool m_hint = false;
     QString m_kind;
 };
@@ -307,6 +316,107 @@ private slots:
                 QCOMPARE(sizeHints(strip), hints);
             strip->hide();
         }
+    }
+
+    void hideSettlesPreview_data()
+    {
+        QTest::addColumn<bool>("hint");
+        QTest::newRow("hide") << false;
+        QTest::newRow("hide with the hint up") << true;
+    }
+
+    void hideSettlesPreview()
+    {
+        QFETCH(bool, hint);
+        cleanup();
+        Harness h;
+        QVERIFY(h.startBus());
+        FakeMicroSetd fake(h.address());
+        fake.setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped()}));
+        fake.setStored({{u"rgb.enabled"_s, true}, {u"rgb.saturation"_s, 60u}});
+        fake.setValues({{u"rgb.enabled"_s, true}, {u"rgb.saturation"_s, 60u}});
+        QVERIFY(fake.start());
+        const auto modelFirst = qScopeGuard([this] { cleanup(); });
+        m_model = std::make_unique<SettingsModel>(h.client());
+        m_model->load();
+        QTRY_VERIFY(m_model->available());
+        m_overlay = std::make_unique<FakeOverlay>();
+        m_pad = std::make_unique<FakePad>();
+        m_engine = std::make_unique<QQmlApplicationEngine>();
+        m_engine->setInitialProperties({
+            {u"overlay"_s, QVariant::fromValue(static_cast<QObject *>(m_overlay.get()))},
+            {u"model"_s, QVariant::fromValue(static_cast<QObject *>(m_model.get()))},
+            {u"pad"_s, QVariant::fromValue(static_cast<QObject *>(m_pad.get()))},
+            {u"screenshot"_s, true},
+            {u"shotState"_s, u"none"_s},
+        });
+        m_engine->loadFromModule("MicroSetOverlay", "Overlay");
+        m_window = qobject_cast<QQuickWindow *>(m_engine->rootObjects().value(0));
+        QVERIFY(m_window);
+        m_view = m_window->findChild<QObject *>(u"settingsView"_s);
+        QVERIFY(QMetaObject::invokeMethod(m_view, "open", Q_ARG(QString, u"stick leds"_s)));
+        int index = -1;
+        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, u"rgb.saturation"_s)));
+        page()->setProperty("focusIndex", index);
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        auto *sheet = qvariant_cast<QObject *>(page()->property("sheet"));
+        QVERIFY(sheet->property("shown").toBool());
+        for (int i = 0; i < 2; ++i)
+            m_pad->press(FakePad::Down);
+        QTRY_COMPARE(fake.calls(), (QStringList{u"Override rgb.saturation 55"_s, u"Override rgb.saturation 50"_s}));
+        if (hint)
+            m_overlay->setHint(true, u"undervolt"_s);
+        m_overlay->setShown(false);
+        QVERIFY(!sheet->property("shown").toBool());
+        QTRY_COMPARE(fake.calls().size(), 4);
+        QCOMPARE(fake.calls().mid(2), (QStringList{u"Set rgb.saturation 50"_s, u"ClearOverride rgb.saturation"_s}));
+        m_model->endPreviews();
+        m_engine.reset();
+        m_model.reset();
+        QTest::qWait(100);
+        QCOMPARE(fake.calls().size(), 4);
+        QCOMPARE(fake.stored().value(u"rgb.saturation"_s), QVariant(50u));
+    }
+
+    void unusedSettlesBeforeReset()
+    {
+        cleanup();
+        Harness h;
+        QVERIFY(h.startBus());
+        FakeMicroSetd fake(h.address());
+        fake.setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped()}));
+        fake.setStored({{u"rgb.enabled"_s, true}, {u"rgb.saturation"_s, 60u}});
+        fake.setValues({{u"rgb.enabled"_s, true}, {u"rgb.saturation"_s, 60u}});
+        QVERIFY(fake.start());
+        const auto modelFirst = qScopeGuard([this] { cleanup(); });
+        m_model = std::make_unique<SettingsModel>(h.client());
+        m_model->load();
+        QTRY_VERIFY(m_model->available());
+        DbusPad pad(QDBusConnection(u"none"_s), QDBusConnection(u"none"_s), nullptr, false);
+        Overlay overlay(&pad, nullptr);
+        m_engine = std::make_unique<QQmlApplicationEngine>();
+        m_engine->setInitialProperties({
+            {u"overlay"_s, QVariant::fromValue(static_cast<QObject *>(&overlay))},
+            {u"model"_s, QVariant::fromValue(static_cast<QObject *>(m_model.get()))},
+        });
+        m_engine->loadFromModule("MicroSetOverlay", "Overlay");
+        auto *root = qobject_cast<QQuickWindow *>(m_engine->rootObjects().value(0));
+        QVERIFY(root);
+        overlay.setWindow(root);
+        QVERIFY(m_model->beginEdit(u"rgb.saturation"_s));
+        QVERIFY(m_model->preview(45u));
+        QTRY_COMPARE(fake.calls(), QStringList{u"Override rgb.saturation 45"_s});
+        QStringList order;
+        connect(m_model.get(), &SettingsModel::previewEnded, this, [&order] { order << u"settled"_s; });
+        connect(root, &QObject::destroyed, this, [&order] { order << u"reset"_s; });
+        releaseUi(overlay, m_model.get(), m_engine);
+        QCOMPARE(order, (QStringList{u"settled"_s, u"reset"_s}));
+        QVERIFY(!m_engine);
+        QTRY_COMPARE(fake.calls().size(), 3);
+        QCOMPARE(fake.calls().mid(1), (QStringList{u"Set rgb.saturation 45"_s, u"ClearOverride rgb.saturation"_s}));
+        m_model.reset();
+        QTest::qWait(100);
+        QCOMPARE(fake.calls().size(), 3);
     }
 
     void backReleaseAfterHolderLossDoesNotHide()

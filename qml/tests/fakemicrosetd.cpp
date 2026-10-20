@@ -176,6 +176,12 @@ FakeMicroSetd::Sets FakeMicroSetd::sets() const
     return m_sets;
 }
 
+QStringList FakeMicroSetd::calls() const
+{
+    QMutexLocker locker(&m_lock);
+    return m_calls;
+}
+
 QStringList FakeMicroSetd::subscriptions() const
 {
     QMutexLocker locker(&m_lock);
@@ -190,8 +196,9 @@ void FakeMicroSetd::apply(const QDBusMessage &message)
     {
         QMutexLocker locker(&m_lock);
         m_stored.insert(key, value);
-        moved = m_values.value(key) != value;
-        m_values.insert(key, value);
+        const QVariant effective = m_overrides.value(key, value);
+        moved = m_values.value(key) != effective;
+        m_values.insert(key, effective);
     }
     if (moved)
         emitChanged(key, value);
@@ -218,8 +225,33 @@ bool FakeMicroSetd::handle(const QDBusMessage &message)
     } else if (message.member() == "Subscribe"_L1 || message.member() == "Unsubscribe"_L1) {
         m_subscriptions << message.member() + u' ' + key;
         bus.send(message.createReply());
+    } else if (message.member() == "Override"_L1 || message.member() == "ClearOverride"_L1) {
+        const bool clear = message.member() == "ClearOverride"_L1;
+        if (!m_overrides.contains(key))
+            m_base.insert(key, m_values.value(key));
+        const QVariant value = !clear ? message.arguments().value(1).value<QDBusVariant>().variant()
+            : m_stored.contains(key) ? m_stored.value(key)
+                                     : m_base.value(key);
+        m_calls << (clear ? message.member() + u' ' + key : message.member() + u' ' + key + u' ' + value.toString());
+        if (clear) {
+            m_overrides.remove(key);
+            m_base.remove(key);
+        } else {
+            m_overrides.insert(key, value);
+        }
+        const bool moved = value.isValid() && m_values.value(key) != value;
+        if (value.isValid())
+            m_values.insert(key, value);
+        else
+            m_values.remove(key);
+        bus.send(message.createReply());
+        if (moved) {
+            locker.unlock();
+            emitChanged(key, value);
+        }
     } else if (message.member() == "Set"_L1) {
         m_sets << qMakePair(key, message.arguments().value(1).value<QDBusVariant>().variant());
+        m_calls << u"Set "_s + key + u' ' + m_sets.last().second.toString();
         if (m_refuse.contains(key)) {
             bus.send(message.createErrorReply(m_refuse.value(key), key));
         } else if (m_hold) {

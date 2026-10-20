@@ -71,6 +71,21 @@ Window {
     function applyShot(): void {
         if (root.shotState === "audio") {
             view.open("audio")
+        } else if (root.shotState === "sheet" || root.shotState === "sheet-portrait") {
+            view.open("audio")
+            const page = view.stack.currentItem
+            page.focusIndex = page.indexOfKey("audio.volume_step")
+            Qt.callLater(page.activate)
+        } else if (root.shotState === "undervolt-after-sheet") {
+            view.open("power")
+            const page = view.stack.currentItem
+            page.focusIndex = page.indexOfKey("power.gpu_undervolt")
+            Qt.callLater(() => {
+                page.keepFocusVisible()
+                page.activate()
+                page.handleAction("down", false)
+                page.handleAction("a", false)
+            })
         } else if (root.shotState === "hint-page") {
             view.toast.show("", root.holdText)
             view.toast.complete()
@@ -129,6 +144,11 @@ Window {
 
         function onPageHint() {
             view.toast.show("", root.holdText)
+        }
+
+        function onShownChanged() {
+            if (!root.overlay.shown && root.model !== null)
+                root.model.endPreviews()
         }
 
         function onHintShownChanged() {

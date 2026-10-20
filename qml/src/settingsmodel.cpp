@@ -23,6 +23,7 @@ const QString Path = u"/net/seilent/MicroSet"_s;
 const QString Interface = u"net.seilent.MicroSet1"_s;
 const QString PrivilegedOwner = u"microset"_s;
 constexpr int Last = std::numeric_limits<int>::max();
+constexpr int MaxSteps = 64;
 
 bool isNumeric(const QString &type)
 {
@@ -55,6 +56,14 @@ qsizetype nearest(const QVariantList &list, const QVariant &value)
     return std::max<qsizetype>(0, best);
 }
 
+int decimalsOf(double step)
+{
+    int decimals = 0;
+    for (double scaled = step; decimals < 6 && std::abs(scaled - std::round(scaled)) > 1e-9; scaled *= 10)
+        ++decimals;
+    return decimals;
+}
+
 }
 
 SettingsModel::SettingsModel(QObject *parent)
@@ -78,7 +87,10 @@ SettingsModel::SettingsModel(const QDBusConnection &bus, QObject *parent)
     m_updates.watch();
 }
 
-SettingsModel::~SettingsModel() = default;
+SettingsModel::~SettingsModel()
+{
+    endPreviews();
+}
 
 void SettingsModel::call(const QString &method, const QVariantList &arguments, Reply done)
 {
@@ -250,6 +262,7 @@ void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, 
         entry.labels = ui.value("values"_L1).toObject();
         entry.unit = ui.value("unit"_L1).toString();
         entry.confirm = ui.value("apply"_L1).toString() == "confirm"_L1;
+        entry.bounded = ui.value("bounded"_L1).toBool();
         const QJsonObject lock = ui.value("lock"_L1).toObject();
         entry.lockKey = lock.value("key"_L1).toString();
         entry.lockIs = lock.value("is"_L1);
@@ -287,6 +300,8 @@ void SettingsModel::setAvailable(bool available)
     if (m_available == available)
         return;
     m_available = available;
+    if (!available)
+        dropPreview();
     emit availableChanged();
 }
 
@@ -308,6 +323,7 @@ void SettingsModel::refreshStored(const QString &key)
             return;
         it->shown = it->store;
         bump();
+        watchPreview(*it);
     });
 }
 
@@ -331,6 +347,7 @@ void SettingsModel::onChanged(const QString &key, const QVariant &value)
     if (it->inflight == 0 && it->shown != now) {
         it->shown = now;
         bump();
+        watchPreview(*it);
     } else if (m_referenced.contains(key)) {
         bump();
     }
@@ -383,6 +400,48 @@ bool SettingsModel::editable(const Entry &entry) const
     return entry.writable && kindOf(entry) == "row"_L1 && !locked(entry);
 }
 
+QString SettingsModel::pickOf(const Entry &entry) const
+{
+    if (!editable(entry))
+        return {};
+    if (entry.type == "b"_L1)
+        return u"flip"_s;
+    if (entry.widget == "hue"_L1 || entry.widget == "edit"_L1 || sheetValues(entry).isEmpty())
+        return u"edit"_s;
+    return u"sheet"_s;
+}
+
+QVariantList SettingsModel::sheetValues(const Entry &entry) const
+{
+    QVariantList values = !entry.choices.isEmpty() ? entry.choices : entry.steps;
+    if (values.isEmpty() && isNumeric(entry.type) && entry.min && entry.max) {
+        const double span = (*entry.max - *entry.min) / entry.step;
+        const double whole = std::floor(span + 1e-9);
+        if (whole + (span - whole > 1e-9 ? 2 : 1) > MaxSteps)
+            return {};
+        const double scale = std::pow(10.0, decimalsOf(entry.step));
+        for (int k = 0; k <= int(whole); ++k)
+            values << coerce(entry.type, std::round((*entry.min + k * entry.step) * scale) / scale);
+        if (span - whole > 1e-9)
+            values << coerce(entry.type, *entry.max);
+    }
+    if (values.size() > MaxSteps)
+        return {};
+    if (!isNumeric(entry.type))
+        return values;
+    if (entry.floor)
+        values.removeIf([&](const QVariant &value) { return value.toDouble() < *entry.floor; });
+    std::sort(values.begin(), values.end(), [](const QVariant &a, const QVariant &b) { return a.toDouble() > b.toDouble(); });
+    return values;
+}
+
+QVariant SettingsModel::shownOf(const Entry &entry) const
+{
+    if (m_preview && m_preview->override && m_preview->key == entry.key && m_preview->last.isValid())
+        return m_preview->last;
+    return entry.shown;
+}
+
 QString SettingsModel::textOf(const Entry &entry, const QVariant &value) const
 {
     if (entry.widget == "hue"_L1)
@@ -396,7 +455,8 @@ QString SettingsModel::textOf(const Entry &entry, const QVariant &value) const
     if (label.isString())
         return label.toString();
     const bool scaled = entry.scale > 0 && !raw.isEmpty();
-    const QString text = scaled ? QString::number(std::round(value.toDouble() / entry.scale)) : raw;
+    const QString number = entry.type == "d"_L1 ? QString::number(value.toDouble(), 'f', decimalsOf(entry.step)) : raw;
+    const QString text = scaled ? QString::number(std::round(value.toDouble() / entry.scale)) : number;
     return entry.unit.isEmpty() || text.isEmpty() ? text : text + u' ' + entry.unit;
 }
 
@@ -416,7 +476,8 @@ QVariantMap SettingsModel::rowOf(const Entry &entry) const
 {
     const QString kind = kindOf(entry);
     const bool lockedNow = locked(entry);
-    QString value = entry.key == UndervoltKey ? undervoltText(entry) : textOf(entry, entry.shown);
+    const QVariant shown = shownOf(entry);
+    QString value = entry.key == UndervoltKey ? undervoltText(entry) : textOf(entry, shown);
     if (lockedNow)
         value = entry.lockShow.isEmpty() ? entry.lockText : textOf(entry, coerce(entry.type, m_values.value(entry.lockShow)));
     QVariantMap row{
@@ -428,14 +489,16 @@ QVariantMap SettingsModel::rowOf(const Entry &entry) const
         {u"widget"_s, lockedNow ? QString() : entry.widget},
         {u"swatch"_s, QString()},
         {u"hue"_s, -1},
-        {u"current"_s, entry.shown},
+        {u"current"_s, shown},
         {u"confirm"_s, entry.confirm},
+        {u"pick"_s, pickOf(entry)},
+        {u"bounded"_s, entry.bounded},
     };
     if (entry.widget == "hue"_L1 && !lockedNow) {
-        const int shown = entry.shown.toInt();
-        row.insert(u"hue"_s, normalizeHue(shown));
+        const int hue = shown.toInt();
+        row.insert(u"hue"_s, normalizeHue(hue));
         if (entry.key == LedHueKey)
-            row.insert(u"swatch"_s, QColor::fromRgb(MicroSet::hueColor(shown, 100)).name());
+            row.insert(u"swatch"_s, QColor::fromRgb(MicroSet::hueColor(hue, 100)).name());
     }
     return row;
 }
@@ -444,7 +507,7 @@ QVariantMap SettingsModel::label(const QString &owner)
 {
     return {{u"kind"_s, u"label"_s}, {u"key"_s, u"label-"_s + owner}, {u"title"_s, owner}, {u"value"_s, QString()},
             {u"readOnly"_s, true}, {u"widget"_s, QString()}, {u"swatch"_s, QString()}, {u"hue"_s, -1},
-            {u"confirm"_s, false}};
+            {u"confirm"_s, false}, {u"pick"_s, QString()}, {u"bounded"_s, false}};
 }
 
 QList<const SettingsModel::Entry *> SettingsModel::visible(const QString &group) const
@@ -478,7 +541,8 @@ QVariantList SettingsModel::updateRows() const
     QVariantList out;
     const QString image = m_updates.imageVersion();
     const QVariantMap base{{u"kind"_s, u"info"_s}, {u"readOnly"_s, true}, {u"widget"_s, QString()},
-                           {u"swatch"_s, QString()}, {u"hue"_s, -1}, {u"confirm"_s, false}};
+                           {u"swatch"_s, QString()}, {u"hue"_s, -1}, {u"confirm"_s, false},
+                           {u"pick"_s, QString()}, {u"bounded"_s, false}};
     if (!image.isEmpty()) {
         QVariantMap row = base;
         row.insert({{u"key"_s, u"image"_s}, {u"title"_s, u"image"_s}, {u"value"_s, image}});
@@ -557,7 +621,8 @@ QVariantList SettingsModel::groups(int) const
         }
         out << QVariantMap{{u"kind"_s, u"row"_s}, {u"key"_s, u"group-"_s + item.title}, {u"title"_s, item.title},
                            {u"value"_s, QString()}, {u"readOnly"_s, true}, {u"group"_s, item.title},
-                           {u"widget"_s, QString()}, {u"swatch"_s, QString()}, {u"hue"_s, -1}, {u"confirm"_s, false}};
+                           {u"widget"_s, QString()}, {u"swatch"_s, QString()}, {u"hue"_s, -1}, {u"confirm"_s, false},
+                           {u"pick"_s, QString()}, {u"bounded"_s, false}};
     }
     return out;
 }
@@ -571,7 +636,145 @@ bool SettingsModel::beginEdit(const QString &key)
         emit refused(it->title, NotAvailable);
         return false;
     }
+    endPreviews();
+    m_preview = Preview{key, it->shown, {}, it->overridable, it->confirm, {it->shown}};
     return true;
+}
+
+bool SettingsModel::busy(const QString &key) const
+{
+    const auto it = m_entries.constFind(key);
+    return it != m_entries.cend() && it->inflight > 0;
+}
+
+QVariantMap SettingsModel::sheet(const QString &key) const
+{
+    const auto it = m_entries.constFind(key);
+    if (it == m_entries.cend() || pickOf(*it) != "sheet"_L1)
+        return {};
+    const QVariantList values = sheetValues(*it);
+    QStringList words;
+    for (const QVariant &value : values)
+        words << textOf(*it, value);
+    const QVariant shown = shownOf(*it);
+    const qsizetype mark = values.indexOf(shown);
+    const qsizetype focus = mark >= 0 ? mark : isNumeric(it->type) ? nearest(values, shown) : 0;
+    return {{u"values"_s, values}, {u"words"_s, words}, {u"focus"_s, int(focus)}, {u"mark"_s, int(mark)},
+            {u"wrap"_s, !it->bounded}};
+}
+
+bool SettingsModel::preview(const QVariant &value)
+{
+    if (!m_preview)
+        return false;
+    const auto it = m_entries.constFind(m_preview->key);
+    const QVariant wanted = it == m_entries.cend() ? QVariant() : coerce(it->type, value);
+    if (!wanted.isValid())
+        return false;
+    if (m_preview->draft)
+        return true;
+    m_preview->ours << wanted;
+    if (m_preview->override)
+        return overrideTo(m_preview->key, wanted);
+    return set(m_preview->key, wanted);
+}
+
+void SettingsModel::endPreview(const QVariant &value)
+{
+    if (!m_preview)
+        return;
+    const auto it = m_entries.constFind(m_preview->key);
+    if (it == m_entries.cend() || !editable(*it)) {
+        cancelPreview();
+        return;
+    }
+    const Preview session = *m_preview;
+    m_preview.reset();
+    write(session.key, value);
+    if (session.override)
+        clearOverride(session.key);
+    closePreview(session.key);
+}
+
+void SettingsModel::cancelPreview()
+{
+    if (!m_preview)
+        return;
+    const Preview session = *m_preview;
+    m_preview.reset();
+    if (session.override)
+        clearOverride(session.key);
+    else if (!session.draft)
+        write(session.key, session.start);
+    closePreview(session.key);
+}
+
+void SettingsModel::endPreviews()
+{
+    if (!m_preview)
+        return;
+    const Preview session = *m_preview;
+    m_preview.reset();
+    if (session.override) {
+        write(session.key, session.last.isValid() ? session.last : session.start);
+        clearOverride(session.key);
+    }
+    closePreview(session.key);
+}
+
+bool SettingsModel::overrideTo(const QString &key, const QVariant &value)
+{
+    const auto it = m_entries.constFind(key);
+    if (it == m_entries.cend() || !editable(*it))
+        return false;
+    if (!m_fixture && !m_available) {
+        emit refused(it->title, NotAvailable);
+        return false;
+    }
+    m_preview->last = value;
+    bump();
+    if (!m_client)
+        return true;
+    m_client->override(key, value, [this, key, value](const MicroSet::Error &error) {
+        const auto it = m_entries.constFind(key);
+        if (error.ok() || it == m_entries.cend())
+            return;
+        emit refused(it->title, toastText(error.name));
+        if (m_preview && m_preview->key == key && m_preview->last == value) {
+            m_preview->last = QVariant();
+            bump();
+        }
+    });
+    return true;
+}
+
+void SettingsModel::clearOverride(const QString &key)
+{
+    if (m_client)
+        m_client->clearOverride(key);
+}
+
+void SettingsModel::closePreview(const QString &key)
+{
+    m_preview.reset();
+    bump();
+    emit previewEnded(key);
+}
+
+void SettingsModel::dropPreview()
+{
+    if (!m_preview)
+        return;
+    const QString key = m_preview->key;
+    if (m_preview->override)
+        clearOverride(key);
+    closePreview(key);
+}
+
+void SettingsModel::watchPreview(const Entry &entry)
+{
+    if (m_preview && m_preview->key == entry.key && !m_preview->ours.contains(entry.shown))
+        dropPreview();
 }
 
 QVariant SettingsModel::next(const QString &key, const QVariant &from, int delta) const
@@ -628,8 +831,14 @@ QString SettingsModel::text(const QString &key, const QVariant &value) const
 
 bool SettingsModel::set(const QString &key, const QVariant &value)
 {
+    const auto it = m_entries.constFind(key);
+    return it != m_entries.cend() && editable(*it) && write(key, value);
+}
+
+bool SettingsModel::write(const QString &key, const QVariant &value)
+{
     const auto it = m_entries.find(key);
-    if (it == m_entries.end() || !editable(*it))
+    if (it == m_entries.end() || !it->writable)
         return false;
     const QVariant wanted = coerce(it->type, value);
     if (!wanted.isValid())
@@ -670,6 +879,7 @@ void SettingsModel::settle(const QString &key, const QString &error)
         return;
     it->shown = it->store;
     bump();
+    watchPreview(*it);
 }
 
 void SettingsModel::reloadUpdates()

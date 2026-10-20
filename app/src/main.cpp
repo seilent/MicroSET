@@ -6,6 +6,7 @@
 #include "overlayservice.h"
 #include "settingsmodel.h"
 #include "sleepinhibitor.h"
+#include "uirelease.h"
 
 #include <QByteArray>
 #include <QCommandLineParser>
@@ -18,7 +19,6 @@
 #include <QTimer>
 #include <QtQml/qqmlextensionplugin.h>
 
-#include <malloc.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -138,12 +138,7 @@ int main(int argc, char *argv[])
         overlay.setToastWindow(qvariant_cast<QWindow *>(window->property("toastWindow")));
     });
 
-    QObject::connect(&overlay, &Overlay::unused, &overlay, [&] {
-        overlay.setWindow(nullptr);
-        overlay.setToastWindow(nullptr);
-        engine.reset();
-        malloc_trim(0);
-    });
+    QObject::connect(&overlay, &Overlay::unused, &overlay, [&] { releaseUi(overlay, model.get(), engine); });
 
     HoldHint hint(u"/run/microos/hold"_s, u"/proc"_s);
     QObject::connect(&hint, &HoldHint::activeChanged, &overlay, [&overlay, &hint] {

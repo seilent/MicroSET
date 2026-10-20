@@ -38,15 +38,28 @@ if(NOT MICROSET_TEST_FONT_DIR)
     return()
 endif()
 
+add_executable(tst_fit tst_fit.cpp)
+target_link_libraries(tst_fit PRIVATE microset_page_fixtures microset_pagetestplugin microset_uiplugin microset_ui
+    Qt6::Quick Qt6::Test)
+add_test(NAME page-fit COMMAND tst_fit)
+set_tests_properties(page-fit PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;MICROSET_FONT_DIR=${MICROSET_TEST_FONT_DIR}")
+
 foreach(size 960x640 640x960)
-    foreach(state top audio display rgb rgb-off power system updates edit hue-edit draft-edit toast long-label long-value merged top-sections
-            undervolt-off undervolt undervolt-next undervolt-waiting undervolt-fallback undervolt-long undervolt-changed
-            undervolt-reason-focus undervolt-hold undervolt-refused undervolt-busy undervolt-trip undervolt-trip-long
-            undervolt-both)
+    foreach(state top audio display rgb rgb-off power system updates edit-balance hue-edit toast long-label long-value merged
+            top-sections undervolt-off undervolt undervolt-next undervolt-waiting undervolt-fallback undervolt-long
+            undervolt-changed undervolt-reason-focus undervolt-hold undervolt-refused undervolt-busy undervolt-trip
+            undervolt-trip-long undervolt-both sheet-volume-step sheet-gpu-clock sheet-power-on
+            sheet-brightness-off-list sheet-saturation-moved sheet-game-floor sheet-undervolt sheet-refused
+            sheet-emu-scheme sheet-emu-scheme-end sheet-emu-variant sheet-long-label flip-before flip-after)
         add_test(NAME page-shot-${state}-${size}
             COMMAND microset-pageshot --screenshot ${CMAKE_CURRENT_BINARY_DIR}/shots/${state}-${size}.png
                 --size ${size} --state ${state})
         set_tests_properties(page-shot-${state}-${size} PROPERTIES
             ENVIRONMENT "QT_QPA_PLATFORM=offscreen;MICROSET_FONT_DIR=${MICROSET_TEST_FONT_DIR}")
     endforeach()
+    add_test(NAME page-frames-sheet-motion-${size}
+        COMMAND microset-pageshot --frames ${CMAKE_CURRENT_BINARY_DIR}/shots/sheet-motion-${size} --size ${size}
+            --state sheet-motion)
+    set_tests_properties(page-frames-sheet-motion-${size} PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;MICROSET_FONT_DIR=${MICROSET_TEST_FONT_DIR}")
 endforeach()

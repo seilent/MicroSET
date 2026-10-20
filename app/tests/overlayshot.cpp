@@ -1,8 +1,10 @@
 #include "fakemicrosetd.h"
+#include "harness.h"
 #include "settingsmodel.h"
 
 #include <QCommandLineParser>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QFont>
 #include <QFontInfo>
@@ -14,6 +16,8 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QtQml/qqmlextensionplugin.h>
+
+#include <memory>
 
 Q_IMPORT_QML_PLUGIN(MicroSetPlugin)
 Q_IMPORT_QML_PLUGIN(MicroSetOverlayPlugin)
@@ -31,7 +35,9 @@ void fail(const QString &message)
 
 const QStringList &states()
 {
-    static const QStringList names{u"top"_s, u"audio"_s, u"portrait"_s, u"hint-page"_s, u"hint"_s, u"hint-portrait"_s};
+    static const QStringList names{u"top"_s,  u"audio"_s,         u"portrait"_s,      u"hint-page"_s,
+                                   u"hint"_s, u"hint-portrait"_s, u"sheet"_s,         u"sheet-portrait"_s,
+                                   u"undervolt-after-sheet"_s};
     return names;
 }
 
@@ -58,6 +64,7 @@ public:
     QString kind;
 
 signals:
+    void shownChanged();
     void pageHint();
     void hintShownChanged();
     void hintChanged();
@@ -86,17 +93,49 @@ int main(int argc, char *argv[])
     if (qEnvironmentVariableIsEmpty("QT_QUICK_BACKEND"))
         QQuickWindow::setGraphicsApi(QSGRendererInterface::Software);
 
-    SettingsModel model;
-    model.updates()->setFixture(u"testing-38784f1"_s, u"none"_s, {});
-    model.setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}),
-                     {{u"audio.output"_s, u"speaker"_s},
-                      {u"audio.eq.headphones.on"_s, true},
-                      {u"audio.eq.headphones.name"_s, u"Sennheiser HD 600 ParametricEQ"_s},
-                      {u"display.rotation"_s, state == "portrait"_L1 || state == "hint-portrait"_L1 ? u"portrait"_s : u"landscape-flipped"_s},
-                      {u"rgb.brightness"_s, 50u}},
-                     {{u"rgb.enabled"_s, true}, {u"rgb.hue"_s, 200u}, {u"rgb.saturation"_s, 60u}});
+    const QVariantMap values{
+        {u"audio.output"_s, u"speaker"_s},
+        {u"audio.eq.headphones.on"_s, true},
+        {u"audio.eq.headphones.name"_s, u"Sennheiser HD 600 ParametricEQ"_s},
+        {u"display.rotation"_s, state == "portrait"_L1 || state == "hint-portrait"_L1 || state == "sheet-portrait"_L1 ? u"portrait"_s : u"landscape-flipped"_s},
+        {u"rgb.brightness"_s, 50u},
+        {u"power.gpu_undervolt"_s, u"off"_s},
+        {u"power.gpu_undervolt_active"_s, u"stock"_s}};
+    const QVariantMap stored{{u"rgb.enabled"_s, true}, {u"rgb.hue"_s, 200u}, {u"rgb.saturation"_s, 60u}};
+    const bool hold = state == "undervolt-after-sheet"_L1;
+    Harness harness;
+    if (hold && !harness.startBus()) {
+        fail(u"cannot start the private bus"_s);
+        return 1;
+    }
+    FakeMicroSetd fake(hold ? harness.address() : QString());
+    std::unique_ptr<SettingsModel> model;
+    if (hold) {
+        fake.setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped()}));
+        fake.setValues(values);
+        fake.setStored(stored);
+        fake.refuse(u"power.gpu_undervolt"_s, u"net.seilent.MicroSet1.Error.HoldPending"_s);
+        if (!fake.start()) {
+            fail(u"cannot start the fake microsetd"_s);
+            return 1;
+        }
+        model = std::make_unique<SettingsModel>(harness.client());
+        model->load();
+        QElapsedTimer waited;
+        waited.start();
+        while (!model->available() && waited.elapsed() < frameTimeoutMs)
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+        if (!model->available()) {
+            fail(u"the fake microsetd never answered"_s);
+            return 1;
+        }
+    } else {
+        model = std::make_unique<SettingsModel>();
+        model->setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), values, stored);
+    }
+    model->updates()->setFixture(u"testing-38784f1"_s, u"none"_s, {});
     ShotOverlay overlay;
-    overlay.kind = parser.value(kindOption);
+    overlay.kind = hold ? u"undervolt"_s : parser.value(kindOption);
 
     QQmlApplicationEngine engine;
     bool warned = false;
@@ -107,7 +146,7 @@ int main(int argc, char *argv[])
     });
     engine.setInitialProperties({
         {u"overlay"_s, QVariant::fromValue(static_cast<QObject *>(&overlay))},
-        {u"model"_s, QVariant::fromValue(static_cast<QObject *>(&model))},
+        {u"model"_s, QVariant::fromValue(static_cast<QObject *>(model.get()))},
         {u"screenshot"_s, true},
         {u"shotWidth"_s, size.captured(1).toInt()},
         {u"shotHeight"_s, size.captured(2).toInt()},
@@ -125,6 +164,20 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    bool hinted = !hold;
+    if (hold) {
+        auto *powerd = new QTimer(window);
+        powerd->setInterval(10);
+        QObject::connect(powerd, &QTimer::timeout, window, [powerd, &fake, &overlay, &hinted] {
+            if (fake.sets().isEmpty())
+                return;
+            powerd->stop();
+            hinted = true;
+            emit overlay.pageHint();
+        });
+        powerd->start();
+    }
+
     const QString out = parser.value(screenshotOption);
     auto *idle = new QTimer(window);
     idle->setSingleShot(true);
@@ -134,7 +187,11 @@ int main(int argc, char *argv[])
         swapped = true;
         idle->start();
     });
-    QObject::connect(idle, &QTimer::timeout, window, [window, out, &warned] {
+    QObject::connect(idle, &QTimer::timeout, window, [window, idle, out, &warned, &hinted] {
+        if (!hinted) {
+            idle->start();
+            return;
+        }
         if (warned) {
             fail(u"QML warnings during the render"_s);
             QCoreApplication::exit(1);

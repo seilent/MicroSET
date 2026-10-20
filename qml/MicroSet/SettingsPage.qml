@@ -11,11 +11,16 @@ Page {
     property bool screenOff: false
     property bool editing: false
     property string editKey: ""
-    property var editOriginal: null
     property var draft: null
     property var shownValues: ({})
     property var modelRows: page.model === null ? [] : page.model.rows(page.group, page.model.revision)
-    readonly property var rows: page.withDraft(page.modelRows, page.editing, page.editKey, page.draft)
+    readonly property bool valueOpen: d.valueKey !== ""
+    readonly property string draftKey: page.editing && page.draft !== null ? page.editKey
+        : page.valueOpen && d.valueDraft && d.moved ? d.valueKey : ""
+    readonly property var draftValue: page.editing ? page.draft : page.valueOpen ? d.valueValues[sheet.focusIndex] : null
+    readonly property var rows: page.withDraft(page.modelRows, page.draftKey, page.draftValue)
+    readonly property string valueItems: page.valueOpen && page.model !== null
+        ? JSON.stringify(page.wordsOf(d.valueKey, page.model.revision)) : ""
 
     readonly property bool live: page.animated && !page.screenOff
     readonly property bool arriving: !page.arrived && page.live && page.stackAnimates
@@ -29,6 +34,7 @@ Page {
     property alias flick: flick
     property alias focusBar: focusBar
     property alias repeater: repeater
+    property alias sheet: sheet
 
     signal opened(string group)
     signal entrance(real shift, int stagger, int cap, int duration, bool stripCurve, int from)
@@ -157,10 +163,15 @@ Page {
         return true
     }
 
-    function withDraft(list: var, editing: bool, key: string, draft: var): var {
-        if (!editing || draft === null)
+    function withDraft(list: var, key: string, draft: var): var {
+        if (key === "" || draft === null || draft === undefined)
             return list
         return list.map((r) => r.key === key ? Object.assign({}, r, { value: page.model.text(key, draft), current: draft }) : r)
+    }
+
+    function wordsOf(key: string, revision: int): var {
+        const values = page.model.sheet(key)
+        return values.words === undefined ? [] : values.words
     }
 
     function step(delta: int): bool {
@@ -174,56 +185,127 @@ Page {
             page.draft = next
             return true
         }
-        if (r.widget === "hue") {
-            const hue = Ui.stepHue(r.hue < 0 ? Ui.accentHueDefault : r.hue, delta)
-            return page.model.set(r.key, hue)
-        }
-        return page.model.set(r.key, page.model.next(r.key, r.current, delta))
+        if (r.widget === "hue")
+            return page.model.preview(Ui.stepHue(r.hue < 0 ? Ui.accentHueDefault : r.hue, delta))
+        return page.model.preview(page.model.next(r.key, r.current, delta))
     }
 
     function beginEdit(key: string): void {
-        if (page.model === null || !page.model.beginEdit(key))
+        if (page.model === null || page.model.busy(key) || !page.model.beginEdit(key))
             return
         const r = page.rows[page.indexOfKey(key)]
-        page.editOriginal = r.current
         page.draft = r.confirm ? r.current : null
         page.editKey = key
         page.editing = true
+        d.session++
     }
 
     function confirmEdit(): void {
         page.editing = false
         page.editKey = ""
-        page.editOriginal = null
         page.draft = null
     }
 
     function cancelEdit(): void {
         if (!page.editing)
             return
-        const key = page.editKey
-        const original = page.editOriginal
-        const drafted = page.draft !== null
         page.confirmEdit()
-        if (!drafted && original !== undefined && original !== null && page.model.available)
-            page.model.set(key, original)
+        page.model.cancelPreview()
     }
 
     function applyEdit(): void {
-        const key = page.editKey
-        const draft = page.draft
+        const r = page.rows[page.indexOfKey(page.editKey)]
         page.confirmEdit()
-        if (draft !== null)
-            page.model.set(key, draft)
+        if (r !== undefined)
+            page.model.endPreview(r.current)
     }
 
-    function revertOrConfirmForRotation(): void {
-        if (!page.editing)
+    function openValue(key: string): void {
+        if (page.model === null || page.model.busy(key) || !page.model.beginEdit(key))
             return
-        if (page.draft !== null)
-            page.cancelEdit()
-        else
-            page.confirmEdit()
+        const values = page.model.sheet(key)
+        const r = page.rows[page.indexOfKey(key)]
+        if (values.words === undefined || values.words.length === 0 || r === undefined) {
+            page.model.cancelPreview()
+            return
+        }
+        d.valueValues = values.values
+        d.valueDraft = r.confirm
+        d.valueItems = JSON.stringify(values.words)
+        d.valueKey = key
+        d.riseKept = ""
+        d.session++
+        sheet.title = r.title
+        sheet.items = values.words
+        sheet.open()
+        sheet.mark = values.mark
+        sheet.wrap = values.wrap
+        sheet.focusIndex = values.focus
+        d.moved = false
+    }
+
+    function endValue(): void {
+        d.valueKey = ""
+        d.riseKept = ""
+        d.valueValues = []
+        d.moved = false
+        if (sheet.shown)
+            sheet.close()
+    }
+
+    function previewValue(index: int): void {
+        if (!page.valueOpen || d.valueDraft || index < 0 || index >= d.valueValues.length)
+            return
+        page.model.preview(d.valueValues[index])
+    }
+
+    function acceptValue(index: int): void {
+        const value = d.valueValues[index]
+        page.endValue()
+        if (value !== undefined)
+            page.model.endPreview(value)
+    }
+
+    function cancelValue(): void {
+        if (!page.valueOpen)
+            return
+        page.endValue()
+        page.model.cancelPreview()
+    }
+
+    function cancelLater(): void {
+        const session = d.session
+        Qt.callLater(() => {
+            if (d.session !== session)
+                return
+            if (page.valueOpen)
+                page.cancelValue()
+            else if (page.model !== null)
+                page.model.cancelPreview()
+        })
+    }
+
+    function dismiss(): void {
+        const open = page.valueOpen || page.editing
+        page.endValue()
+        page.confirmEdit()
+        if (open && page.model !== null)
+            page.model.endPreviews()
+    }
+
+    function flip(r: var): void {
+        if (!page.model.busy(r.key))
+            page.model.set(r.key, !r.current)
+    }
+
+    function holdRise(name: string, repeat: bool): bool {
+        if (repeat)
+            return true
+        if (name === "b" || name === "back" || name === "start")
+            d.riseKept = name
+        else if ((name === "up" || name === "down") && d.riseKept === "")
+            d.riseKept = name
+        return true
     }
 
     function handleEdit(name: string, repeat: bool): bool {
@@ -255,8 +337,21 @@ Page {
             page.opened(r.group)
             return true
         }
-        if (r.kind !== "info" && !r.readOnly)
+        if (r.kind === "info" || r.readOnly)
+            return true
+        switch (r.pick) {
+        case "sheet":
+            page.openValue(r.key)
+            break
+        case "flip":
+            page.flip(r)
+            break
+        case "edit":
             page.beginEdit(r.key)
+            break
+        default:
+            break
+        }
         return true
     }
 
@@ -313,6 +408,10 @@ Page {
     }
 
     function handleAction(name: string, repeat: bool): bool {
+        if (sheet.shown && page.valueOpen && sheet.animating)
+            return page.holdRise(name, repeat)
+        if (sheet.shown)
+            return sheet.handleAction(name, repeat)
         if (page.editing)
             return page.handleEdit(name, repeat)
         switch (name) {
@@ -340,13 +439,25 @@ Page {
     onRowsChanged: {
         page.fixFocus()
         const r = page.rows[page.focusIndex]
-        if (page.editing && (r === undefined || r === null || r.key !== page.editKey || r.readOnly))
+        if (page.editing && (r === undefined || r === null || r.key !== page.editKey || r.readOnly)) {
             page.confirmEdit()
+            page.cancelLater()
+        }
+        if (page.valueOpen) {
+            const at = page.indexOfKey(d.valueKey)
+            if (at < 0 || page.rows[at].readOnly)
+                page.cancelLater()
+        }
+    }
+
+    onValueItemsChanged: {
+        if (page.valueOpen && page.valueItems !== d.valueItems)
+            page.cancelLater()
     }
 
     onActiveChanged: {
         if (!page.active)
-            page.confirmEdit()
+            page.dismiss()
         if (page.model !== null && page.active)
             page.model.enter(page.group)
         else if (page.model !== null)
@@ -355,7 +466,7 @@ Page {
 
     onScreenOffChanged: {
         if (page.screenOff)
-            page.confirmEdit()
+            page.dismiss()
     }
 
     onEntered: (first, kind) => {
@@ -380,7 +491,7 @@ Page {
         target: Ui
 
         function onTurnChanged() {
-            page.revertOrConfirmForRotation()
+            page.dismiss()
         }
     }
 
@@ -389,9 +500,30 @@ Page {
         ignoreUnknownSignals: true
 
         function onAvailableChanged() {
-            if (!page.model.available)
+            if (!page.model.available) {
+                page.endValue()
+                page.confirmEdit()
+            }
+        }
+
+        function onPreviewEnded(key) {
+            if (page.valueOpen && d.valueKey === key)
+                page.endValue()
+            if (page.editing && page.editKey === key)
                 page.confirmEdit()
         }
+    }
+
+    QtObject {
+        id: d
+
+        property string valueKey: ""
+        property string riseKept: ""
+        property var valueValues: []
+        property bool valueDraft: false
+        property string valueItems: ""
+        property bool moved: false
+        property int session: 0
     }
 
     PageSurface {
@@ -486,5 +618,30 @@ Page {
         target: flick
         property: "contentY"
         easing.type: Motion.easeIn
+    }
+
+    Sheet {
+        id: sheet
+
+        anchors.fill: parent
+        screenOff: page.screenOff
+        animated: page.live
+        onAccepted: (index) => page.acceptValue(index)
+        onRejected: page.cancelValue()
+        onFocusMoved: (index) => page.previewValue(index)
+        onFocusIndexChanged: {
+            if (page.valueOpen)
+                d.moved = true
+        }
+        onAnimatingChanged: {
+            if (sheet.animating || d.riseKept === "")
+                return
+            const kept = d.riseKept
+            d.riseKept = ""
+            Qt.callLater(() => {
+                if (sheet.shown && page.valueOpen)
+                    sheet.handleAction(kept, false)
+            })
+        }
     }
 }

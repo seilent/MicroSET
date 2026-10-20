@@ -87,6 +87,36 @@ class PageTest : public QObject
         QVERIFY2(top >= y && top + height <= y + flick->property("height").toReal(), qPrintable(k));
     }
 
+    QObject *sheet() const
+    {
+        return qvariant_cast<QObject *>(page()->property("sheet"));
+    }
+
+    bool sheetShown() const
+    {
+        return sheet()->property("shown").toBool();
+    }
+
+    int sheetFocus() const
+    {
+        return sheet()->property("focusIndex").toInt();
+    }
+
+    void held(const QString &name)
+    {
+        bool handled = false;
+        QVERIFY(QMetaObject::invokeMethod(page(), "handleAction", Q_RETURN_ARG(bool, handled), Q_ARG(QString, name),
+                                          Q_ARG(bool, true)));
+    }
+
+    void ledsOn()
+    {
+        fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.saturation"_s, 60u}});
+        fake->setValues({{u"rgb.enabled"_s, true}, {u"rgb.saturation"_s, 60u}, {u"rgb.brightness"_s, 50u}});
+        model->load();
+        QTRY_VERIFY(!model->rows(u"stick leds"_s, model->revision()).at(2).toMap().value(u"readOnly"_s).toBool());
+    }
+
 private slots:
     void init()
     {
@@ -169,61 +199,309 @@ private slots:
         QCOMPARE(hide.count(), 1);
     }
 
-    void editStepConfirm()
-    {
-        open(u"audio"_s);
-        focus(u"audio.output"_s);
-        key(Qt::Key_Return);
-        QVERIFY(page()->property("editing").toBool());
-        QCOMPARE(page()->property("editKey").toString(), u"audio.output"_s);
-        key(Qt::Key_Right);
-        QCOMPARE(value(u"audio.output"_s), u"speaker"_s);
-        QTRY_COMPARE(fake->sets().size(), 1);
-        QCOMPARE(fake->sets().at(0), qMakePair(u"audio.output"_s, QVariant(u"speaker"_s)));
-        key(Qt::Key_Return);
-        QVERIFY(!page()->property("editing").toBool());
-        QTest::qWait(50);
-        QCOMPARE(fake->sets().size(), 1);
-        QCOMPARE(value(u"audio.output"_s), u"speaker"_s);
-    }
-
-    void cancelWritesBack()
+    void sheetLivePreviewAndCancel()
     {
         open(u"audio"_s);
         focus(u"audio.volume_step"_s);
         key(Qt::Key_Return);
-        key(Qt::Key_Right);
-        QCOMPARE(value(u"audio.volume_step"_s), u"10%"_s);
+        QVERIFY(sheetShown());
+        QVERIFY(page()->property("valueOpen").toBool());
+        QCOMPARE(sheet()->property("items").toStringList(), (QStringList{u"10%"_s, u"5%"_s, u"2%"_s}));
+        QCOMPARE(sheet()->property("title").toString(), u"Volume step"_s);
+        QCOMPARE(sheetFocus(), 1);
+        QCOMPARE(sheet()->property("mark").toInt(), 1);
+        key(Qt::Key_Down);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set audio.volume_step 2"_s});
+        QTRY_COMPARE(value(u"audio.volume_step"_s), u"2%"_s);
+        QCOMPARE(sheet()->property("mark").toInt(), 1);
         key(Qt::Key_Escape);
-        QVERIFY(!page()->property("editing").toBool());
+        QVERIFY(!sheetShown());
         QCOMPARE(page()->property("group").toString(), u"audio"_s);
-        QTRY_COMPARE(fake->sets().size(), 2);
-        QCOMPARE(fake->sets().at(1), qMakePair(u"audio.volume_step"_s, QVariant(5u)));
+        QTRY_COMPARE(fake->calls(), (QStringList{u"Set audio.volume_step 2"_s, u"Set audio.volume_step 5"_s}));
         QTRY_COMPARE(value(u"audio.volume_step"_s), u"5%"_s);
-        QCOMPARE(fake->stored().value(u"audio.volume_step"_s), QVariant(5u));
-    }
-
-    void refusalToast()
-    {
-        fake->refuse(u"audio.output"_s, u"net.seilent.MicroSet1.Error.InvalidValue"_s);
-        open(u"audio"_s);
-        focus(u"audio.output"_s);
         key(Qt::Key_Return);
-        key(Qt::Key_Right);
-        QTRY_VERIFY(toast()->property("shown").toBool());
-        QCOMPARE(toast()->property("artist").toString(), u"Output"_s);
-        QCOMPARE(toast()->property("title").toString(), u"set failed"_s);
-        QTRY_COMPARE(value(u"audio.output"_s), u"auto"_s);
+        key(Qt::Key_Down);
+        QTRY_COMPARE(fake->calls().size(), 3);
+        key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 3);
+        QCOMPARE(fake->stored().value(u"audio.volume_step"_s), QVariant(2u));
     }
 
-    void undervoltHoldPending()
+    void sheetDraftAppliesOnA()
+    {
+        open(u"audio"_s);
+        focus(u"audio.max_volume"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(sheetFocus(), 0);
+        key(Qt::Key_Down);
+        key(Qt::Key_Down);
+        QCOMPARE(value(u"audio.max_volume"_s), u"90%"_s);
+        QTest::qWait(100);
+        QVERIFY(fake->calls().isEmpty());
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set audio.max_volume 90"_s});
+        QTRY_COMPARE(value(u"audio.max_volume"_s), u"90%"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        key(Qt::Key_Up);
+        key(Qt::Key_Up);
+        key(Qt::Key_Escape);
+        QCOMPARE(value(u"audio.max_volume"_s), u"90%"_s);
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 1);
+        open(u"system"_s);
+        focus(u"session.default"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Up);
+        QCOMPARE(value(u"session.default"_s), u"microemu"_s);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls().size(), 2);
+        QCOMPARE(fake->calls().last(), u"Set session.default microemu"_s);
+    }
+
+    void heldMovePreviewsNothing()
+    {
+        ledsOn();
+        open(u"stick leds"_s);
+        focus(u"rgb.brightness"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(sheet()->property("items").toStringList().size(), 21);
+        QCOMPARE(sheetFocus(), 10);
+        for (int i = 0; i < 30; ++i)
+            held(u"down"_s);
+        QCOMPARE(sheetFocus(), 20);
+        QTest::qWait(100);
+        QVERIFY(fake->calls().isEmpty());
+        QCOMPARE(value(u"rgb.brightness"_s), u"50 %"_s);
+        key(Qt::Key_Escape);
+        QTest::qWait(100);
+        QVERIFY(fake->calls().isEmpty());
+    }
+
+    void wrapsUnlessBounded()
+    {
+        open(u"audio"_s);
+        focus(u"audio.volume_step"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        key(Qt::Key_Down);
+        QCOMPARE(sheetFocus(), 0);
+        key(Qt::Key_Escape);
+        focus(u"audio.hp_gain"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(sheetFocus(), 2);
+        key(Qt::Key_Down);
+        QCOMPARE(sheetFocus(), 2);
+        key(Qt::Key_Up);
+        key(Qt::Key_Up);
+        key(Qt::Key_Up);
+        QCOMPARE(sheetFocus(), 0);
+        key(Qt::Key_Escape);
+    }
+
+    void riseKeepsBAndAStep()
+    {
+        open(u"audio"_s);
+        page()->setProperty("animated", true);
+        focus(u"audio.volume_step"_s);
+        key(Qt::Key_Return);
+        QVERIFY(sheet()->property("animating").toBool());
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        key(Qt::Key_Escape);
+        QVERIFY(sheetShown());
+        QTRY_VERIFY(!sheetShown());
+        QTest::qWait(100);
+        QVERIFY(fake->calls().isEmpty());
+        QTRY_VERIFY(!sheet()->property("animating").toBool());
+        key(Qt::Key_Return);
+        QVERIFY(sheet()->property("animating").toBool());
+        key(Qt::Key_Down);
+        key(Qt::Key_Up);
+        QCOMPARE(sheetFocus(), 1);
+        QTRY_VERIFY(!sheet()->property("animating").toBool());
+        QCOMPARE(sheetFocus(), 2);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set audio.volume_step 2"_s});
+        key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
+        QVERIFY(sheet()->property("animating").toBool());
+        QTRY_VERIFY(!sheet()->property("animating").toBool());
+        QCOMPARE(fake->calls().size(), 1);
+    }
+
+    void busyKeyOpensNothing()
+    {
+        fake->setHold(true);
+        open(u"audio"_s);
+        focus(u"audio.volume_step"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        QTRY_COMPARE(fake->sets().size(), 1);
+        key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
+        key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
+        QVERIFY(!page()->property("valueOpen").toBool());
+        fake->release();
+        QTRY_VERIFY(!model->busy(u"audio.volume_step"_s));
+        QCOMPARE(value(u"audio.volume_step"_s), u"2%"_s);
+        key(Qt::Key_Return);
+        QVERIFY(sheetShown());
+        QCOMPARE(sheetFocus(), 2);
+        key(Qt::Key_Escape);
+    }
+
+    void overridePreviewCalls()
+    {
+        ledsOn();
+        open(u"stick leds"_s);
+        focus(u"rgb.saturation"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(sheetFocus(), 8);
+        key(Qt::Key_Down);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Override rgb.saturation 55"_s});
+        QCOMPARE(value(u"rgb.saturation"_s), u"55 %"_s);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls(), (QStringList{u"Override rgb.saturation 55"_s, u"Set rgb.saturation 55"_s,
+                                                 u"ClearOverride rgb.saturation"_s}));
+        QTRY_COMPARE(value(u"rgb.saturation"_s), u"55 %"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        QTRY_COMPARE(fake->calls().size(), 4);
+        QCOMPARE(fake->calls().last(), u"Override rgb.saturation 50"_s);
+        key(Qt::Key_Escape);
+        QTRY_COMPARE(fake->calls().size(), 5);
+        QCOMPARE(fake->calls().last(), u"ClearOverride rgb.saturation"_s);
+        QTRY_COMPARE(value(u"rgb.saturation"_s), u"55 %"_s);
+    }
+
+    void outsideChangeClosesKeepingIt()
+    {
+        open(u"audio"_s);
+        focus(u"audio.volume_step"_s);
+        key(Qt::Key_Return);
+        fake->emitChanged(u"audio.volume_step"_s, 10u);
+        QTRY_VERIFY(!sheetShown());
+        QCOMPARE(value(u"audio.volume_step"_s), u"10%"_s);
+        QTest::qWait(100);
+        QVERIFY(fake->calls().isEmpty());
+    }
+
+    void lockCancels()
+    {
+        ledsOn();
+        open(u"stick leds"_s);
+        focus(u"rgb.brightness"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set rgb.brightness 45"_s});
+        fake->setStored({{u"rgb.enabled"_s, false}, {u"rgb.saturation"_s, 60u}});
+        fake->emitChanged(u"rgb.enabled"_s, false);
+        QTRY_VERIFY(!sheetShown());
+        QVERIFY(!page()->property("valueOpen").toBool());
+        QVERIFY(row(u"rgb.brightness"_s).value(u"readOnly"_s).toBool());
+        QTRY_COMPARE(fake->calls(), (QStringList{u"Set rgb.brightness 45"_s, u"Set rgb.brightness 50"_s}));
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 2);
+    }
+
+    void lockBeforeCommitRestores()
+    {
+        ledsOn();
+        open(u"stick leds"_s);
+        focus(u"rgb.brightness"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set rgb.brightness 45"_s});
+        held(u"down"_s);
+        QCOMPARE(sheetFocus(), 12);
+        bool pressed = false;
+        const auto pressOnLock = connect(model.get(), &SettingsModel::revisionChanged, this, [&] {
+            if (pressed || !row(u"rgb.brightness"_s).value(u"readOnly"_s).toBool())
+                return;
+            pressed = true;
+            QVERIFY(sheetShown());
+            key(Qt::Key_Return);
+        });
+        fake->setStored({{u"rgb.enabled"_s, false}, {u"rgb.saturation"_s, 60u}});
+        fake->emitChanged(u"rgb.enabled"_s, false);
+        QTRY_VERIFY(pressed);
+        disconnect(pressOnLock);
+        QTRY_VERIFY(!sheetShown());
+        QTRY_COMPARE(fake->calls(), (QStringList{u"Set rgb.brightness 45"_s, u"Set rgb.brightness 50"_s}));
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 2);
+    }
+
+    void dismissKeepsLiveDropsDraft()
+    {
+        QObject *ui = engine->singletonInstance<QObject *>("MicroSet", "Ui");
+        QVERIFY(ui);
+        open(u"system"_s);
+        focus(u"session.default"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Up);
+        ui->setProperty("turn", 1);
+        QVERIFY(!sheetShown());
+        QCOMPARE(value(u"session.default"_s), u"steam"_s);
+        ui->setProperty("turn", 0);
+        open(u"audio"_s);
+        focus(u"audio.volume_step"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        QTRY_COMPARE(fake->calls().size(), 1);
+        held(u"down"_s);
+        QCOMPARE(sheetFocus(), 2);
+        key(Qt::Key_Up);
+        QTRY_COMPARE(fake->calls().size(), 2);
+        held(u"down"_s);
+        QCOMPARE(sheetFocus(), 2);
+        ui->setProperty("turn", 1);
+        ui->setProperty("turn", 0);
+        QVERIFY(!sheetShown());
+        QTest::qWait(100);
+        QCOMPARE(fake->calls(), (QStringList{u"Set audio.volume_step 2"_s, u"Set audio.volume_step 5"_s}));
+        QCOMPARE(value(u"audio.volume_step"_s), u"5%"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        QTRY_COMPARE(fake->calls().size(), 3);
+        QVERIFY(QMetaObject::invokeMethod(page(), "back"));
+        QCOMPARE(page()->property("title").toString(), u"system"_s);
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 3);
+        QCOMPARE(fake->stored().value(u"audio.volume_step"_s), QVariant(2u));
+    }
+
+    void refusalToastOverSheet()
+    {
+        fake->refuse(u"audio.volume_step"_s, u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        open(u"audio"_s);
+        focus(u"audio.volume_step"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        QTRY_VERIFY(toast()->property("shown").toBool());
+        QCOMPARE(toast()->property("artist").toString(), u"Volume step"_s);
+        QCOMPARE(toast()->property("title").toString(), u"set failed"_s);
+        QTRY_COMPARE(value(u"audio.volume_step"_s), u"5%"_s);
+        QVERIFY(sheetShown());
+        key(Qt::Key_Escape);
+    }
+
+    void undervoltDeeperFromSheet()
     {
         fake->refuse(u"power.gpu_undervolt"_s, u"net.seilent.MicroSet1.Error.HoldPending"_s);
         open(u"power"_s);
         focus(u"power.gpu_undervolt"_s);
         QCOMPARE(value(u"power.gpu_undervolt"_s), u"Off"_s);
         key(Qt::Key_Return);
-        key(Qt::Key_Right);
+        QCOMPARE(sheet()->property("items").toStringList(), (QStringList{u"Off"_s, u"Low"_s}));
+        key(Qt::Key_Down);
+        QTest::qWait(100);
+        QVERIFY(fake->sets().isEmpty());
+        key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
         QTRY_COMPARE(fake->sets().size(), 1);
         QCOMPARE(fake->sets().at(0).second, QVariant(u"low"_s));
         QTRY_COMPARE(value(u"power.gpu_undervolt"_s), u"Off"_s);
@@ -234,37 +512,36 @@ private slots:
         QCOMPARE(toast()->property("artist").toString(), u"GPU undervolt"_s);
         QCOMPARE(toast()->property("title").toString(), u"A not held"_s);
         fake->refuse(u"power.gpu_undervolt"_s, u"org.freedesktop.DBus.Error.LimitsExceeded"_s);
-        if (page()->property("editing").toBool())
-            key(Qt::Key_Return);
-        QTRY_VERIFY(!page()->property("editing").toBool());
         key(Qt::Key_Return);
-        key(Qt::Key_Right);
+        key(Qt::Key_Down);
+        key(Qt::Key_Return);
         QTRY_COMPARE(fake->sets().size(), 2);
         QTRY_COMPARE(toast()->property("title").toString(), u"try again shortly"_s);
         QCOMPARE(toast()->property("artist").toString(), u"GPU undervolt"_s);
     }
 
-    void echoHeldDuringEdit()
+    void echoHeldDuringSheet()
     {
         fake->setHold(true);
         open(u"audio"_s);
-        focus(u"audio.output"_s);
+        focus(u"audio.volume_step"_s);
         key(Qt::Key_Return);
-        key(Qt::Key_Right);
-        key(Qt::Key_Right);
-        QCOMPARE(value(u"audio.output"_s), u"headphones"_s);
+        key(Qt::Key_Down);
+        key(Qt::Key_Down);
+        QCOMPARE(value(u"audio.volume_step"_s), u"10%"_s);
         QTRY_COMPARE(fake->sets().size(), 2);
-        fake->emitChanged(u"audio.output"_s, u"bt"_s);
+        fake->emitChanged(u"audio.volume_step"_s, 5u);
         fake->release(1);
         QTest::qWait(100);
-        QCOMPARE(value(u"audio.output"_s), u"headphones"_s);
+        QCOMPARE(value(u"audio.volume_step"_s), u"10%"_s);
         fake->release();
         QTest::qWait(100);
-        QCOMPARE(value(u"audio.output"_s), u"headphones"_s);
-        QVERIFY(page()->property("editing").toBool());
+        QCOMPARE(value(u"audio.volume_step"_s), u"10%"_s);
+        QVERIFY(sheetShown());
+        key(Qt::Key_Return);
     }
 
-    void hueSteps()
+    void hueEditsThroughOverride()
     {
         fake->setStored({{u"rgb.enabled"_s, true}});
         model->load();
@@ -274,87 +551,71 @@ private slots:
         focus(u"rgb.hue"_s);
         QCOMPARE(row(u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#ff0000"_s);
         key(Qt::Key_Return);
+        QVERIFY(page()->property("editing").toBool());
+        QVERIFY(!sheetShown());
         key(Qt::Key_Right);
-        QTRY_COMPARE(fake->sets().size(), 1);
-        QCOMPARE(fake->sets().at(0), qMakePair(u"rgb.hue"_s, QVariant(10u)));
+        QTRY_COMPARE(fake->calls(), QStringList{u"Override rgb.hue 10"_s});
         QTRY_COMPARE(row(u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#ff2b00"_s);
         key(Qt::Key_Right);
-        QTRY_COMPARE(fake->sets().size(), 2);
-        QCOMPARE(fake->sets().at(1), qMakePair(u"rgb.hue"_s, QVariant(20u)));
+        QTRY_COMPARE(fake->calls().size(), 2);
+        QCOMPARE(fake->calls().at(1), u"Override rgb.hue 20"_s);
         key(Qt::Key_Escape);
-        QTRY_COMPARE(fake->sets().size(), 3);
-        QCOMPARE(fake->sets().at(2), qMakePair(u"rgb.hue"_s, QVariant(0u)));
-    }
-
-    void draftAppliesOnA()
-    {
-        open(u"system"_s);
-        focus(u"session.default"_s);
-        key(Qt::Key_Return);
-        QVERIFY(page()->property("editing").toBool());
-        key(Qt::Key_Left);
-        QCOMPARE(value(u"session.default"_s), u"microemu"_s);
-        QTest::qWait(50);
-        QVERIFY(fake->sets().isEmpty());
-        key(Qt::Key_Return);
-        QVERIFY(!page()->property("editing").toBool());
-        QTRY_COMPARE(fake->sets().size(), 1);
-        QCOMPARE(fake->sets().at(0), qMakePair(u"session.default"_s, QVariant(u"microemu"_s)));
-        QTRY_COMPARE(value(u"session.default"_s), u"microemu"_s);
-    }
-
-    void draftDroppedOnB()
-    {
-        open(u"system"_s);
-        focus(u"session.default"_s);
-        key(Qt::Key_Return);
-        key(Qt::Key_Left);
-        QCOMPARE(value(u"session.default"_s), u"microemu"_s);
-        key(Qt::Key_Escape);
-        QVERIFY(!page()->property("editing").toBool());
-        QCOMPARE(value(u"session.default"_s), u"steam"_s);
-        QTest::qWait(50);
-        QVERIFY(fake->sets().isEmpty());
-    }
-
-    void draftDroppedOnRotation()
-    {
-        QObject *ui = engine->singletonInstance<QObject *>("MicroSet", "Ui");
-        QVERIFY(ui);
-        open(u"system"_s);
-        focus(u"session.default"_s);
-        key(Qt::Key_Return);
-        key(Qt::Key_Left);
-        ui->setProperty("turn", 1);
-        QVERIFY(!page()->property("editing").toBool());
-        QCOMPARE(value(u"session.default"_s), u"steam"_s);
-        ui->setProperty("turn", 0);
-        open(u"audio"_s);
-        focus(u"audio.output"_s);
+        QTRY_COMPARE(fake->calls().size(), 3);
+        QCOMPARE(fake->calls().at(2), u"ClearOverride rgb.hue"_s);
+        QTRY_COMPARE(row(u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#ff0000"_s);
         key(Qt::Key_Return);
         key(Qt::Key_Right);
-        ui->setProperty("turn", 1);
-        ui->setProperty("turn", 0);
-        QVERIFY(!page()->property("editing").toBool());
-        QTRY_COMPARE(fake->sets().size(), 1);
-        QCOMPARE(value(u"audio.output"_s), u"speaker"_s);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls().size(), 6);
+        QCOMPARE(fake->calls().mid(3), (QStringList{u"Override rgb.hue 10"_s, u"Set rgb.hue 10"_s,
+                                                    u"ClearOverride rgb.hue"_s}));
     }
 
-    void lockedRowsDoNotEdit()
+    void balanceEditsWithDraft()
+    {
+        open(u"audio"_s);
+        focus(u"audio.balance.headphones"_s);
+        key(Qt::Key_Return);
+        QVERIFY(page()->property("editing").toBool());
+        QVERIFY(!sheetShown());
+        key(Qt::Key_Right);
+        key(Qt::Key_Right);
+        QCOMPARE(value(u"audio.balance.headphones"_s), u"r 1 db"_s);
+        QTest::qWait(100);
+        QVERIFY(fake->calls().isEmpty());
+        key(Qt::Key_Return);
+        QVERIFY(!page()->property("editing").toBool());
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set audio.balance.headphones 2"_s});
+        key(Qt::Key_Return);
+        key(Qt::Key_Left);
+        key(Qt::Key_Escape);
+        QCOMPARE(value(u"audio.balance.headphones"_s), u"r 1 db"_s);
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 1);
+    }
+
+    void flipsOnOneA()
     {
         open(u"display"_s);
         focus(u"display.orientation"_s);
         QVERIFY(row(u"display.orientation"_s).value(u"readOnly"_s).toBool());
         key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
         QVERIFY(!page()->property("editing").toBool());
         focus(u"display.auto_rotate"_s);
+        QCOMPARE(row(u"display.auto_rotate"_s).value(u"pick"_s).toString(), u"flip"_s);
         key(Qt::Key_Return);
-        key(Qt::Key_Right);
-        QCOMPARE(value(u"display.auto_rotate"_s), u"off"_s);
-        QVERIFY(row(u"display.orientation"_s).value(u"readOnly"_s).toBool());
-        key(Qt::Key_Return);
-        QTRY_COMPARE(fake->sets().size(), 1);
+        QVERIFY(!sheetShown());
+        QVERIFY(!page()->property("editing").toBool());
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set display.auto_rotate false"_s});
         QTRY_VERIFY(!row(u"display.orientation"_s).value(u"readOnly"_s).toBool());
+        QCOMPARE(value(u"display.auto_rotate"_s), u"off"_s);
+        open(u"audio"_s);
+        focus(u"audio.eq.headphones.on"_s);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls().size(), 2);
+        QCOMPARE(fake->calls().last(), u"Set audio.eq.headphones.on true"_s);
+        QTRY_COMPARE(value(u"audio.eq.headphones.on"_s), u"on"_s);
     }
 
     void longValueCut()
@@ -418,23 +679,26 @@ private slots:
     void microsetdGoneAndBack()
     {
         open(u"audio"_s);
-        focus(u"audio.output"_s);
+        focus(u"audio.volume_step"_s);
         key(Qt::Key_Return);
-        QVERIFY(page()->property("editing").toBool());
+        QVERIFY(sheetShown());
         fake->stop();
         QTRY_VERIFY(!model->available());
-        QVERIFY(!page()->property("editing").toBool());
-        QCOMPARE(value(u"audio.output"_s), u"auto"_s);
+        QVERIFY(!sheetShown());
+        QVERIFY(!page()->property("valueOpen").toBool());
+        QCOMPARE(value(u"audio.volume_step"_s), u"5%"_s);
         key(Qt::Key_Return);
-        QVERIFY(!page()->property("editing").toBool());
+        QVERIFY(!sheetShown());
         QTRY_VERIFY(toast()->property("shown").toBool());
         QCOMPARE(toast()->property("title").toString(), u"not available"_s);
-        fake->setValues({{u"audio.output"_s, u"usb"_s}});
+        fake->setValues({{u"audio.volume_step"_s, 10u}});
         QVERIFY(fake->start());
         QTRY_VERIFY(model->available());
-        QTRY_COMPARE(value(u"audio.output"_s), u"usb"_s);
+        QTRY_COMPARE(value(u"audio.volume_step"_s), u"10%"_s);
         key(Qt::Key_Return);
-        QVERIFY(page()->property("editing").toBool());
+        QVERIFY(sheetShown());
+        QCOMPARE(sheetFocus(), 0);
+        QVERIFY(fake->calls().isEmpty());
     }
 };
 

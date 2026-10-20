@@ -37,6 +37,7 @@ public:
     void refuse(const QString &key, const QString &error);
     QVariantMap stored() const;
     Sets sets() const;
+    QStringList calls() const;
     QStringList subscriptions() const;
 
 private:
@@ -56,6 +57,9 @@ private:
     QMap<QString, QString> m_refuse;
     bool m_hold = false;
     Sets m_sets;
+    QStringList m_calls;
+    QVariantMap m_overrides;
+    QVariantMap m_base;
     QStringList m_subscriptions;
     QList<QDBusMessage> m_held;
     int m_starts = 0;

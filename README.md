@@ -21,12 +21,14 @@ read, change and watch them over D-Bus.
   gives way to another overlay that takes the arbiter until it is on top again. Shows "Hold A to format" while
   `microos-storage format` waits for the hold.
 - `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and `microset-settings`. The
-  page (`SettingsView`) lists the schema groups and edits their keys over `net.seilent.MicroSet`.
+  page (`SettingsView`) lists the schema groups and edits their keys over `net.seilent.MicroSet`: A on a list or
+  number row opens a value sheet, on an on/off row flips it.
 - Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other
   file only keys under its owner name (`microdap.*`, `microemu.*`). A key can carry `ui` hints for the page (`order`,
-  `widget` `none` or `hue`, `step` or a `steps` list (a value off the list steps to the next entry in the step's
-  direction), `values` labels, `unit`, `scale` to show the value divided by it,
-  `apply` `confirm` to apply on A, and a `lock` that makes it read only while another key has a given value) and a file
+  `widget` `none`, `hue` or `edit` (left/right edit instead of a sheet), `step` or a `steps` list (a value off the list
+  steps to the next entry in the step's direction), `values` labels, `unit`, `scale` to show the value divided by it,
+  `apply` `confirm` to apply on A, `bounded` to stop the sheet at the ends, and a `lock` that makes it read only while
+  another key has a given value; a list or range over 64 values is an edit row) and a file
   can name and order its groups under `groups`; the first file that describes a group wins.
 - A range key can carry a `floor` inside its range: the lowest level an applier restores and a page offers, while `Set`
   still takes the whole range. `"store": "coalesce"` keeps a key's new value in memory and writes the state file 1 s

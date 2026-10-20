@@ -637,8 +637,16 @@ private slots:
             QCOMPARE(schema.key(key)->ui.value("step"_L1).toInt(), 5);
             QCOMPARE(schema.key(key)->ui.value("unit"_L1).toString(), u"%"_s);
         }
-        for (const QString &key : {u"display.orientation"_s, u"display.auto_rotate"_s, u"session.default"_s})
+        for (const QString &key : {u"display.orientation"_s, u"session.default"_s, u"audio.output"_s, u"audio.hp_gain"_s,
+                                   u"audio.hp_amp"_s, u"audio.speaker_gain"_s, u"audio.max_volume"_s,
+                                   u"audio.power_on_volume"_s, u"audio.bt_codec_headphones"_s, u"power.gpu_undervolt"_s})
             QCOMPARE(schema.key(key)->ui.value("apply"_L1).toString(), u"confirm"_s);
+        QVERIFY(!schema.key(u"display.auto_rotate"_s)->ui.contains("apply"_L1));
+        for (const QString &key : {u"audio.hp_gain"_s, u"audio.hp_amp"_s, u"audio.speaker_gain"_s, u"audio.max_volume"_s,
+                                   u"audio.power_on_volume"_s, u"display.brightness"_s})
+            QCOMPARE(schema.key(key)->ui.value("bounded"_L1).toBool(), true);
+        for (const QString &slot : {u"headphones"_s, u"speaker"_s, u"usb"_s, u"bt"_s})
+            QCOMPARE(schema.key(u"audio.balance."_s + slot)->ui.value("widget"_L1).toString(), u"edit"_s);
         for (const QString &name : schema.keys({})) {
             const QJsonObject lock = schema.key(name)->ui.value("lock"_L1).toObject();
             if (lock.isEmpty())
