@@ -193,6 +193,23 @@ private slots:
         QCOMPARE(f.stored(), QVariant(5000u));
     }
 
+    void writeErrorAfterOpen()
+    {
+        Fixture f;
+        f.h.writeState(R"({"display.brightness": 5000})");
+        f.start();
+        QVERIFY(QFile::remove(f.h.path(u"backlight/brightness"_s)));
+        QVERIFY(QFile::link(u"/dev/full"_s, f.h.path(u"backlight/brightness"_s)));
+        QVERIFY(!f.applier->apply(8000u));
+        f.screen(int(BacklightApplier::raw(8000, 4095)));
+        QCOMPARE(f.stored(), QVariant(5000u));
+        QVERIFY(QFile::remove(f.h.path(u"backlight/brightness"_s)));
+        f.h.writeFile(u"backlight/brightness"_s, Untouched);
+        f.screen(2000);
+        QCOMPARE(f.node(), QByteArray("2048\n"));
+        QCOMPARE(f.stored(), QVariant(5000u));
+    }
+
     void unwritableRecordsOnly()
     {
         Fixture f;
