@@ -4,6 +4,7 @@
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
+#include <QDBusVariant>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QProcess>
@@ -17,6 +18,10 @@ namespace {
 constexpr int commandTimeoutMs = 5000;
 constexpr int rollbackPollMs = 250;
 constexpr qint64 rollbackWaitMs = 10000;
+const QString SettingsService = u"net.seilent.MicroSet"_s;
+const QString SettingsPath = u"/net/seilent/MicroSet"_s;
+const QString SettingsInterface = u"net.seilent.MicroSet1"_s;
+const QString UndervoltKey = u"power.gpu_undervolt"_s;
 
 QString firstLine(const QByteArray &bytes)
 {
@@ -105,7 +110,8 @@ QStringList journalArgs(const QString &unit, const QString &invocation, int limi
     return args;
 }
 
-QVariantList actionList(const QString &failingName, const QString &failingLabel, const QString &steamLabel, bool rollback)
+QVariantList actionList(const QString &failingName, const QString &failingLabel, const QString &steamLabel, bool rollback,
+                        bool stockGpu)
 {
     const auto action = [](const QString &key, const QString &title, const QString &name) {
         return QVariantMap{{u"key"_s, key}, {u"title"_s, title}, {u"name"_s, name}};
@@ -117,6 +123,8 @@ QVariantList actionList(const QString &failingName, const QString &failingLabel,
         out.append(action(u"switch"_s, steamLabel, u"steam"_s));
     if (rollback)
         out.append(action(u"rollback"_s, u"boot the previous image"_s, {}));
+    if (stockGpu)
+        out.append(action(u"stock"_s, u"stock GPU clocks"_s, {}));
     out.append(action(u"poweroff"_s, u"power off"_s, {}));
     return out;
 }
@@ -252,7 +260,7 @@ void Recovery::loadJournal()
 
 void Recovery::setFixture(const QString &failingName, const QString &failingLabel, const QString &failingUnit,
                           bool failed, const QString &defaultName, bool rollback,
-                          const QStringList &journal)
+                          const QStringList &journal, const QString &undervolt)
 {
     m_failingName = failingName;
     m_failingLabel = failingLabel;
@@ -263,6 +271,7 @@ void Recovery::setFixture(const QString &failingName, const QString &failingLabe
     m_rollback = rollback;
     m_journal = journal;
     m_journalLoaded = true;
+    m_undervolt = undervolt;
     emit changed();
     emit journalChanged();
 }
@@ -340,6 +349,51 @@ void Recovery::powerOff(const QString &action)
         const QDBusPendingReply<> reply = *w;
         if (reply.isError())
             emit actionFailed(action, reply.error().message());
+        w->deleteLater();
+    });
+}
+
+void Recovery::watchSettings(const QDBusConnection &bus)
+{
+    m_settings = bus;
+    m_settings.connect(SettingsService, SettingsPath, SettingsInterface, u"Changed"_s, this,
+                       SLOT(onSettingChanged(QString, QDBusVariant)));
+    QDBusMessage get = QDBusMessage::createMethodCall(SettingsService, SettingsPath, SettingsInterface, u"Get"_s);
+    get << UndervoltKey;
+    auto *watcher = new QDBusPendingCallWatcher(m_settings.asyncCall(get, commandTimeoutMs), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        const QDBusMessage reply = w->reply();
+        if (reply.type() == QDBusMessage::ReplyMessage)
+            setUndervolt(reply.arguments().value(0).value<QDBusVariant>().variant().toString());
+        w->deleteLater();
+    });
+}
+
+void Recovery::onSettingChanged(const QString &key, const QDBusVariant &value)
+{
+    if (key == UndervoltKey)
+        setUndervolt(value.variant().toString());
+}
+
+void Recovery::setUndervolt(const QString &value)
+{
+    if (value == m_undervolt)
+        return;
+    m_undervolt = value;
+    emit changed();
+}
+
+void Recovery::stockGpu(const QString &action)
+{
+    QDBusMessage set = QDBusMessage::createMethodCall(SettingsService, SettingsPath, SettingsInterface, u"Set"_s);
+    set << UndervoltKey << QVariant::fromValue(QDBusVariant(u"off"_s));
+    auto *watcher = new QDBusPendingCallWatcher(m_settings.asyncCall(set, commandTimeoutMs), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, action](QDBusPendingCallWatcher *w) {
+        const QDBusPendingReply<> reply = *w;
+        if (reply.isError())
+            emit actionFailed(action, reply.error().message());
+        else
+            emit actionDone(action, u"Stock from the next boot"_s);
         w->deleteLater();
     });
 }

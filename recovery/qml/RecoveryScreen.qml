@@ -35,6 +35,9 @@ Item {
         case "rollback":
             screen.confirmRollback()
             break
+        case "stock":
+            screen.recovery.stockGpu(a.title)
+            break
         case "poweroff":
             screen.recovery.powerOff(a.title)
             break
@@ -116,6 +119,11 @@ Item {
         ignoreUnknownSignals: true
 
         function onActionFailed(action: string, message: string) {
+            toast.show(action, message)
+        }
+
+        function onActionDone(action: string, message: string) {
+            list.snapTo(0)
             toast.show(action, message)
         }
     }

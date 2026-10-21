@@ -39,6 +39,12 @@ Window {
         } else if (root.shotState === "toast") {
             screen.toast.show("power off", "Interactive authentication required.")
             screen.toast.complete()
+        } else if (root.shotState === "stock-gpu") {
+            screen.list.snapTo(screen.actions.findIndex(a => a.key === "stock"))
+        } else if (root.shotState === "stock-gpu-done") {
+            screen.list.snapTo(0)
+            screen.toast.show("stock GPU clocks", "Stock from the next boot")
+            screen.toast.complete()
         }
     }
 

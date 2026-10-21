@@ -1,3 +1,5 @@
+#include "fakemicrosetd.h"
+#include "harness.h"
 #include "recovery.h"
 
 #include <QFile>
@@ -139,6 +141,34 @@ private slots:
         QCOMPARE(m_dialog->property("focusIndex").toInt(), m_dialog->property("rebootIndex").toInt());
         QVERIFY(dialogShown());
         QVERIFY(calls().isEmpty());
+    }
+
+    void stockFocusesRetry()
+    {
+        Harness h;
+        QVERIFY(h.startBus());
+        FakeMicroSetd fake(h.address());
+        fake.setValues({{u"power.gpu_undervolt"_s, u"low"_s}});
+        QVERIFY(fake.start());
+        m_recovery->watchSettings(h.client());
+        const auto keys = [this] {
+            QStringList out;
+            for (const QVariant &v : m_screen->property("actions").toList())
+                out << v.toMap().value(u"key"_s).toString();
+            return out;
+        };
+        QTRY_COMPARE(keys(), (QStringList{u"switch"_s, u"rollback"_s, u"stock"_s, u"poweroff"_s}));
+        auto *list = qvariant_cast<QObject *>(m_screen->property("list"));
+        QVERIFY(list);
+        QVERIFY(QMetaObject::invokeMethod(list, "snapTo", Q_ARG(int, 2)));
+        key(Qt::Key_Return);
+        QTRY_COMPARE(keys(), (QStringList{u"switch"_s, u"rollback"_s, u"poweroff"_s}));
+        QTRY_COMPARE(list->property("focusIndex").toInt(), 0);
+        QCOMPARE(fake.sets(), (FakeMicroSetd::Sets{{u"power.gpu_undervolt"_s, u"off"_s}}));
+        QVERIFY(calls().isEmpty());
+        key(Qt::Key_Return);
+        QTRY_COMPARE(calls(), u"systemctl start --no-block microos-session-switch@steam.service\n"_s);
+        QVERIFY(!dialogShown());
     }
 };
 

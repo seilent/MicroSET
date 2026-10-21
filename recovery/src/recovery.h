@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QDBusConnection>
 #include <QElapsedTimer>
 #include <QHash>
 #include <QObject>
@@ -8,6 +9,7 @@
 
 #include <functional>
 
+class QDBusVariant;
 class QProcess;
 
 struct SessionEntry
@@ -25,7 +27,8 @@ bool validName(const QString &name);
 bool validUnit(const QString &unit);
 bool validInvocation(const QString &id);
 QStringList journalArgs(const QString &unit, const QString &invocation, int limit);
-QVariantList actionList(const QString &failingName, const QString &failingLabel, const QString &steamLabel, bool rollback);
+QVariantList actionList(const QString &failingName, const QString &failingLabel, const QString &steamLabel, bool rollback,
+                        bool stockGpu);
 
 class Recovery : public QObject
 {
@@ -48,8 +51,10 @@ public:
 
     void load();
     void loadJournal();
+    void watchSettings(const QDBusConnection &bus);
     void setFixture(const QString &failingName, const QString &failingLabel, const QString &failingUnit, bool failed,
-                    const QString &defaultName, bool rollback, const QStringList &journal);
+                    const QString &defaultName, bool rollback, const QStringList &journal,
+                    const QString &undervolt = {});
 
     QString failingName() const { return m_failingName; }
     QString failingLabel() const { return m_failingLabel; }
@@ -58,18 +63,28 @@ public:
     QString defaultName() const { return m_defaultName; }
     QString steamLabel() const { return m_steamLabel; }
     bool rollbackAvailable() const { return m_rollback; }
-    QVariantList actions() const { return actionList(m_failingName, m_failingLabel, m_steamLabel, m_rollback); }
+    QString undervolt() const { return m_undervolt; }
+    QVariantList actions() const
+    {
+        return actionList(m_failingName, m_failingLabel, m_steamLabel, m_rollback,
+                          !m_undervolt.isEmpty() && m_undervolt != u"off");
+    }
     QStringList journal() const { return m_journal; }
     bool journalLoaded() const { return m_journalLoaded; }
 
     Q_INVOKABLE void switchTo(const QString &name, const QString &action);
     Q_INVOKABLE void bootPrevious(const QString &action);
     Q_INVOKABLE void powerOff(const QString &action);
+    Q_INVOKABLE void stockGpu(const QString &action);
 
 signals:
     void changed();
     void journalChanged();
     void actionFailed(const QString &action, const QString &message);
+    void actionDone(const QString &action, const QString &message);
+
+private slots:
+    void onSettingChanged(const QString &key, const QDBusVariant &value);
 
 private:
     QString readFile(const QString &path) const;
@@ -79,6 +94,7 @@ private:
     QString unitOf(const QString &name) const;
     void startUnit(const QString &unit, const QString &action, std::function<void()> started = {});
     void watchRollback(const QString &unit, const QString &action, const QString &before, QElapsedTimer clock);
+    void setUndervolt(const QString &value);
 
     QString m_root;
     QList<SessionEntry> m_sessions;
@@ -93,4 +109,6 @@ private:
     bool m_rollback = false;
     QStringList m_journal;
     bool m_journalLoaded = false;
+    QDBusConnection m_settings{QString()};
+    QString m_undervolt;
 };

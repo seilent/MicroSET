@@ -1,3 +1,5 @@
+#include "fakemicrosetd.h"
+#include "harness.h"
 #include "recovery.h"
 
 #include <QDir>
@@ -117,7 +119,7 @@ private slots:
 
     void actionsSteamFailed()
     {
-        const QVariantList a = actionList(u"steam"_s, u"Steam"_s, u"Steam"_s, false);
+        const QVariantList a = actionList(u"steam"_s, u"Steam"_s, u"Steam"_s, false, false);
         QCOMPARE(a.size(), 2);
         QCOMPARE(a.at(0).toMap().value(u"title"_s).toString(), u"try Steam again"_s);
         QCOMPARE(a.at(0).toMap().value(u"name"_s).toString(), u"steam"_s);
@@ -126,13 +128,78 @@ private slots:
 
     void actionsOtherFailed()
     {
-        const QVariantList a = actionList(u"microdap"_s, u"MicroDAP"_s, u"Steam"_s, true);
+        const QVariantList a = actionList(u"microdap"_s, u"MicroDAP"_s, u"Steam"_s, true, false);
         QStringList keys;
         for (const QVariant &v : a)
             keys << v.toMap().value(u"key"_s).toString() + u':' + v.toMap().value(u"name"_s).toString();
         QCOMPARE(keys, (QStringList{u"switch:microdap"_s, u"switch:steam"_s, u"rollback:"_s, u"poweroff:"_s}));
         QCOMPARE(a.at(0).toMap().value(u"title"_s).toString(), u"try MicroDAP again"_s);
         QCOMPARE(a.at(1).toMap().value(u"title"_s).toString(), u"Steam"_s);
+    }
+
+    void actionsStockGpu()
+    {
+        QStringList keys;
+        for (const QVariant &v : actionList(u"microdap"_s, u"MicroDAP"_s, u"Steam"_s, true, true))
+            keys << v.toMap().value(u"key"_s).toString();
+        QCOMPARE(keys, (QStringList{u"switch"_s, u"switch"_s, u"rollback"_s, u"stock"_s, u"poweroff"_s}));
+        const QVariantList a = actionList(u"steam"_s, u"Steam"_s, u"Steam"_s, false, true);
+        QCOMPARE(a.size(), 3);
+        QCOMPARE(a.at(1).toMap().value(u"key"_s).toString(), u"stock"_s);
+        QCOMPARE(a.at(1).toMap().value(u"title"_s).toString(), u"stock GPU clocks"_s);
+        QCOMPARE(a.at(2).toMap().value(u"key"_s).toString(), u"poweroff"_s);
+    }
+
+    void stockGpuShownWhileUndervolted()
+    {
+        Recovery r;
+        const auto keys = [&r] {
+            QStringList out;
+            for (const QVariant &v : r.actions())
+                out << v.toMap().value(u"key"_s).toString();
+            return out;
+        };
+        for (const QString &value : {u"low"_s, u"off"_s, QString()}) {
+            r.setFixture(u"steam"_s, u"Steam"_s, u"gamescope-session-plus@steam.service"_s, true, u"steam"_s, false, {},
+                         value);
+            QCOMPARE(keys().contains(u"stock"_s), value == u"low"_s);
+        }
+    }
+
+    void stockGpuSetsOff()
+    {
+        Harness h;
+        QVERIFY(h.startBus());
+        FakeMicroSetd fake(h.address());
+        fake.setValues({{u"power.gpu_undervolt"_s, u"low"_s}});
+        QVERIFY(fake.start());
+        Recovery r;
+        QSignalSpy done(&r, &Recovery::actionDone);
+        QSignalSpy failed(&r, &Recovery::actionFailed);
+        const auto stock = [&r] {
+            for (const QVariant &v : r.actions())
+                if (v.toMap().value(u"key"_s).toString() == u"stock"_s)
+                    return true;
+            return false;
+        };
+        QVERIFY(!stock());
+        r.watchSettings(h.client());
+        QTRY_VERIFY(stock());
+        r.stockGpu(u"stock GPU clocks"_s);
+        QTRY_COMPARE(done.count(), 1);
+        QCOMPARE(done.at(0).at(0).toString(), u"stock GPU clocks"_s);
+        QCOMPARE(done.at(0).at(1).toString(), u"Stock from the next boot"_s);
+        QCOMPARE(fake.sets(), (FakeMicroSetd::Sets{{u"power.gpu_undervolt"_s, u"off"_s}}));
+        QTRY_VERIFY(!stock());
+        QCOMPARE(r.actions().last().toMap().value(u"key"_s).toString(), u"poweroff"_s);
+        fake.emitChanged(u"power.gpu_undervolt"_s, u"low"_s);
+        QTRY_VERIFY(stock());
+        fake.refuse(u"power.gpu_undervolt"_s, u"net.seilent.MicroSet1.Error.Failed"_s);
+        r.stockGpu(u"stock GPU clocks"_s);
+        QTRY_COMPARE(failed.count(), 1);
+        QCOMPARE(failed.at(0).at(0).toString(), u"stock GPU clocks"_s);
+        QCOMPARE(done.count(), 1);
+        QVERIFY(stock());
     }
 
     void loadPrevious()

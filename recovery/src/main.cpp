@@ -58,6 +58,8 @@ const QStringList &states()
         u"long-line"_s,
         u"requested"_s,
         u"hold"_s,
+        u"stock-gpu"_s,
+        u"stock-gpu-done"_s,
     };
     return names;
 }
@@ -119,7 +121,7 @@ void applyFixture(Recovery &recovery, const QString &state)
     }
     const bool failed = state != u"no-previous"_s && state != u"requested"_s;
     recovery.setFixture(u"steam"_s, u"Steam"_s, u"gamescope-session-plus@steam.service"_s, failed,
-                        u"steam"_s, rollback, journal);
+                        u"steam"_s, rollback, journal, state == u"stock-gpu"_s ? u"low"_s : u"off"_s);
 }
 
 void grab(QQuickWindow *window, const QString &out)
@@ -207,6 +209,7 @@ int main(int argc, char *argv[])
 
     if (!screenshot) {
         microset::claimGamescopeFocus(window);
+        recovery.watchSettings(QDBusConnection::systemBus());
         recovery.load();
         return QCoreApplication::exec();
     }
