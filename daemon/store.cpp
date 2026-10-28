@@ -131,16 +131,23 @@ bool Store::contains(const QString &key) const
     return m_values.contains(key);
 }
 
+QStringList Store::keys() const
+{
+    return m_values.keys();
+}
+
 bool Store::set(const QString &key, const QJsonValue &value)
 {
     return set(QJsonObject{{key, value}});
 }
 
-bool Store::set(const QJsonObject &changes)
+bool Store::set(const QJsonObject &changes, const QStringList &removed)
 {
     QJsonObject next = m_values;
     for (auto it = changes.begin(); it != changes.end(); ++it)
         next.insert(it.key(), it.value());
+    for (const QString &key : removed)
+        next.remove(key);
     if (!write(next))
         return false;
     m_values = next;

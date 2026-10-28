@@ -43,6 +43,39 @@ private:
     };
 
 private slots:
+    void perAppDefaultDeletes()
+    {
+        Harness h;
+        h.writeFile(u"s/10-microset.json"_s,
+                    R"({"owner": "microset", "keys": {
+                           "wine.sync": {"type": "s", "default": "ntsync", "enum": ["fsync", "ntsync"]},
+                           "app.wine.sync": {"type": "s", "default": "auto", "enum": ["auto", "fsync", "ntsync"],
+                                             "per_app": true}}})");
+        h.writeState(R"({"app.8.wine.sync": "auto", "app.9.wine.sync": "maybe"})");
+        Schema schema;
+        schema.load(h.path(u"s"_s));
+        Store store(h.path(u"state"_s));
+        store.load();
+        Settings settings(schema, store);
+        QVERIFY(settings.perAppKeys().isEmpty());
+        QCOMPARE(settings.store(u"app.7.wine.sync"_s, u"fsync"_s), Settings::Changed);
+        QCOMPARE(settings.store(u"wine.sync"_s, u"fsync"_s), Settings::Changed);
+        QVERIFY(settings.isSet(u"app.7.wine.sync"_s));
+        QVERIFY(settings.isSet(u"wine.sync"_s));
+        QCOMPARE(settings.perAppKeys(), QStringList{u"app.7.wine.sync"_s});
+        QCOMPARE(settings.apps(), QSet<QString>{u"7"_s});
+        QCOMPARE(settings.store(u"app.7.wine.sync"_s, u"auto"_s), Settings::Changed);
+        QCOMPARE(settings.store(u"wine.sync"_s, u"ntsync"_s), Settings::Changed);
+        QVERIFY(!store.contains(u"app.7.wine.sync"_s));
+        QVERIFY(store.contains(u"wine.sync"_s));
+        QVERIFY(!settings.isSet(u"wine.sync"_s));
+        QVERIFY(!settings.isSet(u"app.7.wine.sync"_s));
+        QVERIFY(!settings.isSet(u"nope.key"_s));
+        QVERIFY(settings.apps().isEmpty());
+        const QJsonObject onDisk = QJsonDocument::fromJson(h.readState()).object().value("values"_L1).toObject();
+        QCOMPARE(onDisk.keys(), (QStringList{u"app.8.wine.sync"_s, u"app.9.wine.sync"_s, u"wine.sync"_s}));
+    }
+
     void coalescedStoreWaits()
     {
         Fixture f;

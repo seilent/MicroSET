@@ -40,6 +40,15 @@ stored values. `Import` stores every key that has no stored value yet in one wri
 refused ones with a reason; stored keys are left as they are. `Set`, `Import`, `Override` and `ClearOverride` need uid
 0 or `wheel`, and are refused from a game.
 
+Per game keys are `app.<appid>.<key>` (appid of 1 to 10 digits, no leading zero) from the `app.*` templates in
+`10-microset.json` (`"per_app": true`): `profile` (`on` or `off`), `fex.preset`, `fex.tso`, `fex.half_barrier`,
+`fex.vector_tso`, `fex.memcpy_tso`, `fex.multiblock`, `fex.max_inst`, `fex.x87_reduced`, `fex.smc`,
+`fex.volatile_metadata`, `fex.mono_hacks` and `wine.sync`, all `auto` by default. `Schema("app.")` lists the
+templates, `Schema("app.<appid>")` the keys of one game, `List` and `Stored` the stored ones. A `Set` back to the
+default removes the key, at most 512 games hold values (`Failed`, "too many games"), and they take no `Override` or
+`Subscribe`. The global keys are `fex.preset` (`default` or `compatibility`), `wine.sync` (`fsync` or `ntsync`) and
+`proton.profiles` (`on` or `off`); the FEX presets are under `presets` in `10-microset.json`.
+
 Keys marked `"override": true` (`rgb.enabled`, `rgb.hue`, `rgb.saturation`, `display.brightness`) take an
 `Override`: one per caller bus name per key, the newest wins, dropped on `ClearOverride` or when the caller leaves the bus. Overrides live in memory;
 `libmicroset` sends them again when `microsetd` restarts. Under an override `Set` still stores its value, and it shows

@@ -64,6 +64,20 @@ private slots:
         QCOMPARE(reloaded.value(u"power.profile"_s).toString(), u"low-power"_s);
     }
 
+    void removedKeysLeaveTheFile()
+    {
+        Harness h;
+        Store store(h.path(u"state"_s));
+        store.load();
+        QVERIFY(store.set(QJsonObject{{u"app.7.wine.sync"_s, u"fsync"_s}, {u"power.tdp"_s, 6}}));
+        QVERIFY(store.set(QJsonObject{{u"power.tdp"_s, 5}}, {u"app.7.wine.sync"_s, u"app.8.wine.sync"_s}));
+        QCOMPARE(store.keys(), QStringList{u"power.tdp"_s});
+        Store reloaded(h.path(u"state"_s));
+        reloaded.load();
+        QCOMPARE(reloaded.keys(), QStringList{u"power.tdp"_s});
+        QCOMPARE(reloaded.value(u"power.tdp"_s).toInt(), 5);
+    }
+
     void failedWriteKeepsMemory()
     {
         Harness h;

@@ -5,6 +5,7 @@
 
 #include <QHash>
 #include <QObject>
+#include <QSet>
 #include <QTimer>
 
 class Settings : public QObject
@@ -21,6 +22,10 @@ public:
     QVariant stored(const QString &key) const;
     QVariant storedUnchecked(const QString &key) const;
     bool isStored(const QString &key) const;
+    bool isSet(const QString &key) const;
+    QStringList perAppKeys() const;
+    QSet<QString> apps() const;
+    bool hasApp(const QString &appid) const;
     Result store(const QString &key, const QVariant &value);
     Result store(const QVariantMap &values);
     void setLive(const QString &key, const QVariant &value);

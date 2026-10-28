@@ -61,6 +61,42 @@ bool Settings::isStored(const QString &key) const
     return m_pending.contains(key) || m_store.contains(key);
 }
 
+bool Settings::isSet(const QString &name) const
+{
+    const Key *key = m_schema.key(name);
+    return key && value(name) != key->defaultValue;
+}
+
+QStringList Settings::perAppKeys() const
+{
+    QStringList out;
+    for (const QString &name : m_store.keys()) {
+        const Key *key = m_schema.key(name);
+        const QVariant value = key && key->perApp ? stored(name) : QVariant();
+        if (value.isValid() && value != key->defaultValue)
+            out << name;
+    }
+    return out;
+}
+
+bool Settings::hasApp(const QString &appid) const
+{
+    const QStringList options = m_schema.options();
+    const QString prefix = QStringLiteral("app.") + appid + u'.';
+    return std::any_of(options.cbegin(), options.cend(), [&](const QString &option) { return isSet(prefix + option); });
+}
+
+QSet<QString> Settings::apps() const
+{
+    QSet<QString> out;
+    for (const QString &name : perAppKeys()) {
+        QString appid;
+        Schema::splitApp(name, &appid, nullptr);
+        out.insert(appid);
+    }
+    return out;
+}
+
 Settings::Result Settings::store(const QString &key, const QVariant &value)
 {
     if (base(key) == value)
@@ -137,11 +173,16 @@ Settings::Result Settings::store(const QVariantMap &values)
 {
     QVariantMap before;
     QJsonObject changes;
+    QStringList removed;
     for (auto it = values.cbegin(); it != values.cend(); ++it) {
         before.insert(it.key(), value(it.key()));
-        changes.insert(it.key(), Schema::toJson(it.value()));
+        const Key *key = m_schema.key(it.key());
+        if (key && key->perApp && it.value() == key->defaultValue)
+            removed << it.key();
+        else
+            changes.insert(it.key(), Schema::toJson(it.value()));
     }
-    if (!m_store.set(changes))
+    if (!m_store.set(changes, removed))
         return Failed;
     for (auto it = values.cbegin(); it != values.cend(); ++it)
         m_pending.remove(it.key());

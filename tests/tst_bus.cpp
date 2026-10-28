@@ -972,6 +972,119 @@ private slots:
         values.remove(u"nope.k0"_s);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), QString());
         QVERIFY(h->daemonLog().contains("import by uid 0 refused 53 unknown keys\n"_L1));
+        QVariantMap games;
+        for (int i = 1; i <= 512 * 13 + 1; ++i)
+            games.insert(u"app.%1.fex.tso"_s.arg(i), u"off"_s);
+        QCOMPARE(errorOf(h->call(u"Import"_s, {games})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
+        games.remove(u"app.1.fex.tso"_s);
+        games.insert(u"nope.k0"_s, true);
+        QCOMPARE(errorOf(h->call(u"Import"_s, {games})), QString());
+        const QString log = h->daemonLog();
+        QVERIFY(log.contains("import by uid 0 refused 6144 keys: too many games\n"_L1));
+        QVERIFY(log.contains("import by uid 0 refused 1 unknown keys\n"_L1));
+        QVERIFY(!log.contains("fex.tso by uid 0 refused: too many games"_L1));
+    }
+
+    void perGameKeys()
+    {
+        QVERIFY(up());
+        const QString unknown = u"net.seilent.MicroSet1.Error.UnknownKey"_s;
+        QCOMPARE(get(u"app.292120.fex.tso"_s), QVariant(u"auto"_s));
+        QCOMPARE(get(u"app.292120.profile"_s), QVariant(u"on"_s));
+        for (const QString &name : {u"app.0.fex.tso"_s, u"app.fex.tso"_s, u"app.292120.nope"_s, u"app.12345678901.fex.tso"_s})
+            QCOMPARE(errorOf(h->call(u"Get"_s, {name})), unknown);
+        QCOMPARE(set(u"app.fex.tso"_s, u"off"_s), unknown);
+        QCOMPARE(set(u"app.292120.fex.tso"_s, u"maybe"_s), u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        MicroSet::Client client(h->client());
+        QSignalSpy spy(&client, &MicroSet::Client::changed);
+        QCOMPARE(set(u"app.292120.fex.tso"_s, u"off"_s), QString());
+        QCOMPARE(set(u"app.2238900.wine.sync"_s, u"fsync"_s), QString());
+        QCOMPARE(get(u"app.292120.fex.tso"_s), QVariant(u"off"_s));
+        QCOMPARE(onDisk().value("app.292120.fex.tso"_L1).toString(), u"off"_s);
+        const QVariantMap both{{u"app.292120.fex.tso"_s, u"off"_s}, {u"app.2238900.wine.sync"_s, u"fsync"_s}};
+        QCOMPARE(stored(u"app."_s), both);
+        QCOMPARE(qdbus_cast<QVariantMap>(h->call(u"List"_s, {u"app"_s}).arguments().value(0)), both);
+        QCOMPARE(stored(u"app.292120"_s), (QVariantMap{{u"app.292120.fex.tso"_s, u"off"_s}}));
+        const QVariantMap all = qdbus_cast<QVariantMap>(h->call(u"List"_s, {QString()}).arguments().value(0));
+        QVERIFY(all.contains(u"app.292120.fex.tso"_s) && all.contains(u"power.tdp"_s));
+        QVERIFY(!all.contains(u"app.fex.tso"_s));
+        QCOMPARE(set(u"app.292120.fex.tso"_s, u"auto"_s), QString());
+        QVERIFY(!onDisk().contains("app.292120.fex.tso"_L1));
+        QCOMPARE(get(u"app.292120.fex.tso"_s), QVariant(u"auto"_s));
+        QCOMPARE(stored(u"app."_s), (QVariantMap{{u"app.2238900.wine.sync"_s, u"fsync"_s}}));
+        QCOMPARE(set(u"app.292120.fex.tso"_s, u"auto"_s), QString());
+        QTRY_COMPARE(spy.count(), 3);
+        QCOMPARE(spy.at(2).at(0).toString(), u"app.292120.fex.tso"_s);
+        QCOMPARE(spy.at(2).at(1), QVariant(u"auto"_s));
+        QCOMPARE(errorOf(h->call(u"Override"_s, {u"app.292120.fex.tso"_s, QVariant::fromValue(QDBusVariant(u"off"_s))})),
+                 u"org.freedesktop.DBus.Error.InvalidArgs"_s);
+        QCOMPARE(errorOf(h->call(u"Subscribe"_s, {u"app.292120.fex.tso"_s})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
+        const QStringList tso = {u"set"_s, u"app.292120.fex.tso"_s, u"off"_s};
+        QCOMPARE(h->cli(tso, Harness::wheel(), Harness::GameCgroup), 4);
+        QCOMPARE(h->cli(tso, Harness::noWheel(), Harness::UserCgroup), 4);
+        QCOMPARE(h->cli(tso, Harness::wheel(), Harness::UserCgroup), 0);
+        QString out;
+        QCOMPARE(h->cli({u"get"_s, u"app.292120.fex.tso"_s}, {}, Harness::RootCgroup, &out), 0);
+        QCOMPARE(out, u"off\n"_s);
+        QCOMPARE(h->cli({u"set"_s, u"app.292120.profile"_s, u"off"_s}), 0);
+        QCOMPARE(h->cli({u"set"_s, u"app.292120.profile"_s, u"maybe"_s}), 3);
+        QCOMPARE(h->cli({u"schema"_s, u"app.292120.profile"_s}, {}, Harness::RootCgroup, &out), 0);
+        const QJsonObject profile = QJsonDocument::fromJson(out.toUtf8()).object().value("app.292120.profile"_L1).toObject();
+        QCOMPARE(profile.value("per_app"_L1), QJsonValue(true));
+        QCOMPARE(profile.value("default"_L1).toString(), u"on"_s);
+        h->stopDaemon();
+        QVERIFY(h->startDaemon());
+        QCOMPARE(stored(u"app."_s), (QVariantMap{{u"app.2238900.wine.sync"_s, u"fsync"_s},
+                                                 {u"app.292120.fex.tso"_s, u"off"_s},
+                                                 {u"app.292120.profile"_s, u"off"_s}}));
+    }
+
+    void perGameCap()
+    {
+        qDBusRegisterMetaType<QMap<QString, QString>>();
+        QByteArray values = "{\"app.513.fex.tso\": \"auto\"";
+        for (int i = 1; i <= 512; ++i)
+            values += ", \"app." + QByteArray::number(i) + ".fex.tso\": \"off\"";
+        h->writeState(values + '}');
+        QVERIFY(up());
+        const QString failed = u"org.freedesktop.DBus.Error.Failed"_s;
+        QCOMPARE(set(u"app.600.fex.tso"_s, u"off"_s), failed);
+        QVERIFY(h->daemonLog().contains("set app.600.fex.tso by uid 0 refused: too many games"_L1));
+        QCOMPARE(set(u"app.600.fex.tso"_s, u"auto"_s), QString());
+        QCOMPARE(set(u"app.1.wine.sync"_s, u"fsync"_s), QString());
+        QCOMPARE(set(u"app.2.fex.tso"_s, u"auto"_s), QString());
+        QCOMPARE(set(u"app.600.fex.tso"_s, u"off"_s), QString());
+        QCOMPARE(set(u"app.601.fex.tso"_s, u"off"_s), failed);
+        const QDBusMessage reply = h->call(u"Import"_s, {QVariantMap{{u"app.601.fex.tso"_s, u"off"_s},
+                                                                      {u"app.602.fex.tso"_s, u"auto"_s},
+                                                                      {u"app.1.fex.multiblock"_s, u"off"_s}}});
+        QCOMPARE(errorOf(reply), QString());
+        QCOMPARE(reply.arguments().value(0).toStringList(), QStringList{u"app.1.fex.multiblock"_s});
+        const QMap<QString, QString> refused = qdbus_cast<QMap<QString, QString>>(reply.arguments().value(1));
+        QCOMPARE(refused, (QMap<QString, QString>{{u"app.601.fex.tso"_s, u"too many games"_s}}));
+        QVERIFY(h->daemonLog().contains("import by uid 0 refused 1 keys: too many games\n"_L1));
+    }
+
+    void importPerGame()
+    {
+        qDBusRegisterMetaType<QMap<QString, QString>>();
+        h->writeState(R"({"app.292120.fex.tso": "off"})");
+        QVERIFY(up());
+        const QDBusMessage reply = h->call(u"Import"_s, {QVariantMap{{u"app.292120.fex.tso"_s, u"on"_s},
+                                                                      {u"app.292120.wine.sync"_s, u"fsync"_s},
+                                                                      {u"app.2238900.fex.tso"_s, u"auto"_s},
+                                                                      {u"app.2238900.fex.smc"_s, u"bad"_s},
+                                                                      {u"app.0.fex.tso"_s, u"off"_s},
+                                                                      {u"app.fex.tso"_s, u"off"_s}}});
+        QCOMPARE(errorOf(reply), QString());
+        QCOMPARE(reply.arguments().value(0).toStringList(), QStringList{u"app.292120.wine.sync"_s});
+        const QMap<QString, QString> refused = qdbus_cast<QMap<QString, QString>>(reply.arguments().value(1));
+        QCOMPARE(refused, (QMap<QString, QString>{{u"app.2238900.fex.smc"_s, u"not a valid value"_s},
+                                                   {u"app.0.fex.tso"_s, u"no key"_s},
+                                                   {u"app.fex.tso"_s, u"no key"_s}}));
+        QCOMPARE(stored(u"app."_s), (QVariantMap{{u"app.292120.fex.tso"_s, u"off"_s},
+                                                 {u"app.292120.wine.sync"_s, u"fsync"_s}}));
+        QVERIFY(!onDisk().contains("app.2238900.fex.tso"_L1));
     }
 
     void importLogsFirstKeys()

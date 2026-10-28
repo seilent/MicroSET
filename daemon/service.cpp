@@ -19,6 +19,15 @@ Q_LOGGING_CATEGORY(lcCoalesced, "microset.coalesced", QtInfoMsg)
 namespace {
 
 constexpr qsizetype ImportLogKeys = 8;
+constexpr int MaxApps = 512;
+const QString TooManyGames = u"too many games"_s;
+
+QString appOf(const QString &name)
+{
+    QString appid;
+    ::Schema::splitApp(name, &appid, nullptr);
+    return appid;
+}
 
 }
 
@@ -72,6 +81,12 @@ void Service::Set(const QString &name, const QDBusVariant &value)
         sendErrorReply(Errors::InvalidValue, u"not a valid "_s + name);
         return;
     }
+    if (key->perApp && requested != key->defaultValue && !m_settings.hasApp(appOf(name))
+        && m_settings.apps().size() >= MaxApps) {
+        qInfo("set %s by uid %lld refused: %s", qPrintable(name), uid, qPrintable(TooManyGames));
+        sendErrorReply(Errors::Failed, TooManyGames);
+        return;
+    }
     const QByteArray shown = ::Schema::text(requested).left(64).toUtf8();
     if (key->coalesce)
         qCDebug(lcCoalesced, "set %s=%s by uid %lld", qPrintable(name), shown.constData(), uid);
@@ -99,6 +114,9 @@ QVariantMap Service::List(const QString &prefix)
     QVariantMap out;
     for (const QString &key : m_settings.schema().keys(prefix))
         out.insert(key, m_settings.value(key));
+    for (const QString &key : m_settings.perAppKeys())
+        if (::Schema::matches(key, prefix))
+            out.insert(key, m_settings.value(key));
     return out;
 }
 
@@ -110,6 +128,9 @@ QVariantMap Service::Stored(const QString &prefix)
         if (value.isValid())
             out.insert(key, value);
     }
+    for (const QString &key : m_settings.perAppKeys())
+        if (::Schema::matches(key, prefix))
+            out.insert(key, m_settings.stored(key));
     return out;
 }
 
@@ -126,12 +147,16 @@ QStringList Service::Import(const QVariantMap &requested, QMap<QString, QString>
         return {};
     }
     const ::Schema &schema = m_settings.schema();
-    if (values.size() > schema.keys({}).size()) {
+    const qsizetype gameKeys =
+        std::count_if(values.keyBegin(), values.keyEnd(), [](const QString &key) { return !appOf(key).isEmpty(); });
+    if (values.size() - gameKeys > schema.keys({}).size() || gameKeys > MaxApps * schema.options().size()) {
         sendErrorReply(Errors::InvalidArgs, u"too many keys"_s);
         return {};
     }
+    QSet<QString> apps = m_settings.apps();
     QVariantMap batch;
     int unknown = 0;
+    int crowded = 0;
     for (auto it = values.cbegin(); it != values.cend(); ++it) {
         const Key *key = schema.key(it.key());
         QString why;
@@ -145,19 +170,30 @@ QStringList Service::Import(const QVariantMap &requested, QMap<QString, QString>
             why = u"set through powerd"_s;
         else if (!schema.accepts(*key, it.value()))
             why = u"not a valid value"_s;
-        if (why.isEmpty())
-            batch.insert(it.key(), it.value());
-        else
+        else if (key->perApp && it.value() == key->defaultValue)
+            continue;
+        else if (key->perApp && !apps.contains(appOf(it.key())) && apps.size() >= MaxApps)
+            why = TooManyGames;
+        if (!why.isEmpty()) {
             refused.insert(it.key(), why);
+            continue;
+        }
+        batch.insert(it.key(), it.value());
+        if (key->perApp)
+            apps.insert(appOf(it.key()));
     }
     for (auto it = refused.cbegin(); it != refused.cend(); ++it) {
-        if (schema.key(it.key()))
-            qInfo("import %s by uid %lld refused: %s", qPrintable(it.key()), uid, qPrintable(it.value()));
-        else
+        if (!schema.key(it.key()))
             ++unknown;
+        else if (it.value() == TooManyGames)
+            ++crowded;
+        else
+            qInfo("import %s by uid %lld refused: %s", qPrintable(it.key()), uid, qPrintable(it.value()));
     }
     if (unknown > 0)
         qInfo("import by uid %lld refused %d unknown keys", uid, unknown);
+    if (crowded > 0)
+        qInfo("import by uid %lld refused %d keys: %s", uid, crowded, qPrintable(TooManyGames));
     if (batch.isEmpty())
         return {};
     if (m_settings.store(batch) == Settings::Failed) {
