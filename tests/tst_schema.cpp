@@ -49,14 +49,15 @@ private slots:
                                                u"audio.eq.usb.on"_s, u"audio.hp_amp"_s, u"audio.hp_gain"_s,
                                                u"audio.max_volume"_s, u"audio.output"_s, u"audio.power_on_volume"_s,
                                                u"audio.speaker_gain"_s, u"audio.volume_step"_s, u"display.auto_rotate"_s, u"display.brightness"_s,
-                                               u"display.orientation"_s, u"display.rotation"_s,
+                                               u"display.orientation"_s, u"display.rotation"_s, u"fex.preset"_s,
                                                u"meta.gpu_undervolt_serial"_s, u"meta.imported_power"_s,
                                                u"meta.moved_bt_codec"_s,
                                                u"power.game_floor"_s, u"power.governor"_s, u"power.gpu_clock"_s,
                                                u"power.gpu_level"_s, u"power.gpu_tuning_fallback"_s, u"power.gpu_tuning_trip"_s,
                                                u"power.gpu_undervolt"_s, u"power.gpu_undervolt_active"_s, u"power.gpu_undervolt_levels"_s,
-                                               u"power.profile"_s, u"power.tdp"_s, u"rgb.brightness"_s,
-                                               u"rgb.enabled"_s, u"rgb.hue"_s, u"rgb.saturation"_s, u"session.default"_s}));
+                                               u"power.profile"_s, u"power.tdp"_s, u"proton.profiles"_s, u"rgb.brightness"_s,
+                                               u"rgb.enabled"_s, u"rgb.hue"_s, u"rgb.saturation"_s, u"session.default"_s,
+                                               u"wine.sync"_s}));
         QCOMPARE(schema.keys(u"power"_s).size(), 11);
         QCOMPARE(schema.key(u"power.profile"_s)->defaultValue, QVariant(u"balanced"_s));
         QCOMPARE(schema.key(u"power.gpu_clock"_s)->defaultValue, QVariant(587u));
@@ -356,12 +357,175 @@ private slots:
     void reservedOwners()
     {
         Harness h;
-        for (const char *owner : {"microset", "power", "meta", "session", "audio", "display", "rgb", "system"})
+        for (const char *owner : {"microset", "power", "meta", "session", "audio", "display", "rgb", "system", "app", "fex",
+                                  "wine", "proton", "lsfg"})
             h.writeFile(u"s/20-%1.json"_s.arg(QLatin1StringView(owner)),
                         file(owner, QByteArray("\"") + owner + ".x\": {\"type\": \"b\", \"default\": true}"));
-        h.writeFile(u"s/30-microdap.json"_s, file("microdap", R"("microdap.x": {"type": "b", "default": true})"));
+        h.writeFile(u"s/21-app.json"_s,
+                    file("app", R"("app.y": {"type": "s", "default": "auto", "enum": ["auto", "on"], "per_app": true})"));
+        h.writeFile(u"s/30-microdap.json"_s,
+                    file("microdap", R"("microdap.x": {"type": "b", "default": true},
+                                        "app.fex.tso": {"type": "s", "default": "auto", "enum": ["auto", "on"], "per_app": true},
+                                        "microdap.y": {"type": "s", "default": "auto", "per_app": true})"));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"21-app.json: owner app refused, skipped"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"30-microdap.json: app.fex.tso is outside microdap.\\*, refused"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"30-microdap.json: microdap.y: per_app keys are the app.\\* keys"_s));
         const Schema schema = make(h.path(u"s"_s));
         QCOMPARE(schema.keys({}), QStringList{u"microdap.x"_s});
+        QVERIFY(schema.options().isEmpty());
+    }
+
+    void shippedTemplates()
+    {
+        const Schema schema = make(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+        const QStringList fex = {u"fex.half_barrier"_s, u"fex.max_inst"_s, u"fex.memcpy_tso"_s, u"fex.mono_hacks"_s,
+                                 u"fex.multiblock"_s, u"fex.preset"_s, u"fex.smc"_s, u"fex.tso"_s, u"fex.vector_tso"_s,
+                                 u"fex.volatile_metadata"_s, u"fex.x87_reduced"_s};
+        QCOMPARE(schema.options(), (fex + QStringList{u"profile"_s, u"wine.sync"_s}));
+        for (const QString &option : schema.options()) {
+            QVERIFY(schema.perApp(option));
+            const Key &key = *schema.perApp(option);
+            QVERIFY(key.perApp);
+            QCOMPARE(key.name, u"app."_s + option);
+            QCOMPARE(key.type, u"s"_s);
+            QVERIFY(key.writable);
+            QVERIFY(!key.overridable);
+            QVERIFY(key.applier.isEmpty());
+            QVERIFY(key.group.isEmpty());
+            QCOMPARE(key.defaultValue, QVariant(option == "profile"_L1 ? u"on"_s : u"auto"_s));
+            QVERIFY(!schema.keys({}).contains(key.name));
+        }
+        QCOMPARE(schema.perApp(u"profile"_s)->enumValues, (QVariantList{u"on"_s, u"off"_s}));
+        QCOMPARE(schema.perApp(u"fex.preset"_s)->enumValues,
+                 (QVariantList{u"auto"_s, u"default"_s, u"compatibility"_s, u"performance"_s}));
+        QCOMPARE(schema.perApp(u"fex.max_inst"_s)->enumValues,
+                 (QVariantList{u"auto"_s, u"500"_s, u"1000"_s, u"2000"_s, u"5000"_s}));
+        QCOMPARE(schema.perApp(u"fex.smc"_s)->enumValues, (QVariantList{u"auto"_s, u"none"_s, u"mtrack"_s, u"full"_s}));
+        QCOMPARE(schema.perApp(u"wine.sync"_s)->enumValues, (QVariantList{u"auto"_s, u"fsync"_s, u"ntsync"_s}));
+        QCOMPARE(schema.key(u"fex.preset"_s)->defaultValue, QVariant(u"default"_s));
+        QCOMPARE(schema.key(u"fex.preset"_s)->enumValues, (QVariantList{u"default"_s, u"compatibility"_s}));
+        QVERIFY(!schema.accepts(*schema.key(u"fex.preset"_s), u"performance"_s));
+        QCOMPARE(schema.key(u"wine.sync"_s)->defaultValue, QVariant(u"ntsync"_s));
+        QCOMPARE(schema.key(u"wine.sync"_s)->enumValues, (QVariantList{u"fsync"_s, u"ntsync"_s}));
+        QCOMPARE(schema.key(u"proton.profiles"_s)->defaultValue, QVariant(u"on"_s));
+        QCOMPARE(schema.key(u"proton.profiles"_s)->enumValues, (QVariantList{u"on"_s, u"off"_s}));
+        for (const QString &key : {u"fex.preset"_s, u"wine.sync"_s, u"proton.profiles"_s}) {
+            QVERIFY(!schema.key(key)->perApp);
+            QVERIFY(schema.key(key)->group.isEmpty());
+        }
+        QVERIFY(schema.preset(u"default"_s) && schema.preset(u"compatibility"_s) && schema.preset(u"performance"_s));
+        QCOMPARE(*schema.preset(u"default"_s), Schema::Preset());
+        QCOMPARE(*schema.preset(u"compatibility"_s),
+                 (Schema::Preset{{u"fex.tso"_s, u"on"_s}, {u"fex.half_barrier"_s, u"off"_s}, {u"fex.vector_tso"_s, u"on"_s},
+                                 {u"fex.memcpy_tso"_s, u"on"_s}, {u"fex.x87_reduced"_s, u"off"_s}}));
+        QCOMPARE(*schema.preset(u"performance"_s), (Schema::Preset{{u"fex.tso"_s, u"off"_s}}));
+        for (const QVariant &name : schema.perApp(u"fex.preset"_s)->enumValues + schema.key(u"fex.preset"_s)->enumValues)
+            QVERIFY2(name == u"auto"_s || schema.preset(name.toString()), qPrintable(name.toString()));
+    }
+
+    void appKeys()
+    {
+        const Schema schema = make(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+        QCOMPARE(schema.key(u"app.292120.fex.tso"_s), schema.perApp(u"fex.tso"_s));
+        QCOMPARE(schema.key(u"app.1.profile"_s), schema.perApp(u"profile"_s));
+        QCOMPARE(schema.key(u"app.9999999999.wine.sync"_s), schema.perApp(u"wine.sync"_s));
+        for (const QString &name : {u"app.fex.tso"_s, u"app.0.fex.tso"_s, u"app.0292120.fex.tso"_s,
+                                    u"app.12345678901.fex.tso"_s, u"app.292120.nope"_s, u"app.292120"_s, u"app.292120."_s,
+                                    u"app.-1.fex.tso"_s, u"app.292120.fex"_s})
+            QVERIFY2(!schema.key(name), qPrintable(name));
+        QString appid;
+        QString option;
+        QVERIFY(Schema::splitApp(u"app.292120.fex.tso"_s, &appid, &option));
+        QCOMPARE(appid, u"292120"_s);
+        QCOMPARE(option, u"fex.tso"_s);
+        QVERIFY(!Schema::splitApp(u"app.292120"_s, &appid, &option));
+        QVERIFY(Schema::isAppId(u"4294967295"_s));
+        QVERIFY(!Schema::isAppId(u"0"_s));
+        QVERIFY(!Schema::isAppId(u"x1"_s));
+        const QJsonObject templates = schema.describe(u"app."_s);
+        QCOMPARE(templates.keys(), QStringList(schema.options()).replaceInStrings(QRegularExpression(u"^"_s), u"app."_s));
+        QCOMPARE(templates.value("app.fex.tso"_L1).toObject().value("per_app"_L1), QJsonValue(true));
+        QCOMPARE(templates.value("app.fex.tso"_L1).toObject().value("enum"_L1).toArray(),
+                 (QJsonArray{u"auto"_s, u"on"_s, u"off"_s}));
+        const QJsonObject instances = schema.describe(u"app.292120"_s);
+        QCOMPARE(instances.size(), schema.options().size());
+        QVERIFY(instances.contains("app.292120.fex.tso"_L1));
+        QCOMPARE(instances.value("app.292120.profile"_L1).toObject().value("default"_L1).toString(), u"on"_s);
+        QCOMPARE(schema.describe(u"app.292120."_s).keys(), instances.keys());
+        QCOMPARE(schema.describe(u"app.292120.fex"_s).size(), 11);
+        QCOMPARE(schema.describe(u"app.292120.fex.tso"_s).keys(), QStringList{u"app.292120.fex.tso"_s});
+        QVERIFY(schema.describe(u"app.0"_s).isEmpty());
+        const QJsonObject all = schema.describe({});
+        QVERIFY(all.contains("app.fex.tso"_L1));
+        QVERIFY(!all.contains("app.292120.fex.tso"_L1));
+        QVERIFY(!all.value("power.tdp"_L1).toObject().contains("per_app"_L1));
+    }
+
+    void perAppRules()
+    {
+        Harness h;
+        h.writeFile(u"s/10-microset.json"_s,
+                    file("microset", R"("app.good": {"type": "s", "default": "auto", "enum": ["auto", "on"], "per_app": true},
+                                        "app.good.deep": {"type": "s", "default": "auto", "per_app": true},
+                                        "app.plain": {"type": "s", "default": "auto"},
+                                        "app.false": {"type": "s", "default": "auto", "per_app": false},
+                                        "app.1x": {"type": "s", "default": "auto", "per_app": true},
+                                        "app.Upper": {"type": "s", "default": "auto", "per_app": true},
+                                        "power.x": {"type": "s", "default": "auto", "per_app": true},
+                                        "app.text": {"type": "s", "default": "auto", "per_app": "yes"},
+                                        "app.number": {"type": "u", "default": 1, "per_app": true},
+                                        "app.locked": {"type": "s", "default": "auto", "writable": false, "per_app": true},
+                                        "app.over": {"type": "s", "default": "auto", "override": true, "per_app": true},
+                                        "app.slow": {"type": "s", "default": "auto", "store": "coalesce", "per_app": true},
+                                        "app.power": {"type": "s", "default": "auto", "applier": "power", "per_app": true},
+                                        "power.ok": {"type": "b", "default": true})"));
+        for (const char *key : {"app.plain", "app.false", "app.1x", "app.Upper", "power.x"})
+            QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"10-microset.json: %1: per_app keys are the app.\\* keys, refused"_s
+                                                                      .arg(QRegularExpression::escape(QString::fromLatin1(key)))));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"10-microset.json: app.text: bad per_app, refused"_s));
+        for (const char *key : {"app.number", "app.locked", "app.over", "app.slow", "app.power"})
+            QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"10-microset.json: %1: per_app on a non string, read only, "
+                                                                  "override, coalesced or applier key, refused"_s
+                                                                      .arg(QRegularExpression::escape(QString::fromLatin1(key)))));
+        const Schema schema = make(h.path(u"s"_s));
+        QCOMPARE(schema.keys({}), QStringList{u"power.ok"_s});
+        QCOMPARE(schema.options(), (QStringList{u"good"_s, u"good.deep"_s}));
+        QCOMPARE(schema.key(u"app.7.good.deep"_s), schema.perApp(u"good.deep"_s));
+        QVERIFY(!schema.key(u"app.7.plain"_s));
+    }
+
+    void presetRules()
+    {
+        Harness h;
+        h.writeFile(u"s/10-microset.json"_s,
+                    file("microset", R"("fex.preset": {"type": "s", "default": "default", "enum": ["default", "fast"]},
+                                        "app.fex.preset": {"type": "s", "default": "auto", "enum": ["auto", "fast"], "per_app": true},
+                                        "app.fex.tso": {"type": "s", "default": "auto", "enum": ["auto", "on", "off"], "per_app": true},
+                                        "app.wine.sync": {"type": "s", "default": "auto", "enum": ["auto", "fsync"], "per_app": true})"
+                                     R"(}, "presets": {"fast": {"fex.tso": "off"}, "default": {},
+                                                       "auto": {"fex.tso": "auto"}, "bad": {"fex.tso": "maybe"},
+                                                       "wine": {"wine.sync": "fsync"}, "nested": {"fex.preset": "fast"},
+                                                       "unknown": {"fex.nope": "on"}, "number": {"fex.tso": 1},
+                                                       "list": ["fex.tso"], "Upper": {})"));
+        h.writeFile(u"s/20-microdap.json"_s,
+                    file("microdap", R"("microdap.x": {"type": "b", "default": true})"
+                                     R"(}, "presets": {"mine": {})"));
+        for (const char *preset : {"auto", "bad", "number"})
+            QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"10-microset.json: preset %1: fex.tso is not a FEX option value, dropped"_s
+                                                                      .arg(QLatin1StringView(preset))));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"10-microset.json: preset wine: wine.sync is not a FEX option value, dropped"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"10-microset.json: preset nested: fex.preset is not a FEX option value, dropped"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"10-microset.json: preset unknown: fex.nope is not a FEX option value, dropped"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"10-microset.json: preset list: not a name and an object, dropped"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"10-microset.json: preset Upper: not a name and an object, dropped"_s));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"20-microdap.json: presets only in 10-microset.json, ignored"_s));
+        const Schema schema = make(h.path(u"s"_s));
+        QVERIFY(schema.preset(u"fast"_s) && schema.preset(u"default"_s));
+        QCOMPARE(*schema.preset(u"fast"_s), (Schema::Preset{{u"fex.tso"_s, u"off"_s}}));
+        QCOMPARE(*schema.preset(u"default"_s), Schema::Preset());
+        for (const QString &name : {u"auto"_s, u"bad"_s, u"wine"_s, u"nested"_s, u"unknown"_s, u"number"_s, u"list"_s,
+                                    u"Upper"_s, u"mine"_s})
+            QVERIFY2(!schema.preset(name), qPrintable(name));
     }
 
     void maxLength()
@@ -672,7 +836,7 @@ private slots:
         QCOMPARE(clock.value("type"_L1).toString(), u"u"_s);
         QCOMPARE(schema.describe(u"power.tdp"_s).size(), 1);
         QCOMPARE(schema.describe(u"powe"_s).size(), 0);
-        QCOMPARE(schema.describe({}).size(), 50);
+        QCOMPARE(schema.describe({}).size(), 66);
         QCOMPARE(schema.describe(u"audio"_s).size(), 27);
         QVERIFY(schema.describe(u"meta"_s).value("meta.imported_power"_L1).toObject().value("group"_L1).isNull());
     }

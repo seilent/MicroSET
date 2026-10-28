@@ -459,7 +459,140 @@
       "group": "rgb",
       "label": "Stick LED brightness",
       "ui": {"order": 3, "step": 5, "unit": "%", "lock": {"key": "rgb.enabled", "is": false, "text": "off"}}
+    },
+    "fex.preset": {
+      "type": "s",
+      "default": "default",
+      "enum": ["default", "compatibility"],
+      "applier": null,
+      "group": null,
+      "label": "FEX preset"
+    },
+    "wine.sync": {
+      "type": "s",
+      "default": "ntsync",
+      "enum": ["fsync", "ntsync"],
+      "applier": null,
+      "group": null,
+      "label": "Wine sync"
+    },
+    "proton.profiles": {
+      "type": "s",
+      "default": "on",
+      "enum": ["on", "off"],
+      "applier": null,
+      "group": null,
+      "label": "Game profiles"
+    },
+    "app.profile": {
+      "type": "s",
+      "default": "on",
+      "enum": ["on", "off"],
+      "per_app": true,
+      "group": null,
+      "label": "MicroOS profile"
+    },
+    "app.fex.preset": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "default", "compatibility", "performance"],
+      "per_app": true,
+      "group": null,
+      "label": "Preset"
+    },
+    "app.fex.tso": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "on", "off"],
+      "per_app": true,
+      "group": null,
+      "label": "TSO"
+    },
+    "app.fex.half_barrier": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "on", "off"],
+      "per_app": true,
+      "group": null,
+      "label": "Half barrier TSO"
+    },
+    "app.fex.vector_tso": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "on", "off"],
+      "per_app": true,
+      "group": null,
+      "label": "Vector TSO"
+    },
+    "app.fex.memcpy_tso": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "on", "off"],
+      "per_app": true,
+      "group": null,
+      "label": "Memcpy TSO"
+    },
+    "app.fex.multiblock": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "on", "off"],
+      "per_app": true,
+      "group": null,
+      "label": "Multiblock"
+    },
+    "app.fex.max_inst": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "500", "1000", "2000", "5000"],
+      "per_app": true,
+      "group": null,
+      "label": "Block size"
+    },
+    "app.fex.x87_reduced": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "on", "off"],
+      "per_app": true,
+      "group": null,
+      "label": "Reduced x87"
+    },
+    "app.fex.smc": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "none", "mtrack", "full"],
+      "per_app": true,
+      "group": null,
+      "label": "SMC detection"
+    },
+    "app.fex.volatile_metadata": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "on", "off"],
+      "per_app": true,
+      "group": null,
+      "label": "Volatile"
+    },
+    "app.fex.mono_hacks": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "on", "off"],
+      "per_app": true,
+      "group": null,
+      "label": "Mono hacks"
+    },
+    "app.wine.sync": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "fsync", "ntsync"],
+      "per_app": true,
+      "group": null,
+      "label": "Wine sync"
     }
+  },
+  "presets": {
+    "default": {},
+    "compatibility": {"fex.tso": "on", "fex.half_barrier": "off", "fex.vector_tso": "on", "fex.memcpy_tso": "on", "fex.x87_reduced": "off"},
+    "performance": {"fex.tso": "off"}
   },
   "groups": {
     "audio": {"label": "audio", "order": 0},

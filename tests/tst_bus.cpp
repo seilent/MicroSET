@@ -645,7 +645,7 @@ private slots:
         h->writeState(R"({"future.key": 1, "power.gpu_clock": 9999, "session.default": "gone"})");
         QVERIFY(up());
         const QVariantMap all = qdbus_cast<QVariantMap>(h->call(u"List"_s, {QString()}).arguments().value(0));
-        QCOMPARE(all.size(), 50);
+        QCOMPARE(all.size(), 53);
         QVERIFY(!all.contains(u"future.key"_s));
         QCOMPARE(all.value(u"power.gpu_clock"_s), QVariant(587u));
         QCOMPARE(all.value(u"session.default"_s), QVariant(u"steam"_s));
@@ -966,12 +966,12 @@ private slots:
     {
         QVERIFY(up());
         QVariantMap values;
-        for (int i = 0; i < 51; ++i)
+        for (int i = 0; i < 54; ++i)
             values.insert(u"nope.k%1"_s.arg(i), true);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         values.remove(u"nope.k0"_s);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), QString());
-        QVERIFY(h->daemonLog().contains("import by uid 0 refused 50 unknown keys\n"_L1));
+        QVERIFY(h->daemonLog().contains("import by uid 0 refused 53 unknown keys\n"_L1));
     }
 
     void importLogsFirstKeys()

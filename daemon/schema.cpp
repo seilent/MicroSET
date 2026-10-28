@@ -16,8 +16,8 @@ namespace {
 
 const QString PrivilegedFile = u"10-microset.json"_s;
 const QString PrivilegedOwner = u"microset"_s;
-const QStringList Reserved = {u"microset"_s, u"power"_s, u"meta"_s, u"session"_s,
-                               u"audio"_s, u"display"_s, u"rgb"_s, u"system"_s};
+const QStringList Reserved = {u"microset"_s, u"power"_s, u"meta"_s, u"session"_s, u"audio"_s, u"display"_s, u"rgb"_s,
+                               u"system"_s, u"app"_s, u"fex"_s, u"wine"_s, u"proton"_s, u"lsfg"_s};
 const QStringList Types = {u"s"_s, u"b"_s, u"u"_s, u"i"_s, u"d"_s, u"as"_s};
 const QStringList Validators = {u"eq_filters"_s};
 const QStringList Widgets = {u"none"_s, u"hue"_s, u"edit"_s};
@@ -26,6 +26,10 @@ const QStringList UiFields = {u"order"_s, u"widget"_s, u"step"_s, u"steps"_s, u"
 const QStringList Applies = {u"live"_s, u"confirm"_s};
 const QStringList LockFields = {u"key"_s, u"is"_s, u"text"_s, u"show"_s};
 const QRegularExpression KeyPattern(u"^[a-z][a-z0-9]*(\\.[A-Za-z0-9_]+)+$"_s);
+const QRegularExpression TemplatePattern(u"^app\\.[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$"_s);
+const QRegularExpression AppPattern(u"^app\\.([1-9][0-9]{0,9})(\\..*)?$"_s);
+const QRegularExpression AppIdPattern(u"^[1-9][0-9]{0,9}$"_s);
+const QString AppPrefix = u"app."_s;
 constexpr int MaxSteps = 64;
 constexpr int MaxUnit = 16;
 const QStringList GroupFields = {u"label"_s, u"order"_s};
@@ -195,6 +199,23 @@ bool Schema::matches(const QString &key, const QString &prefix)
     return key == prefix || key.startsWith(prefix + u'.');
 }
 
+bool Schema::isAppId(const QString &appid)
+{
+    return AppIdPattern.match(appid).hasMatch();
+}
+
+bool Schema::splitApp(const QString &name, QString *appid, QString *option)
+{
+    const QRegularExpressionMatch match = AppPattern.match(name);
+    if (!match.hasMatch() || match.captured(2).size() < 2)
+        return false;
+    if (appid)
+        *appid = match.captured(1);
+    if (option)
+        *option = match.captured(2).mid(1);
+    return true;
+}
+
 QVariant Schema::fromJson(const QString &type, const QJsonValue &json)
 {
     if (type == "s"_L1)
@@ -305,7 +326,7 @@ void Schema::loadFile(const QString &dir, const QString &file)
             qWarning("%s: %s is outside %s.*, refused", qPrintable(path), qPrintable(name), qPrintable(owner));
             continue;
         }
-        if (const Key *first = key(name)) {
+        if (const Key *first = defined(name)) {
             qWarning("%s: %s already defined in %s, ignored", qPrintable(path), qPrintable(name), qPrintable(first->file));
             continue;
         }
@@ -326,9 +347,46 @@ void Schema::loadFile(const QString &dir, const QString &file)
             for (const QString &note : std::as_const(notes))
                 qWarning("%s: %s: %s", qPrintable(path), qPrintable(name), qPrintable(note));
         }
-        m_keys.insert(name, *parsed);
+        (parsed->perApp ? m_templates : m_keys).insert(name, *parsed);
     }
     parseGroups(path, file, root.value("groups"_L1));
+    if (privileged)
+        parsePresets(path, root.value("presets"_L1));
+    else if (root.contains("presets"_L1))
+        qWarning("%s: presets only in %s, ignored", qPrintable(path), qPrintable(PrivilegedFile));
+}
+
+void Schema::parsePresets(const QString &path, const QJsonValue &presets)
+{
+    static const QRegularExpression namePattern(u"^[a-z][a-z0-9_]*$"_s);
+    if (presets.isUndefined())
+        return;
+    if (!presets.isObject()) {
+        qWarning("%s: presets is not an object, ignored", qPrintable(path));
+        return;
+    }
+    const QJsonObject entries = presets.toObject();
+    for (auto it = entries.begin(); it != entries.end(); ++it) {
+        QString why;
+        Preset preset;
+        if (!namePattern.match(it.key()).hasMatch() || !it.value().isObject())
+            why = u"not a name and an object"_s;
+        const QJsonObject options = it.value().toObject();
+        for (auto option = options.begin(); why.isEmpty() && option != options.end(); ++option) {
+            const Key *target = perApp(option.key());
+            const QString value = option.value().toString();
+            if (!option.key().startsWith("fex."_L1) || option.key() == "fex.preset"_L1 || !target
+                || !option.value().isString() || !accepts(*target, value) || target->defaultValue == value)
+                why = u"%1 is not a FEX option value"_s.arg(option.key());
+            else
+                preset.insert(option.key(), value);
+        }
+        if (!why.isEmpty()) {
+            qWarning("%s: preset %s: %s, dropped", qPrintable(path), qPrintable(it.key()), qPrintable(why));
+            continue;
+        }
+        m_presets.insert(it.key(), preset);
+    }
 }
 
 void Schema::parseGroups(const QString &path, const QString &file, const QJsonValue &groups)
@@ -490,6 +548,21 @@ std::optional<Key> Schema::parseKey(const QString &name, const QString &owner, c
         }
         key.coalesce = true;
     }
+    const QJsonValue perApp = object.value("per_app"_L1);
+    if (!perApp.isUndefined() && !perApp.isBool()) {
+        *why = u"bad per_app"_s;
+        return {};
+    }
+    key.perApp = perApp.toBool(false);
+    if (key.perApp != name.startsWith(AppPrefix) || (key.perApp && !TemplatePattern.match(name).hasMatch())) {
+        *why = u"per_app keys are the app.* keys"_s;
+        return {};
+    }
+    if (key.perApp
+        && (key.type != "s"_L1 || !key.writable || key.overridable || key.coalesce || !key.applier.isEmpty())) {
+        *why = u"per_app on a non string, read only, override, coalesced or applier key"_s;
+        return {};
+    }
     const QJsonValue group = object.value("group"_L1);
     const QJsonValue label = object.value("label"_L1);
     if (!(group.isUndefined() || group.isNull() || group.isString()) || !(label.isUndefined() || label.isString())) {
@@ -509,13 +582,45 @@ std::optional<Key> Schema::parseKey(const QString &name, const QString &owner, c
 const Key *Schema::key(const QString &name) const
 {
     const auto it = m_keys.constFind(name);
-    return it == m_keys.cend() ? nullptr : &*it;
+    if (it != m_keys.cend())
+        return &*it;
+    QString option;
+    return splitApp(name, nullptr, &option) ? perApp(option) : nullptr;
+}
+
+const Key *Schema::perApp(const QString &option) const
+{
+    const auto it = m_templates.constFind(AppPrefix + option);
+    return it == m_templates.cend() ? nullptr : &*it;
+}
+
+const Key *Schema::defined(const QString &name) const
+{
+    const auto it = m_keys.constFind(name);
+    if (it != m_keys.cend())
+        return &*it;
+    const auto templ = m_templates.constFind(name);
+    return templ == m_templates.cend() ? nullptr : &*templ;
 }
 
 const Group *Schema::group(const QString &name) const
 {
     const auto it = m_groups.constFind(name);
     return it == m_groups.cend() ? nullptr : &*it;
+}
+
+const Schema::Preset *Schema::preset(const QString &name) const
+{
+    const auto it = m_presets.constFind(name);
+    return it == m_presets.cend() ? nullptr : &*it;
+}
+
+QStringList Schema::options() const
+{
+    QStringList out;
+    for (const QString &name : m_templates.keys())
+        out << name.mid(AppPrefix.size());
+    return out;
 }
 
 QStringList Schema::keys(const QString &prefix) const
@@ -588,58 +693,71 @@ QVariant Schema::clamp(const Key &key, const QVariant &value) const
 QJsonObject Schema::describe(const QString &prefix) const
 {
     QJsonObject out;
-    for (const Key &key : m_keys) {
-        if (!matches(key.name, prefix))
-            continue;
-        QJsonObject entry{
-            {u"owner"_s, key.owner},
-            {u"type"_s, key.type},
-            {u"default"_s, toJson(key.defaultValue)},
-            {u"writable"_s, key.writable},
-            {u"override"_s, key.overridable},
-            {u"applier"_s, key.applier.isEmpty() ? QJsonValue() : QJsonValue(key.applier)},
-            {u"group"_s, key.group.isEmpty() ? QJsonValue() : QJsonValue(key.group)},
-            {u"label"_s, key.label},
-            {u"ui"_s, key.ui},
-        };
-        const Group *described = key.group.isEmpty() ? nullptr : group(key.group);
-        entry.insert(u"group_ui"_s, described ? QJsonValue(QJsonObject{{u"label"_s, described->label},
-                                                                         {u"order"_s, described->order}})
-                                              : QJsonValue());
-        if (!key.enumFrom.isEmpty()) {
-            entry.insert(u"enum_from"_s, key.enumFrom);
-            entry.insert(u"enum"_s, QJsonArray::fromStringList(provided(key)));
-            const auto labels = m_labels.constFind(key.enumFrom);
-            if (labels != m_labels.cend()) {
-                QJsonObject ui = key.ui;
-                QJsonObject values = (*labels)();
-                const QJsonObject own = key.ui.value("values"_L1).toObject();
-                for (auto it = own.begin(); it != own.end(); ++it)
-                    values.insert(it.key(), it.value());
-                ui.insert(u"values"_s, values);
-                entry.insert(u"ui"_s, ui);
-            }
-        } else if (!key.enumValues.isEmpty()) {
-            QJsonArray values;
-            for (const QVariant &value : key.enumValues)
-                values << toJson(value);
-            entry.insert(u"enum"_s, values);
-        }
-        if (key.type == "s"_L1 || key.type == "as"_L1)
-            entry.insert(u"max_len"_s, key.maxLength);
-        if (key.maxItems)
-            entry.insert(u"max_items"_s, *key.maxItems);
-        if (!key.validator.isEmpty())
-            entry.insert(u"validator"_s, key.validator);
-        if (key.min)
-            entry.insert(u"min"_s, *key.min);
-        if (key.max)
-            entry.insert(u"max"_s, *key.max);
-        if (key.floorValue)
-            entry.insert(u"floor"_s, *key.floorValue);
-        if (key.coalesce)
-            entry.insert(u"store"_s, u"coalesce"_s);
-        out.insert(key.name, entry);
+    for (const Key &key : m_keys)
+        if (matches(key.name, prefix))
+            out.insert(key.name, entry(key));
+    const QRegularExpressionMatch app = AppPattern.match(prefix);
+    for (const Key &key : m_templates) {
+        const QString instance = AppPrefix + app.captured(1) + key.name.mid(AppPrefix.size() - 1);
+        if (matches(key.name, prefix))
+            out.insert(key.name, entry(key));
+        else if (app.hasMatch() && matches(instance, prefix))
+            out.insert(instance, entry(key));
     }
     return out;
+}
+
+QJsonObject Schema::entry(const Key &key) const
+{
+    QJsonObject entry{
+        {u"owner"_s, key.owner},
+        {u"type"_s, key.type},
+        {u"default"_s, toJson(key.defaultValue)},
+        {u"writable"_s, key.writable},
+        {u"override"_s, key.overridable},
+        {u"applier"_s, key.applier.isEmpty() ? QJsonValue() : QJsonValue(key.applier)},
+        {u"group"_s, key.group.isEmpty() ? QJsonValue() : QJsonValue(key.group)},
+        {u"label"_s, key.label},
+        {u"ui"_s, key.ui},
+    };
+    const Group *described = key.group.isEmpty() ? nullptr : group(key.group);
+    entry.insert(u"group_ui"_s, described ? QJsonValue(QJsonObject{{u"label"_s, described->label},
+                                                                     {u"order"_s, described->order}})
+                                          : QJsonValue());
+    if (!key.enumFrom.isEmpty()) {
+        entry.insert(u"enum_from"_s, key.enumFrom);
+        entry.insert(u"enum"_s, QJsonArray::fromStringList(provided(key)));
+        const auto labels = m_labels.constFind(key.enumFrom);
+        if (labels != m_labels.cend()) {
+            QJsonObject ui = key.ui;
+            QJsonObject values = (*labels)();
+            const QJsonObject own = key.ui.value("values"_L1).toObject();
+            for (auto it = own.begin(); it != own.end(); ++it)
+                values.insert(it.key(), it.value());
+            ui.insert(u"values"_s, values);
+            entry.insert(u"ui"_s, ui);
+        }
+    } else if (!key.enumValues.isEmpty()) {
+        QJsonArray values;
+        for (const QVariant &value : key.enumValues)
+            values << toJson(value);
+        entry.insert(u"enum"_s, values);
+    }
+    if (key.type == "s"_L1 || key.type == "as"_L1)
+        entry.insert(u"max_len"_s, key.maxLength);
+    if (key.maxItems)
+        entry.insert(u"max_items"_s, *key.maxItems);
+    if (!key.validator.isEmpty())
+        entry.insert(u"validator"_s, key.validator);
+    if (key.min)
+        entry.insert(u"min"_s, *key.min);
+    if (key.max)
+        entry.insert(u"max"_s, *key.max);
+    if (key.floorValue)
+        entry.insert(u"floor"_s, *key.floorValue);
+    if (key.coalesce)
+        entry.insert(u"store"_s, u"coalesce"_s);
+    if (key.perApp)
+        entry.insert(u"per_app"_s, true);
+    return entry;
 }
