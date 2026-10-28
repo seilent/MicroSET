@@ -32,8 +32,11 @@ Window {
         "sheet-emu-variant": ["emulation", "microemu.esde.theme_variant", 0],
         "sheet-long-label": ["group with a long title", "fixture.long", 0],
         "sheet-tso": ["app.292120", "app.292120.fex.tso", 2],
+        "sheet-tso-on": ["app.292120", "app.292120.fex.tso", 1],
         "sheet-preset": ["app.2238900", "app.2238900.fex.preset", 0],
-        "sheet-profile": ["app.292120", "app.292120.profile", 0]
+        "sheet-profile": ["app.292120", "app.292120.profile", 0],
+        "sheet-smc": ["app.292120", "app.292120.fex.smc", 1],
+        "sheet-global-preset": ["games", "fex.preset", 1]
     })
     readonly property var gameStates: ({
         "game-profile": "app.292120", "game-overridden": "app.292120", "game-profile-off": "app.292120",

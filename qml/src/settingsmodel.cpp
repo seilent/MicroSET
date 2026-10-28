@@ -261,6 +261,7 @@ std::optional<SettingsModel::Entry> SettingsModel::entryOf(const QString &key, c
     entry.step = ui.value("step"_L1).toDouble(1);
     entry.scale = ui.value("scale"_L1).toDouble(0);
     entry.labels = ui.value("values"_L1).toObject();
+    entry.leads = ui.value("leads"_L1).toObject();
     entry.unit = ui.value("unit"_L1).toString();
     entry.confirm = ui.value("apply"_L1).toString() == "confirm"_L1;
     entry.bounded = ui.value("bounded"_L1).toBool();
@@ -551,13 +552,40 @@ QString SettingsModel::profileText(const Entry &entry, const QVariant &value) co
     for (const QString &option : templateOrder()) {
         if (!set.contains(option))
             continue;
-        const QString word = set.value(option).toString();
-        QString part = option.startsWith("fex."_L1) ? m_templates.value(option).value("label"_L1).toString() + u' ' + word : word;
+        QString part = entryText(option, set.value(option).toString());
         if (overridden.contains(QJsonValue(option)))
             part += u" overridden"_s;
         parts << part;
     }
     return parts.isEmpty() ? text : text + u" ("_s + parts.join(u", "_s) + u')';
+}
+
+QString SettingsModel::entryText(const QString &option, const QString &value) const
+{
+    return option.startsWith("fex."_L1) ? m_templates.value(option).value("label"_L1).toString() + u' ' + value : value;
+}
+
+QString SettingsModel::leadOf(const Entry &entry, const QVariant &value) const
+{
+    QString raw = entry.type == "d"_L1 ? QString::number(value.toDouble()) : value.toString();
+    if (!entry.appid.isEmpty() && raw == "auto"_L1) {
+        const QJsonObject own = m_effective.value(entry.appid).value("options"_L1).toObject().value(entry.option).toObject();
+        if (own.value("source"_L1).toString() == "set"_L1)
+            return {};
+        raw = own.value("value"_L1).toString();
+    }
+    if (entry.option != "profile"_L1 || raw != "on"_L1)
+        return entry.leads.value(raw).toString();
+    const QJsonObject profile = m_effective.value(entry.appid).value("profile"_L1).toObject();
+    const QJsonObject set = profile.value("set"_L1).toObject();
+    const QJsonArray overridden = profile.value("overridden"_L1).toArray();
+    for (const QString &option : templateOrder()) {
+        const QString word = set.value(option).toString();
+        const QString lead = m_templates.value(option).value("ui"_L1).toObject().value("leads"_L1).toObject().value(word).toString();
+        if (!word.isEmpty() && !lead.isEmpty() && !overridden.contains(QJsonValue(option)))
+            return entryText(option, word) + u": "_s + lead;
+    }
+    return {};
 }
 
 QString SettingsModel::undervoltText(const Entry &entry) const
@@ -861,12 +889,15 @@ QVariantMap SettingsModel::sheet(const QString &key) const
         return {};
     const QVariantList values = sheetValues(*it);
     QStringList words;
-    for (const QVariant &value : values)
+    QStringList leads;
+    for (const QVariant &value : values) {
         words << textOf(*it, value);
+        leads << leadOf(*it, value);
+    }
     const QVariant shown = shownOf(*it);
     const qsizetype mark = values.indexOf(shown);
     const qsizetype focus = mark >= 0 ? mark : isNumeric(it->type) ? nearest(values, shown) : 0;
-    return {{u"values"_s, values}, {u"words"_s, words}, {u"focus"_s, int(focus)}, {u"mark"_s, int(mark)},
+    return {{u"values"_s, values}, {u"words"_s, words}, {u"leads"_s, leads}, {u"focus"_s, int(focus)}, {u"mark"_s, int(mark)},
             {u"wrap"_s, !it->bounded}};
 }
 

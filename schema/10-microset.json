@@ -467,7 +467,7 @@
       "applier": null,
       "group": "games",
       "label": "FEX preset",
-      "ui": {"order": 0, "apply": "confirm"}
+      "ui": {"order": 0, "apply": "confirm", "leads": {"compatibility": "slower, strict x86 ordering"}}
     },
     "wine.sync": {
       "type": "s",
@@ -503,7 +503,8 @@
       "per_app": true,
       "group": null,
       "label": "Preset",
-      "ui": {"order": 1, "apply": "confirm"}
+      "ui": {"order": 1, "apply": "confirm",
+             "leads": {"compatibility": "slower, strict x86 ordering", "performance": "TSO off: may crash, hang or damage saves"}}
     },
     "app.fex.tso": {
       "type": "s",
@@ -512,7 +513,8 @@
       "per_app": true,
       "group": null,
       "label": "TSO",
-      "ui": {"order": 2, "apply": "confirm"}
+      "ui": {"order": 2, "apply": "confirm",
+             "leads": {"off": "may crash, hang or damage saves"}}
     },
     "app.fex.half_barrier": {
       "type": "s",
@@ -521,7 +523,8 @@
       "per_app": true,
       "group": null,
       "label": "Half barrier TSO",
-      "ui": {"order": 3, "apply": "confirm"}
+      "ui": {"order": 3, "apply": "confirm",
+             "leads": {"off": "safer, slower"}}
     },
     "app.fex.vector_tso": {
       "type": "s",
@@ -548,7 +551,8 @@
       "per_app": true,
       "group": null,
       "label": "Multiblock",
-      "ui": {"order": 6, "apply": "confirm"}
+      "ui": {"order": 6, "apply": "confirm",
+             "leads": {"off": "much slower, less stutter"}}
     },
     "app.fex.max_inst": {
       "type": "s",
@@ -557,7 +561,8 @@
       "per_app": true,
       "group": null,
       "label": "Block size",
-      "ui": {"order": 7, "apply": "confirm"}
+      "ui": {"order": 7, "apply": "confirm",
+             "leads": {"5000": "5000 hung 1 load in 3"}}
     },
     "app.fex.x87_reduced": {
       "type": "s",
@@ -566,7 +571,8 @@
       "per_app": true,
       "group": null,
       "label": "Reduced x87",
-      "ui": {"order": 8, "apply": "confirm"}
+      "ui": {"order": 8, "apply": "confirm",
+             "leads": {"on": "may break rendering"}}
     },
     "app.fex.smc": {
       "type": "s",
@@ -575,7 +581,8 @@
       "per_app": true,
       "group": null,
       "label": "SMC detection",
-      "ui": {"order": 9, "apply": "confirm"}
+      "ui": {"order": 9, "apply": "confirm",
+             "leads": {"none": "breaks self modifying code", "full": "very slow"}}
     },
     "app.fex.volatile_metadata": {
       "type": "s",

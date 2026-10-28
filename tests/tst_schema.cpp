@@ -719,6 +719,30 @@ private slots:
             QVERIFY(schema.key(u"microdap."_s + QLatin1StringView(key))->ui.isEmpty());
     }
 
+    void leadHints()
+    {
+        Harness h;
+        h.writeFile(u"s/20-microdap.json"_s,
+                    file("microdap", R"("microdap.a": {"type": "s", "default": "x", "enum": ["x", "y"],
+                                                       "ui": {"leads": {"y": "may crash", "z": "never"}}},
+                                        "microdap.b": {"type": "s", "default": "x", "ui": {"leads": {"x": 1}}},
+                                        "microdap.c": {"type": "s", "default": "x", "ui": {"leads": {"x": ""}}},
+                                        "microdap.d": {"type": "s", "default": "x", "ui": {"leads": ["x"]}})"));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"20-microdap.json: microdap.a: lead for z is not an enum value"_s));
+        for (const char *key : {"b", "c", "d"})
+            QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"20-microdap.json: microdap.%1: bad leads, ui hint dropped"_s
+                                                                      .arg(QLatin1StringView(key))));
+        const Schema schema = make(h.path(u"s"_s));
+        QCOMPARE(schema.key(u"microdap.a"_s)->ui.value("leads"_L1).toObject().value("y"_L1).toString(), u"may crash"_s);
+        for (const char *key : {"b", "c", "d"})
+            QVERIFY(schema.key(u"microdap."_s + QLatin1StringView(key))->ui.isEmpty());
+        const Schema shipped = make(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+        QCOMPARE(shipped.perApp(u"fex.tso"_s)->ui.value("leads"_L1).toObject(),
+                 (QJsonObject{{u"off"_s, u"may crash, hang or damage saves"_s}}));
+        QCOMPARE(shipped.key(u"fex.preset"_s)->ui.value("leads"_L1).toObject(),
+                 (QJsonObject{{u"compatibility"_s, u"slower, strict x86 ordering"_s}}));
+    }
+
     void groupHints()
     {
         Harness h;

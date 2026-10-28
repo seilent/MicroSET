@@ -548,6 +548,39 @@ private slots:
         qunsetenv("MICROSET_STEAM_DIR");
     }
 
+    void gameLeads()
+    {
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const auto m = model();
+        m->enter(u"app.292120"_s);
+        QTRY_COMPARE(value(m->rows(u"app.292120"_s, 0), u"app.292120.fex.tso"_s), u"auto (off, profile)"_s);
+        const auto leads = [&](const QString &key) { return m->sheet(key).value(u"leads"_s).toStringList(); };
+        const QString tso = u"may crash, hang or damage saves"_s;
+        const QString strict = u"slower, strict x86 ordering"_s;
+        QCOMPARE(leads(u"app.292120.fex.tso"_s), (QStringList{tso, QString(), tso}));
+        QCOMPARE(leads(u"app.292120.profile"_s), (QStringList{u"TSO off: "_s + tso, QString()}));
+        QCOMPARE(leads(u"app.292120.fex.preset"_s), (QStringList{QString(), QString(), strict, u"TSO off: "_s + tso}));
+        QCOMPARE(leads(u"app.292120.fex.half_barrier"_s), (QStringList{QString(), QString(), u"safer, slower"_s}));
+        QCOMPARE(leads(u"app.292120.fex.multiblock"_s), (QStringList{QString(), QString(), u"much slower, less stutter"_s}));
+        QCOMPARE(leads(u"app.292120.fex.max_inst"_s),
+                 (QStringList{QString(), QString(), QString(), QString(), u"5000 hung 1 load in 3"_s}));
+        QCOMPARE(leads(u"app.292120.fex.x87_reduced"_s), (QStringList{QString(), u"may break rendering"_s, QString()}));
+        QCOMPARE(leads(u"app.292120.fex.smc"_s),
+                 (QStringList{QString(), u"breaks self modifying code"_s, QString(), u"very slow"_s}));
+        QCOMPARE(leads(u"app.292120.wine.sync"_s), (QStringList{QString(), QString(), QString()}));
+        QCOMPARE(leads(u"fex.preset"_s), (QStringList{QString(), strict}));
+        QCOMPARE(leads(u"audio.volume_step"_s), (QStringList{QString(), QString(), QString()}));
+        QVERIFY(m->set(u"app.292120.fex.tso"_s, u"on"_s));
+        QTRY_COMPARE(leads(u"app.292120.fex.tso"_s), (QStringList{QString(), QString(), tso}));
+        QCOMPARE(leads(u"app.292120.profile"_s), (QStringList{QString(), QString()}));
+        QVERIFY(m->set(u"fex.preset"_s, u"compatibility"_s));
+        QTRY_COMPARE(leads(u"app.292120.fex.preset"_s), (QStringList{strict, QString(), strict, u"TSO off: "_s + tso}));
+        QVERIFY(m->set(u"app.292120.fex.tso"_s, u"auto"_s));
+        QTRY_COMPARE(leads(u"app.292120.fex.tso"_s), (QStringList{QString(), QString(), tso}));
+    }
+
     void gameListNeedsTemplates()
     {
         QTemporaryDir steam;

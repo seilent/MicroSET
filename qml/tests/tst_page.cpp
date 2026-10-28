@@ -2,6 +2,8 @@
 #include "harness.h"
 #include "settingsmodel.h"
 
+#include <QColor>
+#include <QFont>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
 #include <QQuickWindow>
@@ -287,6 +289,52 @@ private slots:
         key(Qt::Key_Escape);
         QCOMPARE(page()->property("group").toString(), u"games"_s);
         qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void leadFollowsFocus()
+    {
+        fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
+        open(u"app.292120"_s);
+        QTRY_COMPARE(value(u"app.292120.fex.tso"_s), u"auto (off, profile)"_s);
+        focus(u"app.292120.fex.tso"_s);
+        key(Qt::Key_Return);
+        QVERIFY(sheetShown());
+        QObject *lead = qvariant_cast<QObject *>(sheet()->property("leadItem"));
+        const QString tso = u"may crash, hang or damage saves"_s;
+        QCOMPARE(sheet()->property("lead").toString(), tso);
+        QVERIFY(lead->property("visible").toBool());
+        const qreal edge = sheet()->property("edge").toReal();
+        const qreal pitch = sheet()->property("pitch").toReal();
+        QCOMPARE(lead->property("x").toReal(), edge);
+        QCOMPARE(lead->property("y").toReal(), edge + sheet()->property("titleHeight").toReal());
+        QCOMPARE(lead->property("height").toReal(), pitch);
+        QCOMPARE(sheet()->property("leadHeight").toReal(), pitch);
+        QCOMPARE(lead->property("font").value<QFont>().capitalization(), QFont::AllUppercase);
+        QVERIFY(qAbs(qvariant_cast<QColor>(lead->property("color")).alphaF() - 0.6) < 0.01);
+        QVERIFY(sheet()->property("keepLead").toBool());
+        QObject *panel = qvariant_cast<QObject *>(sheet()->property("panel"));
+        const qreal top = panel->property("y").toReal();
+        key(Qt::Key_Down);
+        QCOMPARE(sheet()->property("lead").toString(), QString());
+        QVERIFY(!lead->property("visible").toBool());
+        QCOMPARE(sheet()->property("leadHeight").toReal(), pitch);
+        QCOMPARE(panel->property("y").toReal(), top);
+        key(Qt::Key_Down);
+        QCOMPARE(sheet()->property("lead").toString(), tso);
+        QCOMPARE(panel->property("y").toReal(), top);
+        key(Qt::Key_Escape);
+        QVERIFY(!sheetShown());
+        QTRY_COMPARE(sheet()->property("lead").toString(), QString());
+        QVERIFY(!sheet()->property("keepLead").toBool());
+        QVERIFY(fake->calls().isEmpty());
+        open(u"audio"_s);
+        focus(u"audio.volume_step"_s);
+        key(Qt::Key_Return);
+        QVERIFY(sheetShown());
+        QCOMPARE(sheet()->property("lead").toString(), QString());
+        QVERIFY(!sheet()->property("keepLead").toBool());
+        QCOMPARE(sheet()->property("leadHeight").toReal(), 0.0);
+        key(Qt::Key_Escape);
     }
 
     void toastStaysWhileSticky()

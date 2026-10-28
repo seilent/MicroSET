@@ -230,6 +230,7 @@ Page {
             return
         }
         d.valueValues = values.values
+        d.valueLeads = values.leads
         d.valueDraft = r.confirm
         d.valueItems = JSON.stringify(values.words)
         d.valueKey = key
@@ -520,6 +521,7 @@ Page {
         property string valueKey: ""
         property string riseKept: ""
         property var valueValues: []
+        property var valueLeads: []
         property bool valueDraft: false
         property string valueItems: ""
         property bool moved: false
@@ -624,11 +626,17 @@ Page {
         id: sheet
 
         anchors.fill: parent
+        lead: d.valueLeads[sheet.focusIndex] === undefined ? "" : d.valueLeads[sheet.focusIndex]
+        keepLead: d.valueLeads.some((note) => note !== "")
         screenOff: page.screenOff
         animated: page.live
         onAccepted: (index) => page.acceptValue(index)
         onRejected: page.cancelValue()
         onFocusMoved: (index) => page.previewValue(index)
+        onProgressChanged: {
+            if (!sheet.shown && sheet.progress === 0)
+                d.valueLeads = []
+        }
         onFocusIndexChanged: {
             if (page.valueOpen)
                 d.moved = true

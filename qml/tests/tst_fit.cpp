@@ -25,6 +25,7 @@ class FitTest : public QObject
         int words = 0;
         int titles = 0;
         int rows = 0;
+        int leads = 0;
         QStringList misses;
     };
 
@@ -77,6 +78,16 @@ class FitTest : public QObject
                 ++count.titles;
             }
             count.words += texts;
+            auto *lead = qvariant_cast<QQuickItem *>(sheet->property("leadItem"));
+            for (int i = 0; i < words.size(); ++i) {
+                sheet->setProperty("focusIndex", i);
+                if (sheet->property("lead").toString().isEmpty())
+                    continue;
+                if (lead->implicitWidth() > room)
+                    count.misses << u"%1: lead %2 %3 > %4"_s.arg(row.value(u"key"_s).toString(), lead->property("text").toString(),
+                                                                 QString::number(lead->implicitWidth()), QString::number(room));
+                ++count.leads;
+            }
             QVERIFY(QMetaObject::invokeMethod(page, "cancelValue"));
         }
         QVERIFY(QMetaObject::invokeMethod(page, "back"));
@@ -139,8 +150,9 @@ private slots:
         }
         QVERIFY(count.words > 200);
         QVERIFY(count.titles > 30);
+        QVERIFY(count.leads >= 1);
         QVERIFY2(count.misses.isEmpty(),
-                 qPrintable(u"sheet words or titles wider than the panel at 640 wide:\n"_s + count.misses.join(u'\n')));
+                 qPrintable(u"sheet words, titles or leads wider than the panel at 640 wide:\n"_s + count.misses.join(u'\n')));
     }
 
     void gameSheetsFitAt640_data()
@@ -177,8 +189,9 @@ private slots:
         QVERIFY(count.words >= 2 * 37);
         QVERIFY(count.titles >= 2 * 12);
         QVERIFY(count.rows >= 2 * 52);
+        QVERIFY(count.leads >= 2 * 9);
         QVERIFY2(count.misses.isEmpty(),
-                 qPrintable(u"game sheet words, titles or row values wider than their room at 640 wide:\n"_s
+                 qPrintable(u"game sheet words, titles, leads or row values wider than their room at 640 wide:\n"_s
                             + count.misses.join(u'\n')));
     }
 };

@@ -108,6 +108,7 @@ private:
         double step = 1;
         double scale = 0;
         QJsonObject labels;
+        QJsonObject leads;
         bool writable = true;
         bool overridable = false;
         bool confirm = false;
@@ -165,6 +166,8 @@ private:
     QString rowText(const Entry &entry, const QVariant &value) const;
     QString autoText(const Entry &entry) const;
     QString profileText(const Entry &entry, const QVariant &value) const;
+    QString entryText(const QString &option, const QString &value) const;
+    QString leadOf(const Entry &entry, const QVariant &value) const;
     QStringList templateOrder() const;
     QString undervoltText(const Entry &entry) const;
     QVariantMap rowOf(const Entry &entry) const;

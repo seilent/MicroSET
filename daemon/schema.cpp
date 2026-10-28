@@ -22,7 +22,7 @@ const QStringList Types = {u"s"_s, u"b"_s, u"u"_s, u"i"_s, u"d"_s, u"as"_s};
 const QStringList Validators = {u"eq_filters"_s};
 const QStringList Widgets = {u"none"_s, u"hue"_s, u"edit"_s};
 const QStringList UiFields = {u"order"_s, u"widget"_s, u"step"_s, u"steps"_s, u"values"_s, u"unit"_s, u"scale"_s, u"apply"_s,
-                               u"bounded"_s, u"lock"_s};
+                               u"bounded"_s, u"lock"_s, u"leads"_s};
 const QStringList Applies = {u"live"_s, u"confirm"_s};
 const QStringList LockFields = {u"key"_s, u"is"_s, u"text"_s, u"show"_s};
 const QRegularExpression KeyPattern(u"^[a-z][a-z0-9]*(\\.[A-Za-z0-9_]+)+$"_s);
@@ -84,7 +84,7 @@ std::optional<QJsonObject> uiHint(const Key &key, const QJsonValue &value, QStri
 {
     const QJsonObject ui = value.toObject();
     if (!value.isObject() || !onlyFields(ui, UiFields)) {
-        *why = u"not an object of order, widget, step, steps, values, unit, scale, apply, bounded and lock"_s;
+        *why = u"not an object of order, widget, step, steps, values, unit, scale, apply, bounded, lock and leads"_s;
         return {};
     }
     if (ui.contains("order"_L1) && !isOrder(ui.value("order"_L1))) {
@@ -113,20 +113,22 @@ std::optional<QJsonObject> uiHint(const Key &key, const QJsonValue &value, QStri
         *why = u"bad steps"_s;
         return {};
     }
-    const QJsonValue values = ui.value("values"_L1);
-    if (ui.contains("values"_L1)) {
-        const QJsonObject labels = values.toObject();
-        if (!values.isObject() || std::any_of(labels.begin(), labels.end(), [&](const QJsonValue &label) {
+    for (const QString &field : {u"values"_s, u"leads"_s}) {
+        const QJsonValue texts = ui.value(field);
+        if (!ui.contains(field))
+            continue;
+        const QJsonObject labels = texts.toObject();
+        if (!texts.isObject() || std::any_of(labels.begin(), labels.end(), [&](const QJsonValue &label) {
                 return !label.isString() || label.toString().isEmpty() || label.toString().size() > key.maxLength;
             })) {
-            *why = u"bad values"_s;
+            *why = u"bad "_s + field;
             return {};
         }
         if (!key.enumValues.isEmpty()) {
             for (const QString &text : labels.keys())
                 if (std::none_of(key.enumValues.cbegin(), key.enumValues.cend(),
                                  [&](const QVariant &item) { return Schema::text(item) == text; }))
-                    *notes << u"label for %1 is not an enum value"_s.arg(text);
+                    *notes << u"%1 for %2 is not an enum value"_s.arg(field == "values"_L1 ? u"label"_s : u"lead"_s, text);
         }
     }
     const QJsonValue unit = ui.value("unit"_L1);

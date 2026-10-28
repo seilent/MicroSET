@@ -8,10 +8,14 @@ Item {
     property bool screenOff: false
     property bool animated: !root.screenOff
     property string title: ""
+    property string lead: ""
+    property bool keepLead: false
     property var items: []
     property int focusIndex: 0
     property int mark: -1
     property bool wrap: false
+    property bool lines: false
+    property int plainIndex: -1
     property int firstRow: 0
     property real barIndex: 0
     property real progress: 0
@@ -25,15 +29,25 @@ Item {
     readonly property real pitch: Ui.px(Ui.settingsPitch)
     readonly property real edge: Ui.px(Ui.edge)
     readonly property real titleHeight: titleText.visible ? titleText.implicitHeight : 0
+    readonly property real leadHeight: root.lead === "" && !root.keepLead ? 0 : root.pitch
     readonly property int shownRows: root.items.length === 0 ? 0
-        : Math.max(1, Math.min(root.items.length, Math.floor((root.height - 2 * root.edge - root.titleHeight) / root.pitch)))
+        : Math.max(1, Math.min(root.items.length,
+                               Math.floor((root.height - 2 * root.edge - root.titleHeight - root.leadHeight) / root.pitch)))
     readonly property int lastFirstRow: Math.max(0, root.items.length - root.shownRows)
     property alias scrim: scrim
     property alias panel: panel
     property alias bar: bar
     property alias list: list
     property alias window: window
+    property alias leadItem: leadText
     readonly property string touchKind: root.shown ? "" : "block"
+    readonly property font plainFont: Qt.font({
+        family: Ui.family,
+        styleName: Ui.dialogItem.style,
+        pixelSize: Ui.fontPx(Ui.dialogItem.size),
+        letterSpacing: Ui.dialogItem.tracking * Ui.u,
+        capitalization: Font.MixedCase
+    })
 
     signal accepted(int index)
     signal rejected()
@@ -46,6 +60,8 @@ Item {
             return ""
         switch (kind) {
         case "item":
+            if (root.lines)
+                return ""
             root.focusIndex = index
             return "a"
         case "scrim":
@@ -73,7 +89,7 @@ Item {
         x: 0
         y: root.height - panel.height + (1 - root.progress) * panel.height
         width: root.width
-        height: root.edge + root.titleHeight + root.shownRows * root.pitch + root.edge
+        height: root.edge + root.titleHeight + root.leadHeight + root.shownRows * root.pitch + root.edge
         color: Ui.bgElevated
         opacity: root.progress
 
@@ -88,6 +104,21 @@ Item {
             font: Ui.font(Ui.dialogTitle)
         }
 
+        Text {
+            id: leadText
+
+            x: root.edge
+            y: root.edge + root.titleHeight
+            width: root.width - 2 * root.edge
+            height: root.leadHeight
+            visible: root.lead !== ""
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+            text: root.lead
+            color: Ui.white(Ui.settingsValue.alpha)
+            font: Ui.font(Ui.settingsValue)
+        }
+
         Flickable {
             id: window
 
@@ -96,7 +127,7 @@ Item {
             property alias touch: touchScroller
 
             x: 0
-            y: root.edge + root.titleHeight
+            y: root.edge + root.titleHeight + root.leadHeight
             width: panel.width
             height: root.shownRows * root.pitch
             contentWidth: window.width
@@ -129,12 +160,15 @@ Item {
 
                         Text {
                             x: root.edge
+                            width: root.lines ? list.width - 2 * root.edge : implicitWidth
                             anchors.verticalCenter: parent.verticalCenter
                             text: row.modelData
-                            color: row.index === root.mark
+                            color: root.lines ? Ui.white(Ui.dialogItem.alphaDim)
+                            : row.index === root.mark
                             ? Qt.alpha(Ui.accent, row.isFocused ? Ui.dialogItem.alpha : Ui.dialogItem.alphaDim)
                             : Ui.white(row.isFocused ? Ui.dialogItem.alpha : Ui.dialogItem.alphaDim)
-                            font: Ui.font(Ui.dialogItem)
+                            font: root.lines && row.index === root.plainIndex ? root.plainFont : Ui.font(Ui.dialogItem)
+                            clip: root.lines
 
                             Behavior on color {
                                 enabled: root.animated
@@ -153,7 +187,7 @@ Item {
                 x: root.edge - Ui.px(Ui.focusBarOffset)
                 rowY: list.y + root.barIndex * root.pitch
                 rowHeight: root.pitch
-                visible: root.items.length > 0
+                visible: root.items.length > 0 && !root.lines
                 animated: false
             }
 
@@ -192,6 +226,8 @@ Item {
         root.stack = []
         root.mark = -1
         root.wrap = false
+        root.lines = false
+        root.plainIndex = -1
         root.focusIndex = 0
         root.firstRow = 0
         root.shown = true
@@ -205,12 +241,14 @@ Item {
     }
 
     function push(title: string, items: var): void {
-        root.stack = root.stack.concat([{ title: root.title, items: root.items, focusIndex: root.focusIndex, firstRow: root.firstRow, mark: root.mark, wrap: root.wrap }])
+        root.stack = root.stack.concat([{ title: root.title, items: root.items, focusIndex: root.focusIndex, firstRow: root.firstRow, mark: root.mark, wrap: root.wrap, lines: root.lines, plainIndex: root.plainIndex }])
         root.rise()
         root.title = title
         root.items = items
         root.mark = -1
         root.wrap = false
+        root.lines = false
+        root.plainIndex = -1
         root.focusIndex = 0
         root.firstRow = 0
         root.barIndex = 0
@@ -226,9 +264,33 @@ Item {
         root.items = top.items
         root.mark = top.mark
         root.wrap = top.wrap
+        root.lines = top.lines
+        root.plainIndex = top.plainIndex
         root.firstRow = top.firstRow
         root.focusIndex = top.focusIndex
         root.barIndex = top.focusIndex
+        return true
+    }
+
+    function showLines(title: string, items: var, plain: int): void {
+        if (root.shown) {
+            root.push(title, [])
+        } else {
+            root.title = title
+            root.items = []
+            root.open()
+        }
+        root.lines = true
+        root.plainIndex = plain
+        root.items = items
+    }
+
+    function scrollLines(delta: int): bool {
+        const next = Math.max(0, Math.min(root.lastFirstRow, root.firstRow + delta))
+        if (next === root.firstRow)
+            return true
+        root.firstRow = next
+        root.focusIndex = next
         return true
     }
 
@@ -282,6 +344,24 @@ Item {
     function handleAction(name: string, repeat: bool): bool {
         if (!root.shown)
             return false
+        if (root.lines) {
+            switch (name) {
+            case "up":
+                return root.scrollLines(-1)
+            case "down":
+                return root.scrollLines(1)
+            case "b":
+            case "start":
+            case "back":
+                if (!repeat) {
+                    root.rejected()
+                    root.close()
+                }
+                return true
+            default:
+                return true
+            }
+        }
         switch (name) {
         case "up":
             return root.moveFocus(-1, repeat)
