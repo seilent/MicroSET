@@ -889,8 +889,8 @@ private slots:
         moved.sort();
         QCOMPARE(moved, reply.arguments().value(0).toStringList());
         const QString log = h->daemonLog();
-        QVERIFY(log.contains("import by uid 0: audio.bt_codec_headphones audio.eq.usb.filters audio.eq.usb.on audio.hp_gain "
-                                "audio.volume_step\n"_L1));
+        QVERIFY(log.contains("import by uid 0 took 5 keys: audio.bt_codec_headphones audio.eq.usb.filters audio.eq.usb.on "
+                             "audio.hp_gain audio.volume_step\n"_L1));
         QVERIFY(log.contains("import audio.speaker_gain by uid 0 refused: not a valid value\n"_L1));
         QVERIFY(log.contains("import by uid 0 refused 2 unknown keys\n"_L1));
         QVERIFY(!log.contains("nope."_L1));
@@ -972,6 +972,23 @@ private slots:
         values.remove(u"nope.k0"_s);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), QString());
         QVERIFY(h->daemonLog().contains("import by uid 0 refused 50 unknown keys\n"_L1));
+    }
+
+    void importLogsFirstKeys()
+    {
+        QVERIFY(up());
+        QVariantMap values;
+        for (const QString &output : {u"headphones"_s, u"speaker"_s, u"usb"_s, u"bt"_s}) {
+            values.insert(u"audio.eq.%1.on"_s.arg(output), true);
+            values.insert(u"audio.eq.%1.name"_s.arg(output), u"Flat"_s);
+            values.insert(u"audio.balance.%1"_s.arg(output), 2);
+        }
+        const QDBusMessage reply = h->call(u"Import"_s, {values});
+        QCOMPARE(errorOf(reply), QString());
+        QCOMPARE(reply.arguments().value(0).toStringList().size(), 12);
+        QVERIFY(h->daemonLog().contains("import by uid 0 took 12 keys: audio.balance.bt audio.balance.headphones "
+                                        "audio.balance.speaker audio.balance.usb audio.eq.bt.name audio.eq.bt.on "
+                                        "audio.eq.headphones.name audio.eq.headphones.on ...\n"_L1));
     }
 
     void importWriteFailure()

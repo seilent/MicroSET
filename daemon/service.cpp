@@ -16,6 +16,12 @@ using namespace Qt::StringLiterals;
 
 Q_LOGGING_CATEGORY(lcCoalesced, "microset.coalesced", QtInfoMsg)
 
+namespace {
+
+constexpr qsizetype ImportLogKeys = 8;
+
+}
+
 Service::Service(const QDBusConnection &bus, Settings &settings, const Auth &auth, PowerBridge &bridge,
                  BacklightApplier &backlight, QObject *parent)
     : QObject(parent)
@@ -159,8 +165,11 @@ QStringList Service::Import(const QVariantMap &requested, QMap<QString, QString>
         sendErrorReply(Errors::Failed, u"cannot write the state file"_s);
         return {};
     }
-    qInfo("import by uid %lld: %s", uid, qPrintable(batch.keys().join(u' ')));
-    return batch.keys();
+    const QStringList taken = batch.keys();
+    const QStringList shown = taken.mid(0, ImportLogKeys);
+    qInfo("import by uid %lld took %lld keys: %s%s", uid, qlonglong(taken.size()), qPrintable(shown.join(u' ')),
+          taken.size() > shown.size() ? " ..." : "");
+    return taken;
 }
 
 const Key *Service::overridable(const QString &name, const char *verb, qint64 *uid)
