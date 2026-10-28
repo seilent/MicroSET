@@ -30,7 +30,14 @@ Window {
         "sheet-emu-scheme-end": ["emulation", "microemu.esde.theme_color_scheme", -1],
         "sheet-motion": ["audio", "audio.volume_step", 0],
         "sheet-emu-variant": ["emulation", "microemu.esde.theme_variant", 0],
-        "sheet-long-label": ["group with a long title", "fixture.long", 0]
+        "sheet-long-label": ["group with a long title", "fixture.long", 0],
+        "sheet-tso": ["app.292120", "app.292120.fex.tso", 2],
+        "sheet-preset": ["app.2238900", "app.2238900.fex.preset", 0],
+        "sheet-profile": ["app.292120", "app.292120.profile", 0]
+    })
+    readonly property var gameStates: ({
+        "game-profile": "app.292120", "game-overridden": "app.292120", "game-profile-off": "app.292120",
+        "game-preset": "app.2238900", "game-global": "app.2238900", "game-bottom": "app.292120", "game-long": "app.251150"
     })
     property alias view: view
 
@@ -114,6 +121,13 @@ Window {
         } else if (root.sheetStates[root.shotState] !== undefined) {
             const shot = root.sheetStates[root.shotState]
             root.sheet(shot[0], shot[1], shot[2])
+        } else if (root.gameStates[root.shotState] !== undefined) {
+            view.open(root.gameStates[root.shotState])
+            if (root.shotState === "game-bottom") {
+                const page = view.stack.currentItem
+                page.focusIndex = page.rows.length - 2
+                Qt.callLater(root.bottom)
+            }
         } else if (root.shotState === "games-many") {
             view.open("games")
             const page = view.stack.currentItem

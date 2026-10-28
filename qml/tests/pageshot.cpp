@@ -45,7 +45,9 @@ const QStringList &states()
         u"sheet-gpu-clock"_s, u"sheet-power-on"_s, u"sheet-brightness-off-list"_s, u"sheet-saturation-moved"_s,
         u"sheet-game-floor"_s, u"sheet-undervolt"_s, u"sheet-refused"_s, u"sheet-emu-scheme"_s, u"sheet-emu-scheme-end"_s,
         u"sheet-emu-variant"_s, u"sheet-long-label"_s, u"flip-before"_s, u"flip-after"_s, u"sheet-motion"_s,
-        u"games"_s, u"games-empty"_s, u"games-many"_s, u"games-long"_s, u"games-bottom"_s,
+        u"games"_s, u"games-empty"_s, u"games-many"_s, u"games-long"_s, u"games-bottom"_s, u"game-profile"_s,
+        u"game-overridden"_s, u"game-profile-off"_s, u"game-preset"_s, u"game-global"_s, u"game-bottom"_s,
+        u"game-long"_s, u"sheet-tso"_s, u"sheet-preset"_s, u"sheet-profile"_s,
     };
     return names;
 }
@@ -69,10 +71,19 @@ Games gamesOf(const QString &state)
     } else if (state == "games-many"_L1) {
         for (int i = 1; i <= 40; ++i)
             out.library << qMakePair(QString::number(1000 + i), u"Game %1"_s.arg(i, 2, 10, QChar(u'0')));
-    } else if (state == "games-long"_L1) {
-        out.library = {{u"292120"_s, u"FINAL FANTASY XIII"_s},
+    } else if (state == "games-long"_L1 || state.startsWith("game-"_L1) || state.startsWith("sheet-"_L1)) {
+        out.library = {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s},
                        {u"251150"_s, u"The Legend of Heroes: Trails in the Sky the 1st Chapter Deluxe Edition with Every Bonus"_s}};
     }
+    const QMap<QString, QVariantMap> stored{
+        {u"game-overridden"_s, {{u"app.292120.fex.tso"_s, u"on"_s}}},
+        {u"game-profile-off"_s, {{u"app.292120.profile"_s, u"off"_s}}},
+        {u"game-preset"_s, {{u"app.2238900.fex.preset"_s, u"performance"_s}}},
+        {u"sheet-preset"_s, {{u"app.2238900.fex.preset"_s, u"performance"_s}}},
+        {u"game-global"_s, {{u"fex.preset"_s, u"compatibility"_s}, {u"wine.sync"_s, u"fsync"_s}}},
+    };
+    if (stored.contains(state))
+        out.stored = stored.value(state);
     return out;
 }
 

@@ -120,6 +120,8 @@ private:
         QVariant store;
         QVariant shown;
         int inflight = 0;
+        QString appid;
+        QString option;
     };
 
     struct Preview
@@ -136,6 +138,9 @@ private:
 
     void call(const QString &method, const QVariantList &arguments, Reply done);
     void build(const QJsonObject &schema, const QVariantMap &values, const QVariantMap &stored);
+    static std::optional<Entry> entryOf(const QString &key, const QJsonObject &object);
+    void restore(Entry &entry, const QVariant &raw) const;
+    void instantiate(QMap<QString, Entry> &entries, const QString &appid) const;
     void setAvailable(bool available);
     void bump();
     void onChanged(const QString &key, const QVariant &value);
@@ -157,6 +162,10 @@ private:
     void dropPreview();
     void watchPreview(const Entry &entry);
     QString textOf(const Entry &entry, const QVariant &value) const;
+    QString rowText(const Entry &entry, const QVariant &value) const;
+    QString autoText(const Entry &entry) const;
+    QString profileText(const Entry &entry, const QVariant &value) const;
+    QStringList templateOrder() const;
     QString undervoltText(const Entry &entry) const;
     QVariantMap rowOf(const Entry &entry) const;
     QList<const Entry *> visible(const QString &group) const;
@@ -174,6 +183,8 @@ private:
     UpdateInfo m_updates;
     QMap<QString, Entry> m_entries;
     QMap<QString, QJsonObject> m_templates;
+    QSet<QString> m_apps;
+    QMap<QString, QString> m_names;
     QList<SteamLibrary::Game> m_library;
     bool m_libraryRead = false;
     QByteArray m_libraryStamp;

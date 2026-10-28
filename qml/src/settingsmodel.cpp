@@ -222,6 +222,86 @@ QVariant SettingsModel::coerce(const QString &type, const QVariant &value)
     return {};
 }
 
+std::optional<SettingsModel::Entry> SettingsModel::entryOf(const QString &key, const QJsonObject &object)
+{
+    const QJsonObject ui = object.value("ui"_L1).toObject();
+    Entry entry;
+    entry.key = key;
+    entry.group = object.value("group"_L1).toString();
+    entry.widget = ui.value("widget"_L1).toString();
+    entry.type = object.value("type"_L1).toString();
+    if (entry.group.isEmpty() || entry.widget == "none"_L1 || entry.type.isEmpty())
+        return std::nullopt;
+    entry.owner = object.value("owner"_L1).toString();
+    const QJsonObject groupUi = object.value("group_ui"_L1).toObject();
+    if (groupUi.contains("order"_L1))
+        entry.groupOrder = groupUi.value("order"_L1).toInt();
+    const QString label = object.value("label"_L1).toString();
+    entry.title = label.isEmpty() ? entry.key : label;
+    if (ui.contains("order"_L1))
+        entry.order = ui.value("order"_L1).toInt();
+    for (const QJsonValue &choice : object.value("enum"_L1).toArray()) {
+        const QVariant value = coerce(entry.type == "as"_L1 ? u"s"_s : entry.type, choice.toVariant());
+        if (value.isValid())
+            entry.choices << value;
+    }
+    for (const QJsonValue &step : ui.value("steps"_L1).toArray()) {
+        const QVariant value = coerce(entry.type, step.toVariant());
+        if (value.isValid())
+            entry.steps << value;
+    }
+    std::sort(entry.steps.begin(), entry.steps.end(),
+              [](const QVariant &a, const QVariant &b) { return a.toDouble() < b.toDouble(); });
+    if (object.contains("min"_L1))
+        entry.min = object.value("min"_L1).toDouble();
+    if (object.contains("max"_L1))
+        entry.max = object.value("max"_L1).toDouble();
+    if (object.contains("floor"_L1))
+        entry.floor = object.value("floor"_L1).toDouble();
+    entry.step = ui.value("step"_L1).toDouble(1);
+    entry.scale = ui.value("scale"_L1).toDouble(0);
+    entry.labels = ui.value("values"_L1).toObject();
+    entry.unit = ui.value("unit"_L1).toString();
+    entry.confirm = ui.value("apply"_L1).toString() == "confirm"_L1;
+    entry.bounded = ui.value("bounded"_L1).toBool();
+    const QJsonObject lock = ui.value("lock"_L1).toObject();
+    entry.lockKey = lock.value("key"_L1).toString();
+    entry.lockIs = lock.value("is"_L1);
+    entry.lockText = lock.value("text"_L1).toString();
+    entry.lockShow = lock.value("show"_L1).toString();
+    entry.writable = object.value("writable"_L1).toBool(true);
+    entry.overridable = object.value("override"_L1).toBool(false);
+    entry.defaultValue = coerce(entry.type, object.value("default"_L1).toVariant());
+    return entry;
+}
+
+void SettingsModel::restore(Entry &entry, const QVariant &raw) const
+{
+    const QVariant value = coerce(entry.type, raw);
+    entry.store = value.isValid() ? value : entry.defaultValue;
+    entry.shown = entry.store;
+    const auto old = m_entries.constFind(entry.key);
+    if (old != m_entries.cend() && old->inflight > 0) {
+        entry.inflight = old->inflight;
+        entry.shown = old->shown;
+    }
+}
+
+void SettingsModel::instantiate(QMap<QString, Entry> &entries, const QString &appid) const
+{
+    for (auto it = m_templates.cbegin(); it != m_templates.cend(); ++it) {
+        QJsonObject object = it.value();
+        object.insert(u"group"_s, AppPrefix + appid);
+        std::optional<Entry> entry = entryOf(AppPrefix + appid + u'.' + it.key(), object);
+        if (!entry)
+            continue;
+        entry->appid = appid;
+        entry->option = it.key();
+        restore(*entry, m_values.value(entry->key));
+        entries.insert(entry->key, *entry);
+    }
+}
+
 void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, const QVariantMap &stored)
 {
     QMap<QString, Entry> entries;
@@ -235,80 +315,29 @@ void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, 
             templates.insert(it.key().mid(AppPrefix.size()), object);
             continue;
         }
-        const QJsonObject ui = object.value("ui"_L1).toObject();
         const QString groupLabel = object.value("group_ui"_L1).toObject().value("label"_L1).toString();
         if (!groupLabel.isEmpty())
             groupLabels.insert(object.value("group"_L1).toString(), groupLabel);
         if (object.value("live"_L1).toBool())
             live.insert(it.key());
-        Entry entry;
-        entry.key = it.key();
-        entry.group = object.value("group"_L1).toString();
-        entry.widget = ui.value("widget"_L1).toString();
-        entry.type = object.value("type"_L1).toString();
-        if (entry.group.isEmpty() || entry.widget == "none"_L1 || entry.type.isEmpty())
+        std::optional<Entry> entry = entryOf(it.key(), object);
+        if (!entry)
             continue;
-        entry.owner = object.value("owner"_L1).toString();
-        const QJsonObject groupUi = object.value("group_ui"_L1).toObject();
-        if (groupUi.contains("order"_L1))
-            entry.groupOrder = groupUi.value("order"_L1).toInt();
-        const QString label = object.value("label"_L1).toString();
-        entry.title = label.isEmpty() ? entry.key : label;
-        if (ui.contains("order"_L1))
-            entry.order = ui.value("order"_L1).toInt();
-        for (const QJsonValue &choice : object.value("enum"_L1).toArray()) {
-            const QVariant value = coerce(entry.type == "as"_L1 ? u"s"_s : entry.type, choice.toVariant());
-            if (value.isValid())
-                entry.choices << value;
-        }
-        for (const QJsonValue &step : ui.value("steps"_L1).toArray()) {
-            const QVariant value = coerce(entry.type, step.toVariant());
-            if (value.isValid())
-                entry.steps << value;
-        }
-        std::sort(entry.steps.begin(), entry.steps.end(),
-                  [](const QVariant &a, const QVariant &b) { return a.toDouble() < b.toDouble(); });
-        if (object.contains("min"_L1))
-            entry.min = object.value("min"_L1).toDouble();
-        if (object.contains("max"_L1))
-            entry.max = object.value("max"_L1).toDouble();
-        if (object.contains("floor"_L1))
-            entry.floor = object.value("floor"_L1).toDouble();
-        entry.step = ui.value("step"_L1).toDouble(1);
-        entry.scale = ui.value("scale"_L1).toDouble(0);
-        entry.labels = ui.value("values"_L1).toObject();
-        entry.unit = ui.value("unit"_L1).toString();
-        entry.confirm = ui.value("apply"_L1).toString() == "confirm"_L1;
-        entry.bounded = ui.value("bounded"_L1).toBool();
-        const QJsonObject lock = ui.value("lock"_L1).toObject();
-        entry.lockKey = lock.value("key"_L1).toString();
-        entry.lockIs = lock.value("is"_L1);
-        entry.lockText = lock.value("text"_L1).toString();
-        entry.lockShow = lock.value("show"_L1).toString();
-        if (!entry.lockKey.isEmpty())
-            referenced << entry.lockKey;
-        if (!entry.lockShow.isEmpty())
-            referenced << entry.lockShow;
-        if (entry.key == UndervoltKey)
+        if (!entry->lockKey.isEmpty())
+            referenced << entry->lockKey;
+        if (!entry->lockShow.isEmpty())
+            referenced << entry->lockShow;
+        if (entry->key == UndervoltKey)
             referenced << UndervoltActiveKey;
-        entry.writable = object.value("writable"_L1).toBool(true);
-        entry.overridable = object.value("override"_L1).toBool(false);
-        entry.defaultValue = coerce(entry.type, object.value("default"_L1).toVariant());
-        const QVariantMap &source = entry.overridable ? stored : values;
-        const QVariant value = coerce(entry.type, source.value(entry.key));
-        entry.store = value.isValid() ? value : entry.defaultValue;
-        entry.shown = entry.store;
-        const auto old = m_entries.constFind(entry.key);
-        if (old != m_entries.cend() && old->inflight > 0) {
-            entry.inflight = old->inflight;
-            entry.shown = old->shown;
-        }
-        entries.insert(entry.key, entry);
+        restore(*entry, (entry->overridable ? stored : values).value(entry->key));
+        entries.insert(entry->key, *entry);
     }
-    m_entries = entries;
     m_templates = templates;
-    m_groupLabels = groupLabels;
     m_values = values;
+    for (const QString &appid : std::as_const(m_apps))
+        instantiate(entries, appid);
+    m_entries = entries;
+    m_groupLabels = groupLabels;
     m_live = live;
     m_referenced = referenced;
 }
@@ -463,6 +492,8 @@ QVariant SettingsModel::shownOf(const Entry &entry) const
 
 QString SettingsModel::textOf(const Entry &entry, const QVariant &value) const
 {
+    if (!entry.appid.isEmpty() && value.toString() == "auto"_L1)
+        return autoText(entry);
     if (entry.widget == "hue"_L1)
         return {};
     if (entry.type == "b"_L1)
@@ -477,6 +508,56 @@ QString SettingsModel::textOf(const Entry &entry, const QVariant &value) const
     const QString number = entry.type == "d"_L1 ? QString::number(value.toDouble(), 'f', decimalsOf(entry.step)) : raw;
     const QString text = scaled ? QString::number(std::round(value.toDouble() / entry.scale)) : number;
     return entry.unit.isEmpty() || text.isEmpty() ? text : text + u' ' + entry.unit;
+}
+
+QString SettingsModel::rowText(const Entry &entry, const QVariant &value) const
+{
+    return entry.option == "profile"_L1 ? profileText(entry, value) : textOf(entry, value);
+}
+
+QString SettingsModel::autoText(const Entry &entry) const
+{
+    const QJsonObject own = m_effective.value(entry.appid).value("options"_L1).toObject().value(entry.option).toObject();
+    const QString source = own.value("source"_L1).toString();
+    if (source.isEmpty() || source == "set"_L1)
+        return u"auto"_s;
+    if (entry.option == "fex.preset"_L1)
+        return u"auto (%1)"_s.arg(source);
+    const QString value = own.value("value"_L1).toString();
+    const QString word = value.isEmpty() ? u"default"_s : value;
+    return word == source ? u"auto (%1)"_s.arg(word) : u"auto (%1, %2)"_s.arg(word, source);
+}
+
+QStringList SettingsModel::templateOrder() const
+{
+    QStringList out = m_templates.keys();
+    std::stable_sort(out.begin(), out.end(), [this](const QString &a, const QString &b) {
+        const int x = m_templates.value(a).value("ui"_L1).toObject().value("order"_L1).toInt(Last);
+        const int y = m_templates.value(b).value("ui"_L1).toObject().value("order"_L1).toInt(Last);
+        return x < y;
+    });
+    return out;
+}
+
+QString SettingsModel::profileText(const Entry &entry, const QVariant &value) const
+{
+    const QString text = textOf(entry, value);
+    const QJsonObject profile = m_effective.value(entry.appid).value("profile"_L1).toObject();
+    if (value != entry.store || !profile.value("on"_L1).toBool())
+        return text;
+    const QJsonObject set = profile.value("set"_L1).toObject();
+    const QJsonArray overridden = profile.value("overridden"_L1).toArray();
+    QStringList parts;
+    for (const QString &option : templateOrder()) {
+        if (!set.contains(option))
+            continue;
+        const QString word = set.value(option).toString();
+        QString part = option.startsWith("fex."_L1) ? m_templates.value(option).value("label"_L1).toString() + u' ' + word : word;
+        if (overridden.contains(QJsonValue(option)))
+            part += u" overridden"_s;
+        parts << part;
+    }
+    return parts.isEmpty() ? text : text + u" ("_s + parts.join(u", "_s) + u')';
 }
 
 QString SettingsModel::undervoltText(const Entry &entry) const
@@ -496,7 +577,7 @@ QVariantMap SettingsModel::rowOf(const Entry &entry) const
     const QString kind = kindOf(entry);
     const bool lockedNow = locked(entry);
     const QVariant shown = shownOf(entry);
-    QString value = entry.key == UndervoltKey ? undervoltText(entry) : textOf(entry, shown);
+    QString value = entry.key == UndervoltKey ? undervoltText(entry) : rowText(entry, shown);
     if (lockedNow)
         value = entry.lockShow.isEmpty() ? entry.lockText : textOf(entry, coerce(entry.type, m_values.value(entry.lockShow)));
     QVariantMap row{
@@ -538,6 +619,8 @@ QList<const SettingsModel::Entry *> SettingsModel::visible(const QString &group)
         if (titleOf(entry.group) != group || (kindOf(entry) == "info"_L1 && textOf(entry, entry.shown).isEmpty()))
             continue;
         if (entry.key == TuningTripKey && fallbackShown)
+            continue;
+        if (entry.option == "profile"_L1 && !m_effective.value(entry.appid).contains("profile"_L1))
             continue;
         out << &entry;
     }
@@ -618,9 +701,7 @@ QVariantList SettingsModel::gameRows() const
 void SettingsModel::fetchEffective(const QString &appid)
 {
     if (m_fixture) {
-        const auto it = m_effectiveFixture.constFind(appid);
-        if (it != m_effectiveFixture.cend())
-            m_effective.insert(appid, *it);
+        m_effective.insert(appid, m_effectiveFixture.value(appid));
         return;
     }
     if (!m_client)
@@ -631,6 +712,9 @@ void SettingsModel::fetchEffective(const QString &appid)
         const QJsonDocument document = QJsonDocument::fromJson(reply.arguments().value(0).toString().toUtf8());
         if (errorOf(reply).isEmpty() && document.isObject() && m_effective.value(appid) != document.object()) {
             m_effective.insert(appid, document.object());
+            m_effectiveMoved = true;
+        } else if (!m_effective.contains(appid)) {
+            m_effective.insert(appid, {});
             m_effectiveMoved = true;
         }
         if (m_effectivePending > 0 || !m_effectiveMoved)
@@ -661,11 +745,15 @@ QString SettingsModel::pageTitle(const QString &group, int) const
     for (const SteamLibrary::Game &game : m_library)
         if (game.appid == appid)
             return game.name;
-    return appid;
+    const QString name = m_names.value(appid);
+    return name.isEmpty() ? appid : name;
 }
 
 QVariantList SettingsModel::rows(const QString &group, int) const
 {
+    const QString page = AppPage.match(group).captured(1);
+    if (!page.isEmpty() && !m_effective.contains(page))
+        return {};
     QVariantList out;
     QString owner;
     bool placed = group != UpdatesGroup;
@@ -690,6 +778,11 @@ QVariantList SettingsModel::rows(const QString &group, int) const
     const QVariantList games = group == GamesGroup ? gameRows() : QVariantList();
     if (!games.isEmpty())
         out << label(GamesGroup) << games;
+    if (!AppPage.match(group).hasMatch() || out.isEmpty())
+        return out;
+    out << QVariantMap{{u"kind"_s, u"info"_s}, {u"key"_s, u"game-next"_s}, {u"title"_s, u"Applies at next launch"_s},
+                       {u"value"_s, QString()}, {u"readOnly"_s, true}, {u"widget"_s, QString()}, {u"swatch"_s, QString()},
+                       {u"hue"_s, -1}, {u"confirm"_s, false}, {u"pick"_s, QString()}, {u"bounded"_s, false}};
     return out;
 }
 
@@ -703,6 +796,8 @@ QVariantList SettingsModel::groups(int) const
     };
     QMap<QString, Item> found;
     for (const Entry &entry : m_entries) {
+        if (!entry.appid.isEmpty())
+            continue;
         const QString title = titleOf(entry.group);
         Item &item = found[title];
         if (item.title.isEmpty())
@@ -938,7 +1033,7 @@ QString SettingsModel::text(const QString &key, const QVariant &value) const
     if (it == m_entries.cend())
         return {};
     const QVariant typed = coerce(it->type, value);
-    return textOf(*it, typed.isValid() ? typed : it->shown);
+    return rowText(*it, typed.isValid() ? typed : it->shown);
 }
 
 bool SettingsModel::set(const QString &key, const QVariant &value)
@@ -1013,6 +1108,21 @@ void SettingsModel::enter(const QString &group)
 {
     for (const QString &key : liveKeys(group))
         hold(key);
+    const QString appid = AppPage.match(group).captured(1);
+    if (!appid.isEmpty() && !m_templates.isEmpty()) {
+        if (!m_apps.contains(appid)) {
+            m_apps.insert(appid);
+            instantiate(m_entries, appid);
+        }
+        if (!m_names.contains(appid)) {
+            const QString name = SteamLibrary(SteamLibrary::defaultRoot()).name(appid);
+            if (!name.isEmpty())
+                m_names.insert(appid, name);
+        }
+        fetchEffective(appid);
+        bump();
+        return;
+    }
     if (group != GamesGroup || m_templates.isEmpty())
         return;
     const SteamLibrary library(SteamLibrary::defaultRoot());

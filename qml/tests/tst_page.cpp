@@ -228,6 +228,67 @@ private slots:
         qunsetenv("MICROSET_STEAM_DIR");
     }
 
+    void gameDraftWritesOneSet()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}});
+        fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
+        focus(u"group-games"_s);
+        key(Qt::Key_Return);
+        QTRY_VERIFY(!row(u"game-292120"_s).isEmpty());
+        focus(u"game-292120"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(page()->property("group").toString(), u"app.292120"_s);
+        QTRY_COMPARE(value(u"app.292120.fex.tso"_s), u"auto (off, profile)"_s);
+        QCOMPARE(page()->property("focusIndex").toInt(), 1);
+        QCOMPARE(row(u"app.292120.profile"_s).value(u"value"_s).toString(), u"on (TSO off, fsync)"_s);
+        key(Qt::Key_Down);
+        key(Qt::Key_Down);
+        reachable(u"app.292120.fex.tso"_s);
+        key(Qt::Key_Return);
+        QVERIFY(sheetShown());
+        QCOMPARE(sheet()->property("title").toString(), u"TSO"_s);
+        QCOMPARE(sheet()->property("items").toStringList(), (QStringList{u"auto (off, profile)"_s, u"on"_s, u"off"_s}));
+        QCOMPARE(sheet()->property("mark").toInt(), 0);
+        key(Qt::Key_Down);
+        QCOMPARE(value(u"app.292120.fex.tso"_s), u"on"_s);
+        key(Qt::Key_Escape);
+        QVERIFY(!sheetShown());
+        QCOMPARE(value(u"app.292120.fex.tso"_s), u"auto (off, profile)"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        key(Qt::Key_Down);
+        QTest::qWait(100);
+        QVERIFY(fake->calls().isEmpty());
+        key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set app.292120.fex.tso off"_s});
+        QTRY_COMPARE(value(u"app.292120.fex.tso"_s), u"off"_s);
+        QTRY_COMPARE(row(u"app.292120.profile"_s).value(u"value"_s).toString(), u"on (TSO off overridden, fsync)"_s);
+        key(Qt::Key_Up);
+        reachable(u"app.292120.fex.preset"_s);
+        key(Qt::Key_Up);
+        reachable(u"app.292120.profile"_s);
+        key(Qt::Key_Return);
+        QVERIFY(sheetShown());
+        QCOMPARE(sheet()->property("items").toStringList(), (QStringList{u"on"_s, u"off"_s}));
+        key(Qt::Key_Down);
+        QCOMPARE(row(u"app.292120.profile"_s).value(u"value"_s).toString(), u"off"_s);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls().size(), 2);
+        QCOMPARE(fake->calls().last(), u"Set app.292120.profile off"_s);
+        for (int i = 0; i < 20; ++i)
+            key(Qt::Key_Down);
+        reachable(u"game-next"_s);
+        key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
+        QCOMPARE(fake->calls().size(), 2);
+        key(Qt::Key_Escape);
+        QCOMPARE(page()->property("group").toString(), u"games"_s);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
     void toastStaysWhileSticky()
     {
         QObject *t = toast();

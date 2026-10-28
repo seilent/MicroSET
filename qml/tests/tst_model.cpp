@@ -453,6 +453,101 @@ private slots:
         qunsetenv("MICROSET_STEAM_DIR");
     }
 
+    void gamePage()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}});
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const auto m = model();
+        const QString ff13 = u"app.292120"_s;
+        const QString so2r = u"app.2238900"_s;
+        QVERIFY(m->rows(ff13, 0).isEmpty());
+        m->enter(ff13);
+        QVERIFY(m->rows(ff13, 0).isEmpty());
+        m->enter(so2r);
+        const auto key = [](const QString &page, const QString &option) { return page + u'.' + option; };
+        QTRY_VERIFY(keysOf(m->rows(ff13, 0)).contains(key(ff13, u"profile"_s)));
+        QCOMPARE(m->pageTitle(ff13, 0), u"FINAL FANTASY XIII"_s);
+        QCOMPARE(m->pageTitle(so2r, 0), u"2238900"_s);
+        FakeMicroSetd::writeSteam(steam.path(), {{u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s}});
+        m->enter(so2r);
+        QCOMPARE(m->pageTitle(so2r, 0), u"STAR OCEAN THE SECOND STORY R"_s);
+        const QStringList options{u"fex.preset"_s, u"fex.tso"_s, u"fex.half_barrier"_s, u"fex.vector_tso"_s,
+                                  u"fex.memcpy_tso"_s, u"fex.multiblock"_s, u"fex.max_inst"_s, u"fex.x87_reduced"_s,
+                                  u"fex.smc"_s, u"fex.volatile_metadata"_s, u"fex.mono_hacks"_s, u"wine.sync"_s};
+        QStringList wanted{u"label-microset"_s, key(ff13, u"profile"_s)};
+        for (const QString &option : options)
+            wanted << key(ff13, option);
+        QCOMPARE(keysOf(m->rows(ff13, 0)), wanted + QStringList{u"game-next"_s});
+        QVERIFY(!keysOf(m->rows(so2r, 0)).contains(key(so2r, u"profile"_s)));
+        QCOMPARE(rowOf(m->rows(ff13, 0), u"game-next"_s).value(u"title"_s).toString(), u"Applies at next launch"_s);
+        QCOMPARE(rowOf(m->rows(ff13, 0), u"game-next"_s).value(u"kind"_s).toString(), u"info"_s);
+        const QVariantMap tso = rowOf(m->rows(ff13, 0), key(ff13, u"fex.tso"_s));
+        QCOMPARE(tso.value(u"title"_s).toString(), u"TSO"_s);
+        QCOMPARE(tso.value(u"pick"_s).toString(), u"sheet"_s);
+        QVERIFY(tso.value(u"confirm"_s).toBool());
+        const auto values = [&](const QString &page) {
+            QStringList out;
+            for (const QString &option : QStringList{u"profile"_s} + options)
+                out << value(m->rows(page, 0), key(page, option));
+            return out;
+        };
+        const QString none = u"auto (default)"_s;
+        QCOMPARE(values(ff13), (QStringList{u"on (TSO off, fsync)"_s, none, u"auto (off, profile)"_s, none, none, none, none,
+                                            none, none, none, none, none, u"auto (fsync, profile)"_s}));
+        QCOMPARE(values(so2r), (QStringList{QString(), none, none, none, none, none, none, none, none, none, none, none,
+                                            u"auto (ntsync, default)"_s}));
+        QCOMPARE(words(m->sheet(key(ff13, u"fex.tso"_s))), (QStringList{u"auto (off, profile)"_s, u"on"_s, u"off"_s}));
+        QCOMPARE(m->sheet(key(ff13, u"fex.tso"_s)).value(u"mark"_s).toInt(), 0);
+        QCOMPARE(words(m->sheet(key(ff13, u"profile"_s))), (QStringList{u"on"_s, u"off"_s}));
+        QCOMPARE(m->text(key(ff13, u"profile"_s), u"off"_s), u"off"_s);
+
+        QVERIFY(m->set(key(so2r, u"fex.preset"_s), u"performance"_s));
+        QTRY_COMPARE(value(m->rows(so2r, 0), key(so2r, u"fex.tso"_s)), u"auto (off, preset)"_s);
+        QCOMPARE(value(m->rows(so2r, 0), key(so2r, u"fex.multiblock"_s)), u"auto (default, preset)"_s);
+        QCOMPARE(value(m->rows(so2r, 0), key(so2r, u"fex.preset"_s)), u"performance"_s);
+        QCOMPARE(words(m->sheet(key(so2r, u"fex.preset"_s))),
+                 (QStringList{u"auto"_s, u"default"_s, u"compatibility"_s, u"performance"_s}));
+
+        QVERIFY(m->set(key(ff13, u"fex.tso"_s), u"on"_s));
+        QTRY_COMPARE(value(m->rows(ff13, 0), key(ff13, u"profile"_s)), u"on (TSO off overridden, fsync)"_s);
+        QCOMPARE(value(m->rows(ff13, 0), key(ff13, u"fex.tso"_s)), u"on"_s);
+        QCOMPARE(words(m->sheet(key(ff13, u"fex.tso"_s))), (QStringList{u"auto"_s, u"on"_s, u"off"_s}));
+
+        QVERIFY(m->set(u"fex.preset"_s, u"compatibility"_s));
+        QVERIFY(m->set(u"wine.sync"_s, u"fsync"_s));
+        QTRY_COMPARE(value(m->rows(so2r, 0), key(so2r, u"wine.sync"_s)), u"auto (fsync, global)"_s);
+        QTRY_COMPARE(value(m->rows(ff13, 0), key(ff13, u"fex.half_barrier"_s)), u"auto (off, global)"_s);
+        QCOMPARE(value(m->rows(ff13, 0), key(ff13, u"fex.preset"_s)), u"auto (global)"_s);
+        QCOMPARE(value(m->rows(ff13, 0), key(ff13, u"fex.tso"_s)), u"on"_s);
+        QCOMPARE(value(m->rows(ff13, 0), key(ff13, u"wine.sync"_s)), u"auto (fsync, global)"_s);
+        QCOMPARE(value(m->rows(ff13, 0), key(ff13, u"profile"_s)), u"on (TSO off overridden, fsync overridden)"_s);
+        QCOMPARE(value(m->rows(so2r, 0), key(so2r, u"fex.tso"_s)), u"auto (off, preset)"_s);
+
+        QVERIFY(m->set(u"fex.preset"_s, u"default"_s));
+        QVERIFY(m->set(u"wine.sync"_s, u"ntsync"_s));
+        QVERIFY(m->set(key(ff13, u"fex.tso"_s), u"auto"_s));
+        QVERIFY(m->set(key(ff13, u"profile"_s), u"off"_s));
+        QTRY_COMPARE(value(m->rows(ff13, 0), key(ff13, u"profile"_s)), u"off"_s);
+        QTRY_COMPARE(value(m->rows(ff13, 0), key(ff13, u"fex.tso"_s)), none);
+        QCOMPARE(value(m->rows(ff13, 0), key(ff13, u"wine.sync"_s)), u"auto (ntsync, default)"_s);
+        QCOMPARE(value(m->rows(ff13, 0), key(ff13, u"fex.preset"_s)), none);
+        QVERIFY(!keysOf(m->groups(0)).contains(u"group-"_s + ff13));
+        QVERIFY(!keysOf(m->groups(0)).contains(u"group-"_s + so2r));
+        m->load();
+        QTRY_COMPARE(value(m->rows(ff13, 0), key(ff13, u"profile"_s)), u"off"_s);
+        QVERIFY(m->set(key(ff13, u"profile"_s), u"on"_s));
+        QTRY_COMPARE(value(m->rows(ff13, 0), key(ff13, u"profile"_s)), u"on (TSO off, fsync)"_s);
+        QVERIFY(m->set(u"proton.profiles"_s, u"off"_s));
+        QTRY_COMPARE(value(m->rows(ff13, 0), key(ff13, u"profile"_s)), u"on"_s);
+        QCOMPARE(value(m->rows(ff13, 0), key(ff13, u"fex.tso"_s)), none);
+        QCOMPARE(m->text(key(ff13, u"profile"_s), u"off"_s), u"off"_s);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
     void gameListNeedsTemplates()
     {
         QTemporaryDir steam;

@@ -493,7 +493,8 @@
       "enum": ["on", "off"],
       "per_app": true,
       "group": null,
-      "label": "MicroOS profile"
+      "label": "MicroOS profile",
+      "ui": {"order": 0, "apply": "confirm"}
     },
     "app.fex.preset": {
       "type": "s",
@@ -501,7 +502,8 @@
       "enum": ["auto", "default", "compatibility", "performance"],
       "per_app": true,
       "group": null,
-      "label": "Preset"
+      "label": "Preset",
+      "ui": {"order": 1, "apply": "confirm"}
     },
     "app.fex.tso": {
       "type": "s",
@@ -509,7 +511,8 @@
       "enum": ["auto", "on", "off"],
       "per_app": true,
       "group": null,
-      "label": "TSO"
+      "label": "TSO",
+      "ui": {"order": 2, "apply": "confirm"}
     },
     "app.fex.half_barrier": {
       "type": "s",
@@ -517,7 +520,8 @@
       "enum": ["auto", "on", "off"],
       "per_app": true,
       "group": null,
-      "label": "Half barrier TSO"
+      "label": "Half barrier TSO",
+      "ui": {"order": 3, "apply": "confirm"}
     },
     "app.fex.vector_tso": {
       "type": "s",
@@ -525,7 +529,8 @@
       "enum": ["auto", "on", "off"],
       "per_app": true,
       "group": null,
-      "label": "Vector TSO"
+      "label": "Vector TSO",
+      "ui": {"order": 4, "apply": "confirm"}
     },
     "app.fex.memcpy_tso": {
       "type": "s",
@@ -533,7 +538,8 @@
       "enum": ["auto", "on", "off"],
       "per_app": true,
       "group": null,
-      "label": "Memcpy TSO"
+      "label": "Memcpy TSO",
+      "ui": {"order": 5, "apply": "confirm"}
     },
     "app.fex.multiblock": {
       "type": "s",
@@ -541,7 +547,8 @@
       "enum": ["auto", "on", "off"],
       "per_app": true,
       "group": null,
-      "label": "Multiblock"
+      "label": "Multiblock",
+      "ui": {"order": 6, "apply": "confirm"}
     },
     "app.fex.max_inst": {
       "type": "s",
@@ -549,7 +556,8 @@
       "enum": ["auto", "500", "1000", "2000", "5000"],
       "per_app": true,
       "group": null,
-      "label": "Block size"
+      "label": "Block size",
+      "ui": {"order": 7, "apply": "confirm"}
     },
     "app.fex.x87_reduced": {
       "type": "s",
@@ -557,7 +565,8 @@
       "enum": ["auto", "on", "off"],
       "per_app": true,
       "group": null,
-      "label": "Reduced x87"
+      "label": "Reduced x87",
+      "ui": {"order": 8, "apply": "confirm"}
     },
     "app.fex.smc": {
       "type": "s",
@@ -565,7 +574,8 @@
       "enum": ["auto", "none", "mtrack", "full"],
       "per_app": true,
       "group": null,
-      "label": "SMC detection"
+      "label": "SMC detection",
+      "ui": {"order": 9, "apply": "confirm"}
     },
     "app.fex.volatile_metadata": {
       "type": "s",
@@ -573,7 +583,8 @@
       "enum": ["auto", "on", "off"],
       "per_app": true,
       "group": null,
-      "label": "Volatile"
+      "label": "Volatile",
+      "ui": {"order": 10, "apply": "confirm"}
     },
     "app.fex.mono_hacks": {
       "type": "s",
@@ -581,7 +592,8 @@
       "enum": ["auto", "on", "off"],
       "per_app": true,
       "group": null,
-      "label": "Mono hacks"
+      "label": "Mono hacks",
+      "ui": {"order": 11, "apply": "confirm"}
     },
     "app.wine.sync": {
       "type": "s",
@@ -589,7 +601,8 @@
       "enum": ["auto", "fsync", "ntsync"],
       "per_app": true,
       "group": null,
-      "label": "Wine sync"
+      "label": "Wine sync",
+      "ui": {"order": 12, "apply": "confirm"}
     }
   },
   "presets": {

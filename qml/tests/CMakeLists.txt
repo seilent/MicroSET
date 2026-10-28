@@ -55,7 +55,8 @@ foreach(size 960x640 640x960)
             undervolt-trip-long undervolt-both sheet-volume-step sheet-gpu-clock sheet-power-on
             sheet-brightness-off-list sheet-saturation-moved sheet-game-floor sheet-undervolt sheet-refused
             sheet-emu-scheme sheet-emu-scheme-end sheet-emu-variant sheet-long-label flip-before flip-after
-            games games-empty games-many games-long games-bottom)
+            games games-empty games-many games-long games-bottom game-profile game-overridden game-profile-off
+            game-preset game-global game-bottom game-long sheet-tso sheet-preset sheet-profile)
         add_test(NAME page-shot-${state}-${size}
             COMMAND microset-pageshot --screenshot ${CMAKE_CURRENT_BINARY_DIR}/shots/${state}-${size}.png
                 --size ${size} --state ${state})

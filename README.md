@@ -32,7 +32,13 @@ read, change and watch them over D-Bus.
   1 MiB, names of at most 128 characters, at most 2000 manifests read. Apps without a plain `installdir` or with a
   `toolmanifest.vdf` in their install dir, the Steamworks, EAC and BattlEye runtimes and Lossless Scaling are left out.
   A game with stored values and no manifest shows as `not installed`; the runtimes and Lossless Scaling never do. Game
-  names in the rows and in the header of the game's page are plain text.
+  names in the rows and in the header of the game's page are plain text. A game row opens the game's page, titled by its
+  name: `MicroOS profile` (only for a game with an image profile; while the profile is in force its entries are listed
+  and marked `overridden` when a value above the profile wins), `Preset`, one row per FEX option and `Wine sync`, all
+  applied on A, then `Applies at next launch`. `auto` shows what it resolves to from `Effective`:
+  `auto (<value>, <source>)`, where an empty value (Proton's or FEX's own) reads `default` and a value equal to its
+  source shows once (`auto (default)`); `Preset` shows `auto (<source>)`; while the row holds its own value its `auto`
+  entry reads `auto`.
 - Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other
   file only keys under its owner name (`microdap.*`, `microemu.*`). A key can carry `ui` hints for the page (`order`,
   `widget` `none`, `hue` or `edit` (left/right edit instead of a sheet), `step` or a `steps` list (a value off the list
