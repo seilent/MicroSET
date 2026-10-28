@@ -148,11 +148,12 @@ bool Harness::startBus()
 </busconfig>
 )";
     writeFile(u"bus.conf"_s, config);
-    m_bus.setProcessChannelMode(QProcess::ForwardedChannels);
-    m_bus.start(QStringLiteral(DBUS_DAEMON), {u"--config-file="_s + path(u"bus.conf"_s), u"--nofork"_s, u"--nopidfile"_s});
-    if (!waitFor([&] { return QFileInfo::exists(socket); }))
+    m_bus.setProcessChannelMode(QProcess::ForwardedErrorChannel);
+    m_bus.start(QStringLiteral(DBUS_DAEMON),
+                {u"--config-file="_s + path(u"bus.conf"_s), u"--nofork"_s, u"--nopidfile"_s, u"--print-address=1"_s});
+    if (!waitFor([&] { return m_bus.canReadLine() || m_bus.state() == QProcess::NotRunning; }) || !m_bus.canReadLine())
         return false;
-    m_address = u"unix:path="_s + socket;
+    m_address = QString::fromUtf8(m_bus.readLine()).trimmed();
     writeCgroup(QCoreApplication::applicationPid(), RootCgroup);
     return QDBusConnection::connectToBus(m_address, ClientName).isConnected();
 }
