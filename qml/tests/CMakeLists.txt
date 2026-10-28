@@ -28,6 +28,10 @@ add_executable(tst_model tst_model.cpp)
 target_link_libraries(tst_model PRIVATE microset_harness microset_page_fixtures microset_ui Qt6::Test)
 add_test(NAME page-model COMMAND tst_model)
 
+add_executable(tst_library tst_library.cpp)
+target_link_libraries(tst_library PRIVATE microset_page_fixtures microset_ui Qt6::Test)
+add_test(NAME page-library COMMAND tst_library)
+
 add_executable(tst_page tst_page.cpp)
 target_link_libraries(tst_page PRIVATE microset_harness microset_page_fixtures microset_pagetestplugin microset_uiplugin microset_ui
     Qt6::Quick Qt6::Test)
@@ -50,7 +54,8 @@ foreach(size 960x640 640x960)
             undervolt-changed undervolt-reason-focus undervolt-hold undervolt-refused undervolt-busy undervolt-trip
             undervolt-trip-long undervolt-both sheet-volume-step sheet-gpu-clock sheet-power-on
             sheet-brightness-off-list sheet-saturation-moved sheet-game-floor sheet-undervolt sheet-refused
-            sheet-emu-scheme sheet-emu-scheme-end sheet-emu-variant sheet-long-label flip-before flip-after)
+            sheet-emu-scheme sheet-emu-scheme-end sheet-emu-variant sheet-long-label flip-before flip-after
+            games games-empty games-many games-long games-bottom)
         add_test(NAME page-shot-${state}-${size}
             COMMAND microset-pageshot --screenshot ${CMAKE_CURRENT_BINARY_DIR}/shots/${state}-${size}.png
                 --size ${size} --state ${state})

@@ -6,7 +6,7 @@ Page {
 
     property QtObject model: null
     property string group: ""
-    property string title: page.group
+    property string title: page.model === null ? page.group : page.model.pageTitle(page.group, page.model.revision)
     property bool animated: true
     property bool screenOff: false
     property bool editing: false

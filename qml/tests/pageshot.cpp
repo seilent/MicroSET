@@ -11,6 +11,7 @@
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
 #include <QRegularExpression>
+#include <QTemporaryDir>
 #include <QTextStream>
 #include <QTimer>
 #include <QtQml/qqmlextensionplugin.h>
@@ -44,8 +45,35 @@ const QStringList &states()
         u"sheet-gpu-clock"_s, u"sheet-power-on"_s, u"sheet-brightness-off-list"_s, u"sheet-saturation-moved"_s,
         u"sheet-game-floor"_s, u"sheet-undervolt"_s, u"sheet-refused"_s, u"sheet-emu-scheme"_s, u"sheet-emu-scheme-end"_s,
         u"sheet-emu-variant"_s, u"sheet-long-label"_s, u"flip-before"_s, u"flip-after"_s, u"sheet-motion"_s,
+        u"games"_s, u"games-empty"_s, u"games-many"_s, u"games-long"_s, u"games-bottom"_s,
     };
     return names;
+}
+
+struct Games
+{
+    QList<QPair<QString, QString>> library;
+    QList<QPair<quint32, QString>> shortcuts;
+    QVariantMap stored;
+};
+
+Games gamesOf(const QString &state)
+{
+    Games out;
+    if (state == "games"_L1 || state == "games-bottom"_L1) {
+        out.library = {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s},
+                       {u"2161700"_s, u"Persona 3 Reload"_s}, {u"1621310"_s, u"Atelier Sophie 2: The Alchemist of the Mysterious Dream"_s},
+                       {u"2050650"_s, u"Resident Evil 4"_s}};
+        out.shortcuts = {{2763258687u, u"Octopath Traveler"_s}, {2342494927u, u"Trails in the Sky 1st Chapter"_s}};
+        out.stored = {{u"app.2238900.fex.preset"_s, u"performance"_s}, {u"app.1145360.fex.tso"_s, u"on"_s}};
+    } else if (state == "games-many"_L1) {
+        for (int i = 1; i <= 40; ++i)
+            out.library << qMakePair(QString::number(1000 + i), u"Game %1"_s.arg(i, 2, 10, QChar(u'0')));
+    } else if (state == "games-long"_L1) {
+        out.library = {{u"292120"_s, u"FINAL FANTASY XIII"_s},
+                       {u"251150"_s, u"The Legend of Heroes: Trails in the Sky the 1st Chapter Deluxe Edition with Every Bonus"_s}};
+    }
+    return out;
 }
 
 }
@@ -92,25 +120,37 @@ int main(int argc, char *argv[])
         {u"undervolt-both"_s, {u"off"_s, u"stock"_s, u"start"_s, u"start"_s}},
     };
     const QStringList preset = undervolt.value(state, {u"off"_s, u"stock"_s, QString(), QString()});
+    const Games games = gamesOf(state);
+    QTemporaryDir steam;
+    qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+    FakeMicroSetd::writeSteam(steam.path(), games.library, games.shortcuts);
+    QMap<QString, QJsonObject> effective;
+    for (const auto &[appid, name] : games.library)
+        effective.insert(appid, FakeMicroSetd::effective(files, games.stored, FakeMicroSetd::Profiles, appid));
+    for (const auto &[appid, name] : games.shortcuts)
+        effective.insert(QString::number(appid),
+                         FakeMicroSetd::effective(files, games.stored, FakeMicroSetd::Profiles, QString::number(appid)));
+    QVariantMap values{{u"audio.output"_s, u"speaker"_s},
+                       {u"audio.eq.headphones.on"_s, true},
+                       {u"audio.eq.headphones.name"_s, state == "long-value"_L1 ? LongProfile : u"Sennheiser HD 600 ParametricEQ"_s},
+                       {u"fixture.long"_s, u"extended"_s},
+                       {u"microdap.accent_hue"_s, 200u},
+                       {u"display.rotation"_s, u"landscape-flipped"_s},
+                       {u"rgb.brightness"_s, 50u},
+                       {u"power.gpu_undervolt"_s, preset.at(0)},
+                       {u"power.gpu_undervolt_active"_s, preset.at(1)},
+                       {u"power.gpu_tuning_fallback"_s, preset.at(2)},
+                       {u"power.gpu_tuning_trip"_s, preset.at(3)},
+                       {u"power.gpu_level"_s, state == "sheet-gpu-clock"_L1 ? u"manual"_s : u"auto"_s},
+                       {u"power.gpu_clock"_s, 490u},
+                       {u"audio.power_on_volume"_s, state == "sheet-power-on"_L1 ? 15u : 0u},
+                       {u"microemu.esde.theme_variant"_s, u"gamelist-list-metadata-screenshot-marquee-nh"_s}};
+    values.insert(games.stored);
     SettingsModel model;
     model.updates()->setFixture(u"testing-38784f1"_s, u"none"_s, {});
-    model.setFixture(FakeMicroSetd::describe(files),
-                     {{u"audio.output"_s, u"speaker"_s},
-                      {u"audio.eq.headphones.on"_s, true},
-                      {u"audio.eq.headphones.name"_s, state == "long-value"_L1 ? LongProfile : u"Sennheiser HD 600 ParametricEQ"_s},
-                      {u"fixture.long"_s, u"extended"_s},
-                      {u"microdap.accent_hue"_s, 200u},
-                      {u"display.rotation"_s, u"landscape-flipped"_s},
-                      {u"rgb.brightness"_s, 50u},
-                      {u"power.gpu_undervolt"_s, preset.at(0)},
-                      {u"power.gpu_undervolt_active"_s, preset.at(1)},
-                      {u"power.gpu_tuning_fallback"_s, preset.at(2)},
-                      {u"power.gpu_tuning_trip"_s, preset.at(3)},
-                      {u"power.gpu_level"_s, state == "sheet-gpu-clock"_L1 ? u"manual"_s : u"auto"_s},
-                      {u"power.gpu_clock"_s, 490u},
-                      {u"audio.power_on_volume"_s, state == "sheet-power-on"_L1 ? 15u : 0u},
-                      {u"microemu.esde.theme_variant"_s, u"gamelist-list-metadata-screenshot-marquee-nh"_s}},
+    model.setFixture(FakeMicroSetd::describe(files), values,
                      {{u"rgb.enabled"_s, state != "rgb-off"_L1}, {u"rgb.hue"_s, 200u}, {u"rgb.saturation"_s, 60u}});
+    model.setProtonFixture(effective);
 
     QQmlApplicationEngine engine;
     bool warned = false;

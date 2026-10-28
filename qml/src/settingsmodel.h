@@ -1,5 +1,6 @@
 #pragma once
 
+#include "steamlibrary.h"
 #include "updateinfo.h"
 
 #include <QDBusConnection>
@@ -32,6 +33,7 @@ class SettingsModel : public QObject
 
 public:
     static inline const QString UpdatesGroup = QStringLiteral("updates");
+    static inline const QString GamesGroup = QStringLiteral("games");
     static inline const QString AccentKey = QStringLiteral("microdap.accent_hue");
     static inline const QString LedHueKey = QStringLiteral("rgb.hue");
     static inline const QString UndervoltKey = QStringLiteral("power.gpu_undervolt");
@@ -49,6 +51,7 @@ public:
 
     void load();
     void setFixture(const QJsonObject &schema, const QVariantMap &values, const QVariantMap &stored);
+    void setProtonFixture(const QMap<QString, QJsonObject> &effective);
     UpdateInfo *updates();
 
     bool available() const;
@@ -58,6 +61,7 @@ public:
 
     Q_INVOKABLE QVariantList groups(int revision) const;
     Q_INVOKABLE QVariantList rows(const QString &group, int revision) const;
+    Q_INVOKABLE QString pageTitle(const QString &group, int revision) const;
     Q_INVOKABLE bool beginEdit(const QString &key);
     Q_INVOKABLE bool busy(const QString &key) const;
     Q_INVOKABLE QVariantMap sheet(const QString &key) const;
@@ -158,6 +162,10 @@ private:
     QList<const Entry *> visible(const QString &group) const;
     QVariantList updateRows() const;
     QStringList liveKeys(const QString &group) const;
+    QStringList storedApps() const;
+    QVariantList gameRows() const;
+    void fetchEffective(const QString &appid);
+    void refreshEffective(const QString &key);
     static QVariant coerce(const QString &type, const QVariant &value);
     static QVariantMap label(const QString &owner);
 
@@ -165,6 +173,14 @@ private:
     QDBusConnection m_bus;
     UpdateInfo m_updates;
     QMap<QString, Entry> m_entries;
+    QMap<QString, QJsonObject> m_templates;
+    QList<SteamLibrary::Game> m_library;
+    bool m_libraryRead = false;
+    QByteArray m_libraryStamp;
+    QMap<QString, QJsonObject> m_effective;
+    QMap<QString, QJsonObject> m_effectiveFixture;
+    int m_effectivePending = 0;
+    bool m_effectiveMoved = false;
     QMap<QString, QString> m_groupLabels;
     QVariantMap m_values;
     QSet<QString> m_live;

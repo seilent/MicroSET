@@ -56,7 +56,9 @@ Item {
     Component {
         id: settingsPage
 
-        SettingsPage {}
+        SettingsPage {
+            onOpened: (group) => view.open(group)
+        }
     }
 
     Connections {

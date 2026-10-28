@@ -25,6 +25,7 @@ Item {
         x: Ui.px(Ui.hubEdge + root.shift)
         y: root.baselineY - label.baselineOffset
         text: root.text
+        textFormat: Text.PlainText
         color: Ui.white(Ui.hubHeader.alpha)
         font: Ui.font(Ui.hubHeader)
 

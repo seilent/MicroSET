@@ -119,6 +119,7 @@ Item {
         width: swatch.visible ? swatch.x - Ui.px(Ui.gutter) - titleText.x
             : Math.min(titleText.implicitWidth, item.width - Ui.px(Ui.hubEdge) - titleText.x)
         text: item.modelData.title
+        textFormat: Text.PlainText
         color: Ui.white(item.titleAlpha)
         font: Ui.font(item.titleRole)
         clip: true

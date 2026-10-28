@@ -7,6 +7,7 @@
 #include <QQuickWindow>
 #include <QRegularExpression>
 #include <QSignalSpy>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QtQml/qqmlextensionplugin.h>
 
@@ -166,6 +167,65 @@ private slots:
         key(Qt::Key_Return);
         QCOMPARE(page()->property("title").toString(), u"stick leds"_s);
         QCOMPARE(page()->property("focusIndex").toInt(), 1);
+    }
+
+    void gamesOpenAndBack()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"5"_s, u"<b>bold</b>"_s}});
+        fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
+        fake->setValues({{u"app.77.fex.tso"_s, u"on"_s}});
+        model->load();
+        QTRY_VERIFY(model->available());
+        focus(u"group-games"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(page()->property("group").toString(), u"games"_s);
+        QCOMPARE(page()->property("title").toString(), u"games"_s);
+        QTRY_VERIFY(!row(u"game-292120"_s).isEmpty());
+        QCOMPARE(page()->property("focusIndex").toInt(), 1);
+        for (int i = 0; i < 4; ++i)
+            key(Qt::Key_Down);
+        reachable(u"game-292120"_s);
+        int bold = -1;
+        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, bold), Q_ARG(QString, u"game-5"_s)));
+        int games = -1;
+        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, games), Q_ARG(QString, u"label-games"_s)));
+        QCOMPARE(games, bold - 1);
+        QCOMPARE(row(u"label-games"_s).value(u"kind"_s).toString(), u"label"_s);
+        QQuickItem *delegate = nullptr;
+        QVERIFY(QMetaObject::invokeMethod(qvariant_cast<QObject *>(page()->property("repeater")), "itemAt",
+                                          Q_RETURN_ARG(QQuickItem *, delegate), Q_ARG(int, bold)));
+        QVERIFY(delegate);
+        QObject *title = qvariant_cast<QObject *>(delegate->property("titleItem"));
+        QCOMPARE(title->property("text").toString(), u"<b>bold</b>"_s);
+        QCOMPARE(title->property("textFormat").toInt(), int(Qt::PlainText));
+        for (int i = 0; i < 4; ++i)
+            key(Qt::Key_Down);
+        reachable(u"game-77"_s);
+        QCOMPARE(row(u"game-77"_s).value(u"value"_s).toString(), u"not installed"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(page()->property("group").toString(), u"games"_s);
+        QVERIFY(!sheetShown());
+        focus(u"game-292120"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(page()->property("group").toString(), u"app.292120"_s);
+        QCOMPARE(page()->property("title").toString(), u"FINAL FANTASY XIII"_s);
+        QCOMPARE(qvariant_cast<QObject *>(page()->property("header"))->property("text").toString(), u"FINAL FANTASY XIII"_s);
+        key(Qt::Key_Escape);
+        QCOMPARE(page()->property("group").toString(), u"games"_s);
+        focus(u"game-5"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(page()->property("group").toString(), u"app.5"_s);
+        QQuickItem *header = qvariant_cast<QQuickItem *>(page()->property("header"));
+        QVERIFY(header && header->childItems().size() == 1);
+        QCOMPARE(header->childItems().first()->property("text").toString(), u"<b>bold</b>"_s);
+        QCOMPARE(header->childItems().first()->property("textFormat").toInt(), int(Qt::PlainText));
+        key(Qt::Key_Escape);
+        QCOMPARE(page()->property("group").toString(), u"games"_s);
+        key(Qt::Key_Escape);
+        QCOMPARE(page()->property("title").toString(), u"settings"_s);
+        qunsetenv("MICROSET_STEAM_DIR");
     }
 
     void toastStaysWhileSticky()

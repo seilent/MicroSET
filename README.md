@@ -22,7 +22,17 @@ read, change and watch them over D-Bus.
   `microos-storage format` waits for the hold.
 - `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and `microset-settings`. The
   page (`SettingsView`) lists the schema groups and edits their keys over `net.seilent.MicroSet`: A on a list or
-  number row opens a value sheet, on an on/off row flips it.
+  number row opens a value sheet, on an on/off row flips it. The `games` group holds `fex.preset`, `wine.sync` and
+  `proton.profiles`, then under a `games` label one row per installed Steam game and non Steam shortcut, sorted by
+  name, with the game's preset from `Effective`. Games come from `steamapps/libraryfolders.vdf`, the
+  `appmanifest_<appid>.acf` files of each library and `userdata/<id>/config/shortcuts.vdf` (keyed by the 32 bit
+  shortcut id) under `MICROSET_STEAM_DIR` (`~/.local/share/Steam`), read when the page opens, again only once
+  `libraryfolders.vdf`, a library's `steamapps` dir, one of its manifests, a `toolmanifest.vdf` in one of its
+  `steamapps/common` dirs, `userdata` or a `shortcuts.vdf` changed (inode, size or mtime): regular files of at most
+  1 MiB, names of at most 128 characters, at most 2000 manifests read. Apps without a plain `installdir` or with a
+  `toolmanifest.vdf` in their install dir, the Steamworks, EAC and BattlEye runtimes and Lossless Scaling are left out.
+  A game with stored values and no manifest shows as `not installed`; the runtimes and Lossless Scaling never do. Game
+  names in the rows and in the header of the game's page are plain text.
 - Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other
   file only keys under its owner name (`microdap.*`, `microemu.*`). A key can carry `ui` hints for the page (`order`,
   `widget` `none`, `hue` or `edit` (left/right edit instead of a sheet), `step` or a `steps` list (a value off the list

@@ -1,14 +1,20 @@
 #include "fakemicrosetd.h"
 
+#include "protonprofiles.h"
+#include "protonresolver.h"
 #include "schema.h"
+#include "settings.h"
+#include "store.h"
 
 #include <QDBusConnection>
 #include <QDBusVariant>
 #include <QDBusVirtualObject>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QTemporaryDir>
+#include <QtEndian>
 
 using namespace Qt::StringLiterals;
 
@@ -17,6 +23,39 @@ namespace {
 const QString Name = u"net.seilent.MicroSet"_s;
 const QString Path = u"/net/seilent/MicroSet"_s;
 const QString Interface = u"net.seilent.MicroSet1"_s;
+
+void loadSchema(Schema &schema, const QStringList &files, const QTemporaryDir &dir)
+{
+    for (const QString &file : files)
+        QFile::copy(file, dir.filePath(QFileInfo(file).fileName()));
+    for (const QString &applier : {u"power"_s, u"alsa"_s, u"ssc"_s, u"rgb"_s, u"backlight"_s})
+        schema.addApplier(applier);
+    schema.addProvider(u"sessions"_s, [] { return QStringList{u"microdap"_s, u"microemu"_s, u"steam"_s}; });
+    schema.addProvider(u"gpu_undervolts"_s, [] { return QStringList{u"off"_s, u"low"_s}; },
+                       [] { return QJsonObject{{u"off"_s, u"Off"_s}, {u"low"_s, u"Low"_s}}; });
+    schema.load(dir.path());
+}
+
+void write(const QString &path, const QByteArray &data)
+{
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QFile file(path);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        file.write(data);
+}
+
+QByteArray binaryText(char type, const QByteArray &key, const QByteArray &value)
+{
+    return QByteArray(1, type) + key + '\0' + value + '\0';
+}
+
+QByteArray binaryInt(const QByteArray &key, quint32 value)
+{
+    QByteArray out = QByteArray(1, '\x02') + key + '\0';
+    out.resize(out.size() + 4);
+    qToLittleEndian(value, out.data() + out.size() - 4);
+    return out;
+}
 
 }
 
@@ -45,15 +84,8 @@ private:
 QJsonObject FakeMicroSetd::describe(const QStringList &files)
 {
     QTemporaryDir dir;
-    for (const QString &file : files)
-        QFile::copy(file, dir.filePath(QFileInfo(file).fileName()));
     Schema schema;
-    for (const QString &applier : {u"power"_s, u"alsa"_s, u"ssc"_s, u"rgb"_s, u"backlight"_s})
-        schema.addApplier(applier);
-    schema.addProvider(u"sessions"_s, [] { return QStringList{u"microdap"_s, u"microemu"_s, u"steam"_s}; });
-    schema.addProvider(u"gpu_undervolts"_s, [] { return QStringList{u"off"_s, u"low"_s}; },
-                       [] { return QJsonObject{{u"off"_s, u"Off"_s}, {u"low"_s, u"Low"_s}}; });
-    schema.load(dir.path());
+    loadSchema(schema, files, dir);
     QJsonObject out = schema.describe({});
     if (out.contains("display.rotation"_L1)) {
         QJsonObject rotation = out.value("display.rotation"_L1).toObject();
@@ -61,6 +93,43 @@ QJsonObject FakeMicroSetd::describe(const QStringList &files)
         out.insert(u"display.rotation"_s, rotation);
     }
     return out;
+}
+
+QJsonObject FakeMicroSetd::effective(const QStringList &files, const QVariantMap &stored, const QByteArray &profiles,
+                                     const QString &appid)
+{
+    QTemporaryDir dir;
+    QTemporaryDir state;
+    Schema schema;
+    loadSchema(schema, files, dir);
+    write(state.filePath(u"settings.json"_s),
+          QJsonDocument(QJsonObject{{u"version"_s, 1}, {u"values"_s, QJsonObject::fromVariantMap(stored)}}).toJson());
+    write(state.filePath(u"profiles.json"_s), profiles);
+    Store store(state.path());
+    store.load();
+    Settings settings(schema, store);
+    ProtonProfiles table;
+    table.load(state.filePath(u"profiles.json"_s), schema);
+    return ProtonResolver(settings, table).effective(appid);
+}
+
+void FakeMicroSetd::writeSteam(const QString &root, const QList<QPair<QString, QString>> &games,
+                               const QList<QPair<quint32, QString>> &shortcuts)
+{
+    write(root + u"/steamapps/libraryfolders.vdf"_s,
+          "\"libraryfolders\"\n{\n\t\"0\"\n\t{\n\t\t\"path\"\t\t\"" + root.toUtf8() + "\"\n\t}\n}\n");
+    for (const auto &[appid, name] : games)
+        write(root + u"/steamapps/appmanifest_"_s + appid + u".acf"_s,
+              "\"AppState\"\n{\n\t\"appid\"\t\t\"" + appid.toUtf8() + "\"\n\t\"name\"\t\t\"" + name.toUtf8()
+                  + "\"\n\t\"installdir\"\t\t\"" + appid.toUtf8() + "\"\n}\n");
+    if (shortcuts.isEmpty())
+        return;
+    QByteArray body;
+    for (qsizetype n = 0; n < shortcuts.size(); ++n)
+        body += '\0' + QByteArray::number(n) + '\0' + binaryInt("appid", shortcuts.at(n).first)
+            + binaryText('\x01', "AppName", shortcuts.at(n).second.toUtf8()) + binaryText('\x01', "Exe", "\"game.exe\"")
+            + '\x08';
+    write(root + u"/userdata/1145555777/config/shortcuts.vdf"_s, QByteArray(1, '\0') + "shortcuts" + '\0' + body + "\x08\x08");
 }
 
 QString FakeMicroSetd::fixture(const QString &name)
@@ -158,6 +227,13 @@ void FakeMicroSetd::setHold(bool hold)
     m_hold = hold;
 }
 
+void FakeMicroSetd::setProton(const QStringList &files, const QByteArray &profiles)
+{
+    QMutexLocker locker(&m_lock);
+    m_files = files;
+    m_profiles = profiles;
+}
+
 void FakeMicroSetd::refuse(const QString &key, const QString &error)
 {
     QMutexLocker locker(&m_lock);
@@ -220,6 +296,9 @@ bool FakeMicroSetd::handle(const QDBusMessage &message)
             if (key.isEmpty() || it.key() == key || it.key().startsWith(key + u'.'))
                 out.insert(it.key(), it.value());
         bus.send(message.createReply(QVariant(out)));
+    } else if (message.member() == "Effective"_L1 && !m_files.isEmpty()) {
+        const QJsonObject out = effective(m_files, m_stored, m_profiles, key);
+        bus.send(message.createReply(QString::fromUtf8(QJsonDocument(out).toJson(QJsonDocument::Compact))));
     } else if (message.member() == "Get"_L1) {
         bus.send(message.createReply(QVariant::fromValue(QDBusVariant(m_values.value(key)))));
     } else if (message.member() == "Subscribe"_L1 || message.member() == "Unsubscribe"_L1) {

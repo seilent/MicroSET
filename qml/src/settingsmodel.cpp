@@ -9,6 +9,7 @@
 #include <QDBusServiceWatcher>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QRegularExpression>
 
 #include <algorithm>
 #include <cmath>
@@ -22,6 +23,9 @@ const QString Service = u"net.seilent.MicroSet"_s;
 const QString Path = u"/net/seilent/MicroSet"_s;
 const QString Interface = u"net.seilent.MicroSet1"_s;
 const QString PrivilegedOwner = u"microset"_s;
+const QString AppPrefix = u"app."_s;
+const QRegularExpression AppKey(u"^app\\.([1-9][0-9]{0,9})\\.(.+)$"_s);
+const QRegularExpression AppPage(u"^app\\.([1-9][0-9]{0,9})$"_s);
 constexpr int Last = std::numeric_limits<int>::max();
 constexpr int MaxSteps = 64;
 
@@ -132,6 +136,8 @@ void SettingsModel::load()
                 build(schema, values, qdbus_cast<QVariantMap>(reply.arguments().value(0)));
                 setAvailable(true);
                 bump();
+                for (const QString &appid : m_effective.keys())
+                    fetchEffective(appid);
             });
         });
     });
@@ -141,6 +147,12 @@ void SettingsModel::setFixture(const QJsonObject &schema, const QVariantMap &val
 {
     build(schema, values, stored);
     setAvailable(true);
+    bump();
+}
+
+void SettingsModel::setProtonFixture(const QMap<QString, QJsonObject> &effective)
+{
+    m_effectiveFixture = effective;
     bump();
 }
 
@@ -213,11 +225,16 @@ QVariant SettingsModel::coerce(const QString &type, const QVariant &value)
 void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, const QVariantMap &stored)
 {
     QMap<QString, Entry> entries;
+    QMap<QString, QJsonObject> templates;
     QMap<QString, QString> groupLabels;
     QSet<QString> live;
     QSet<QString> referenced;
     for (auto it = schema.begin(); it != schema.end(); ++it) {
         const QJsonObject object = it.value().toObject();
+        if (object.value("per_app"_L1).toBool() && it.key().startsWith(AppPrefix)) {
+            templates.insert(it.key().mid(AppPrefix.size()), object);
+            continue;
+        }
         const QJsonObject ui = object.value("ui"_L1).toObject();
         const QString groupLabel = object.value("group_ui"_L1).toObject().value("label"_L1).toString();
         if (!groupLabel.isEmpty())
@@ -289,6 +306,7 @@ void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, 
         entries.insert(entry.key, entry);
     }
     m_entries = entries;
+    m_templates = templates;
     m_groupLabels = groupLabels;
     m_values = values;
     m_live = live;
@@ -330,9 +348,10 @@ void SettingsModel::refreshStored(const QString &key)
 void SettingsModel::onChanged(const QString &key, const QVariant &value)
 {
     m_values.insert(key, value);
+    refreshEffective(key);
     const auto it = m_entries.find(key);
     if (it == m_entries.end()) {
-        if (m_referenced.contains(key) || m_watching.contains(key))
+        if (m_referenced.contains(key) || m_watching.contains(key) || key.startsWith(AppPrefix))
             bump();
         return;
     }
@@ -555,6 +574,96 @@ QVariantList SettingsModel::updateRows() const
     return out;
 }
 
+QStringList SettingsModel::storedApps() const
+{
+    QSet<QString> found;
+    for (auto it = m_values.cbegin(); it != m_values.cend(); ++it) {
+        const QRegularExpressionMatch match = AppKey.match(it.key());
+        const auto shape = m_templates.constFind(match.captured(2));
+        if (!match.hasMatch() || shape == m_templates.cend() || SteamLibrary::excluded().contains(match.captured(1)))
+            continue;
+        if (it.value() != shape->value("default"_L1).toVariant())
+            found.insert(match.captured(1));
+    }
+    QStringList out(found.cbegin(), found.cend());
+    std::sort(out.begin(), out.end(), [](const QString &a, const QString &b) { return a.toULongLong() < b.toULongLong(); });
+    return out;
+}
+
+QVariantList SettingsModel::gameRows() const
+{
+    QVariantList out;
+    if (m_templates.isEmpty() || !m_libraryRead)
+        return out;
+    QSet<QString> listed;
+    QVariantMap row{{u"readOnly"_s, true}, {u"widget"_s, QString()}, {u"swatch"_s, QString()}, {u"hue"_s, -1},
+                    {u"confirm"_s, false}, {u"pick"_s, QString()}, {u"bounded"_s, false}};
+    for (const SteamLibrary::Game &game : m_library) {
+        listed.insert(game.appid);
+        const QJsonObject preset = m_effective.value(game.appid).value("options"_L1).toObject().value("fex.preset"_L1).toObject();
+        row.insert({{u"kind"_s, u"row"_s}, {u"key"_s, u"game-"_s + game.appid}, {u"title"_s, game.name},
+                    {u"value"_s, preset.value("value"_L1).toString()}, {u"group"_s, AppPrefix + game.appid}});
+        out << row;
+    }
+    row.remove(u"group"_s);
+    for (const QString &appid : storedApps()) {
+        if (listed.contains(appid))
+            continue;
+        row.insert({{u"kind"_s, u"info"_s}, {u"key"_s, u"game-"_s + appid}, {u"title"_s, appid}, {u"value"_s, u"not installed"_s}});
+        out << row;
+    }
+    return out;
+}
+
+void SettingsModel::fetchEffective(const QString &appid)
+{
+    if (m_fixture) {
+        const auto it = m_effectiveFixture.constFind(appid);
+        if (it != m_effectiveFixture.cend())
+            m_effective.insert(appid, *it);
+        return;
+    }
+    if (!m_client)
+        return;
+    ++m_effectivePending;
+    call(u"Effective"_s, {appid}, [this, appid](const QDBusMessage &reply) {
+        --m_effectivePending;
+        const QJsonDocument document = QJsonDocument::fromJson(reply.arguments().value(0).toString().toUtf8());
+        if (errorOf(reply).isEmpty() && document.isObject() && m_effective.value(appid) != document.object()) {
+            m_effective.insert(appid, document.object());
+            m_effectiveMoved = true;
+        }
+        if (m_effectivePending > 0 || !m_effectiveMoved)
+            return;
+        m_effectiveMoved = false;
+        bump();
+    });
+}
+
+void SettingsModel::refreshEffective(const QString &key)
+{
+    const QString appid = AppKey.match(key).captured(1);
+    if (!appid.isEmpty() && m_effective.contains(appid)) {
+        fetchEffective(appid);
+        return;
+    }
+    if (key.startsWith("fex."_L1) || key.startsWith("wine."_L1) || key.startsWith("proton."_L1)) {
+        for (const QString &cached : m_effective.keys())
+            fetchEffective(cached);
+    }
+}
+
+QString SettingsModel::pageTitle(const QString &group, int) const
+{
+    const QString appid = AppPage.match(group).captured(1);
+    if (appid.isEmpty())
+        return group;
+    for (const SteamLibrary::Game &game : m_library)
+        if (game.appid == appid)
+            return game.name;
+    return appid;
+}
+
 QVariantList SettingsModel::rows(const QString &group, int) const
 {
     QVariantList out;
@@ -578,6 +687,9 @@ QVariantList SettingsModel::rows(const QString &group, int) const
     }
     if (!placed)
         place();
+    const QVariantList games = group == GamesGroup ? gameRows() : QVariantList();
+    if (!games.isEmpty())
+        out << label(GamesGroup) << games;
     return out;
 }
 
@@ -901,6 +1013,18 @@ void SettingsModel::enter(const QString &group)
 {
     for (const QString &key : liveKeys(group))
         hold(key);
+    if (group != GamesGroup || m_templates.isEmpty())
+        return;
+    const SteamLibrary library(SteamLibrary::defaultRoot());
+    const QByteArray stamp = library.stamp();
+    if (!m_libraryRead || stamp != m_libraryStamp) {
+        m_library = library.games();
+        m_libraryStamp = stamp;
+        m_libraryRead = true;
+    }
+    for (const SteamLibrary::Game &game : std::as_const(m_library))
+        fetchEffective(game.appid);
+    bump();
 }
 
 void SettingsModel::leave(const QString &group)

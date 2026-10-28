@@ -465,24 +465,27 @@
       "default": "default",
       "enum": ["default", "compatibility"],
       "applier": null,
-      "group": null,
-      "label": "FEX preset"
+      "group": "games",
+      "label": "FEX preset",
+      "ui": {"order": 0, "apply": "confirm"}
     },
     "wine.sync": {
       "type": "s",
       "default": "ntsync",
       "enum": ["fsync", "ntsync"],
       "applier": null,
-      "group": null,
-      "label": "Wine sync"
+      "group": "games",
+      "label": "Wine sync",
+      "ui": {"order": 1, "apply": "confirm"}
     },
     "proton.profiles": {
       "type": "s",
       "default": "on",
       "enum": ["on", "off"],
       "applier": null,
-      "group": null,
-      "label": "Game profiles"
+      "group": "games",
+      "label": "Game profiles",
+      "ui": {"order": 2, "apply": "confirm"}
     },
     "app.profile": {
       "type": "s",
@@ -599,6 +602,7 @@
     "display": {"label": "display", "order": 1},
     "rgb": {"label": "stick leds", "order": 2},
     "power": {"label": "power", "order": 3},
-    "system": {"label": "system", "order": 4}
+    "games": {"label": "games", "order": 4},
+    "system": {"label": "system", "order": 5}
   }
 }

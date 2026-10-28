@@ -411,7 +411,7 @@ private slots:
         QCOMPARE(schema.key(u"proton.profiles"_s)->enumValues, (QVariantList{u"on"_s, u"off"_s}));
         for (const QString &key : {u"fex.preset"_s, u"wine.sync"_s, u"proton.profiles"_s}) {
             QVERIFY(!schema.key(key)->perApp);
-            QVERIFY(schema.key(key)->group.isEmpty());
+            QCOMPARE(schema.key(key)->group, u"games"_s);
         }
         QVERIFY(schema.preset(u"default"_s) && schema.preset(u"compatibility"_s) && schema.preset(u"performance"_s));
         QCOMPARE(*schema.preset(u"default"_s), Schema::Preset());

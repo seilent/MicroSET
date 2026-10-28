@@ -5,10 +5,14 @@
 #include <QFile>
 #include <QJsonObject>
 #include <QSignalSpy>
+#include <QTemporaryDir>
 #include <QTest>
 
 #include <algorithm>
 #include <memory>
+
+#include <fcntl.h>
+#include <sys/stat.h>
 
 using namespace Qt::StringLiterals;
 
@@ -359,7 +363,7 @@ private slots:
         const auto m = model();
         QCOMPARE(keysOf(m->groups(0)),
                  (QStringList{u"label-microset"_s, u"group-audio"_s, u"group-display"_s, u"group-stick leds"_s,
-                              u"group-power"_s, u"group-system"_s, u"group-updates"_s, u"label-fixture"_s,
+                              u"group-power"_s, u"group-games"_s, u"group-system"_s, u"group-updates"_s, u"label-fixture"_s,
                               u"group-group with a long title"_s}));
         const QVariantMap leds = rowOf(m->groups(0), u"group-stick leds"_s);
         QCOMPARE(leds.value(u"title"_s).toString(), u"stick leds"_s);
@@ -371,6 +375,99 @@ private slots:
         const QVariantMap accent = rowOf(m->rows(u"display"_s, 0), u"microdap.accent_hue"_s);
         QCOMPARE(accent.value(u"hue"_s).toInt(), 120);
         QCOMPARE(accent.value(u"swatch"_s).toString(), QString());
+    }
+
+    void gameList()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(),
+                                  {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s},
+                                   {u"993090"_s, u"Lossless Scaling"_s}, {u"5"_s, u"<b>bold</b>"_s}},
+                                  {{2763258687u, u"Octopath Traveler"_s}});
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const QVariantMap stored{{u"app.2238900.fex.preset"_s, u"performance"_s}, {u"app.77.fex.tso"_s, u"on"_s},
+                                 {u"app.78.fex.tso"_s, u"auto"_s}, {u"app.993090.fex.tso"_s, u"on"_s}};
+        const QString apps = steam.path() + u"/steamapps"_s;
+        const QString acf = apps + u"/appmanifest_292120.acf"_s;
+        const auto pin = [](const QString &path, long nsec = 0) {
+            const timespec times[2] = {{1000, nsec}, {1000, nsec}};
+            QCOMPARE(::utimensat(AT_FDCWD, QFile::encodeName(path).constData(), times, 0), 0);
+        };
+        pin(apps);
+        pin(acf);
+        fake->setValues(stored);
+        fake->setStored(stored);
+        const auto m = model();
+        const QStringList globals{u"label-microset"_s, u"fex.preset"_s, u"wine.sync"_s, u"proton.profiles"_s};
+        QCOMPARE(keysOf(m->rows(u"games"_s, 0)), globals);
+        m->enter(u"games"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-2238900"_s), u"performance"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"default"_s);
+        const QVariantList rows = m->rows(u"games"_s, 0);
+        QCOMPARE(keysOf(rows), (globals + QStringList{u"label-games"_s, u"game-5"_s, u"game-292120"_s, u"game-2763258687"_s,
+                                                      u"game-2238900"_s, u"game-77"_s}));
+        QCOMPARE(rowOf(rows, u"label-games"_s).value(u"kind"_s).toString(), u"label"_s);
+        QCOMPARE(rowOf(rows, u"label-games"_s).value(u"title"_s).toString(), u"games"_s);
+        const QVariantMap ff13 = rowOf(rows, u"game-292120"_s);
+        QCOMPARE(ff13.value(u"kind"_s).toString(), u"row"_s);
+        QCOMPARE(ff13.value(u"group"_s).toString(), u"app.292120"_s);
+        QCOMPARE(ff13.value(u"title"_s).toString(), u"FINAL FANTASY XIII"_s);
+        QVERIFY(ff13.value(u"readOnly"_s).toBool());
+        QCOMPARE(rowOf(rows, u"game-5"_s).value(u"title"_s).toString(), u"<b>bold</b>"_s);
+        const QVariantMap gone = rowOf(rows, u"game-77"_s);
+        QCOMPARE(gone.value(u"kind"_s).toString(), u"info"_s);
+        QCOMPARE(gone.value(u"title"_s).toString(), u"77"_s);
+        QCOMPARE(gone.value(u"value"_s).toString(), u"not installed"_s);
+        QVERIFY(!gone.contains(u"group"_s));
+        QCOMPARE(m->pageTitle(u"app.292120"_s, 0), u"FINAL FANTASY XIII"_s);
+        QCOMPARE(m->pageTitle(u"app.2763258687"_s, 0), u"Octopath Traveler"_s);
+        QCOMPARE(m->pageTitle(u"app.6"_s, 0), u"6"_s);
+        QCOMPARE(m->pageTitle(u"audio"_s, 0), u"audio"_s);
+        QVERIFY(m->set(u"fex.preset"_s, u"compatibility"_s));
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"compatibility"_s);
+        QCOMPARE(value(m->rows(u"games"_s, 0), u"game-2238900"_s), u"performance"_s);
+        fake->emitChanged(u"app.78.fex.tso"_s, u"off"_s);
+        QTRY_COMPARE(keysOf(m->rows(u"games"_s, 0)).last(), u"game-78"_s);
+        fake->setValues(stored);
+        fake->setStored({{u"app.2238900.fex.preset"_s, u"compatibility"_s}, {u"fex.preset"_s, u"compatibility"_s}});
+        m->load();
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-2238900"_s), u"compatibility"_s);
+        QFile renamed(acf);
+        QVERIFY(renamed.open(QIODevice::ReadWrite));
+        const QByteArray same = renamed.readAll().replace("FINAL FANTASY XIII", "FF XIII same bytes");
+        QVERIFY(renamed.seek(0));
+        QCOMPARE(renamed.write(same), same.size());
+        renamed.close();
+        pin(acf);
+        m->enter(u"games"_s);
+        QCOMPARE(rowOf(m->rows(u"games"_s, 0), u"game-292120"_s).value(u"title"_s).toString(), u"FINAL FANTASY XIII"_s);
+        pin(acf, 1);
+        m->enter(u"games"_s);
+        QCOMPARE(rowOf(m->rows(u"games"_s, 0), u"game-292120"_s).value(u"title"_s).toString(), u"FF XIII same bytes"_s);
+        FakeMicroSetd::writeSteam(steam.path(), {{u"2161700"_s, u"Persona 3 Reload"_s}});
+        m->enter(u"games"_s);
+        QVERIFY(keysOf(m->rows(u"games"_s, 0)).contains(u"game-2161700"_s));
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void gameListNeedsTemplates()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}});
+        QJsonObject schema = FakeMicroSetd::describe({FakeMicroSetd::shipped()});
+        for (const QString &key : schema.keys())
+            if (key.startsWith("app."_L1))
+                schema.remove(key);
+        fake->setSchema(schema);
+        const auto m = model();
+        m->enter(u"games"_s);
+        QCOMPARE(keysOf(m->rows(u"games"_s, 0)),
+                 (QStringList{u"label-microset"_s, u"fex.preset"_s, u"wine.sync"_s, u"proton.profiles"_s}));
+        qunsetenv("MICROSET_STEAM_DIR");
     }
 
     void accentAbsent()

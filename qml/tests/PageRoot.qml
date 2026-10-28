@@ -14,7 +14,7 @@ Window {
     readonly property int shotSettle: Math.max(Motion.focusCursor, Motion.focusAlpha)
     readonly property var groupStates: ({
         audio: "audio", display: "display", rgb: "stick leds", "rgb-off": "stick leds", power: "power", system: "system",
-        updates: "updates",
+        updates: "updates", games: "games", "games-empty": "games",
         "long-label": "group with a long title", merged: "display"
     })
     readonly property var sheetStates: ({
@@ -114,6 +114,21 @@ Window {
         } else if (root.sheetStates[root.shotState] !== undefined) {
             const shot = root.sheetStates[root.shotState]
             root.sheet(shot[0], shot[1], shot[2])
+        } else if (root.shotState === "games-many") {
+            view.open("games")
+            const page = view.stack.currentItem
+            page.focusIndex = page.rows.length - 1
+            Qt.callLater(root.bottom)
+        } else if (root.shotState === "games-bottom") {
+            view.open("games")
+            const page = view.stack.currentItem
+            page.focusIndex = page.indexOfKey("game-2238900")
+            Qt.callLater(root.bottom)
+        } else if (root.shotState === "games-long") {
+            view.open("games")
+            const page = view.stack.currentItem
+            page.focusIndex = page.indexOfKey("game-251150")
+            Qt.callLater(page.keepFocusVisible)
         } else if (root.shotState === "flip-before" || root.shotState === "flip-after") {
             view.open("display")
             const page = view.stack.currentItem
