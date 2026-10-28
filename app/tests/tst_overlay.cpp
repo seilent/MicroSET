@@ -1,10 +1,13 @@
 #include "auth.h"
 #include "dbuspad.h"
 #include "fakelogind.h"
+#include "fakemicrosetd.h"
 #include "harness.h"
 #include "holdhint.h"
 #include "overlay.h"
 #include "overlayservice.h"
+#include "runninggame.h"
+#include "settingsmodel.h"
 #include "sleepinhibitor.h"
 
 #include <QCoreApplication>
@@ -18,6 +21,7 @@
 #include <QGuiApplication>
 #include <QQuickWindow>
 #include <QSignalSpy>
+#include <QTemporaryDir>
 #include <QTest>
 
 #include <memory>
@@ -80,6 +84,84 @@ private:
     QStringList m_stack;
 };
 
+class FakeSystemd : public QDBusVirtualObject
+{
+public:
+    struct Unit
+    {
+        QString name;
+        QString slice;
+        qulonglong since = 0;
+        QList<uint> pids;
+    };
+
+    static inline const QString Path = u"/org/freedesktop/systemd1"_s;
+    static inline const QString Manager = u"org.freedesktop.systemd1.Manager"_s;
+
+    explicit FakeSystemd(const QDBusConnection &bus)
+        : m_bus(bus)
+    {
+    }
+
+    QString introspect(const QString &) const override { return {}; }
+
+    bool handleMessage(const QDBusMessage &message, const QDBusConnection &connection) override
+    {
+        calls << message.member();
+        if (message.member() == u"ListUnitsByPatterns"_s && fail) {
+            connection.send(message.createErrorReply(u"org.freedesktop.DBus.Error.Failed"_s, u"failed"_s));
+        } else if (message.member() == u"ListUnitsByPatterns"_s) {
+            QList<SystemdUnit> out;
+            for (qsizetype i = 0; i < units.size(); ++i) {
+                SystemdUnit unit;
+                unit.name = units.at(i).name;
+                unit.active = u"active"_s;
+                unit.path = QDBusObjectPath(Path + u"/unit/"_s + QString::number(i));
+                unit.jobPath = QDBusObjectPath(u"/"_s);
+                out << unit;
+            }
+            connection.send(message.createReply(QVariant::fromValue(out)));
+        } else if (message.member() == u"GetUnitProcesses"_s) {
+            QList<UnitProcess> out;
+            for (const Unit &unit : std::as_const(units))
+                if (unit.name == message.arguments().value(0).toString())
+                    for (const uint pid : unit.pids)
+                        out << UnitProcess{u"/game.slice/"_s + unit.name, pid, u"wine"_s};
+            connection.send(message.createReply(QVariant::fromValue(out)));
+        } else if (message.member() == u"Get"_s) {
+            const Unit unit = units.value(message.path().section(u'/', -1).toInt());
+            const QString property = message.arguments().value(1).toString();
+            const QVariant value = property == u"Slice"_s ? QVariant(unit.slice) : QVariant::fromValue(unit.since);
+            connection.send(message.createReply(QVariant::fromValue(QDBusVariant(value))));
+        } else {
+            connection.send(message.createReply());
+        }
+        return true;
+    }
+
+    void removed(const QString &name)
+    {
+        QDBusMessage signal = QDBusMessage::createSignal(Path, Manager, u"UnitRemoved"_s);
+        signal << name << QVariant::fromValue(QDBusObjectPath(Path + u"/unit/0"_s));
+        m_bus.send(signal);
+    }
+
+    void state(int index, const QString &active)
+    {
+        QDBusMessage signal = QDBusMessage::createSignal(Path + u"/unit/"_s + QString::number(index),
+                                                         u"org.freedesktop.DBus.Properties"_s, u"PropertiesChanged"_s);
+        signal << u"org.freedesktop.systemd1.Unit"_s << QVariantMap{{u"ActiveState"_s, active}} << QStringList();
+        m_bus.send(signal);
+    }
+
+    QList<Unit> units;
+    QStringList calls;
+    bool fail = false;
+
+private:
+    QDBusConnection m_bus;
+};
+
 class OverlayTest : public QObject
 {
     Q_OBJECT
@@ -129,6 +211,30 @@ class OverlayTest : public QObject
     }
 
     QString other() { return bus(u"other"_s).baseService(); }
+
+    void writeEnviron(uint pid, const QList<QByteArray> &entries)
+    {
+        QByteArray data;
+        for (const QByteArray &entry : entries)
+            data += entry + '\0';
+        m_h.writeFile(u"proc/%1/environ"_s.arg(pid), data);
+    }
+
+    static QStringList keysOf(const QVariantList &rows)
+    {
+        QStringList out;
+        for (const QVariant &row : rows)
+            out << row.toMap().value(u"key"_s).toString();
+        return out;
+    }
+
+    static QVariantMap rowOf(const QVariantList &rows, const QString &key)
+    {
+        for (const QVariant &row : rows)
+            if (row.toMap().value(u"key"_s).toString() == key)
+                return row.toMap();
+        return {};
+    }
     QString ours() { return m_pad->name(); }
     bool windowUp() { return m_window->handle() && m_window->isVisible(); }
 
@@ -589,6 +695,210 @@ private slots:
         QDBusConnection::disconnectFromBus(u"caller"_s);
         bus(u"pad-session"_s).unregisterObject(OverlayService::path());
         bus(u"pad-session"_s).unregisterService(OverlayService::service());
+    }
+
+    void runningGame()
+    {
+        QDBusConnection manager = bus(u"systemd"_s);
+        FakeSystemd systemd(manager);
+        QVERIFY(manager.registerVirtualObject(FakeSystemd::Path, &systemd, QDBusConnection::SubPath));
+        QVERIFY(manager.registerService(u"org.freedesktop.systemd1"_s));
+        const QString proton = m_h.path(u"common/Proton 11.0 (ARM64)"_s);
+        const QString runtime = m_h.path(u"common/SteamLinuxRuntime_4-arm64"_s);
+        m_h.writeFile(u"common/Proton 11.0 (ARM64)/proton"_s, "#!/usr/bin/env python3\n");
+        m_h.writeFile(u"common/SteamLinuxRuntime_4-arm64/_v2-entry-point"_s, "#!/bin/sh\n");
+        const QByteArray tools =
+            "STEAM_COMPAT_TOOL_PATHS=" + QFile::encodeName(proton) + ':' + QFile::encodeName(runtime);
+        writeEnviron(11, {"SteamGameId=292120", tools});
+        writeEnviron(12, {"SteamGameId=292120", tools, "STEAM_COMPAT_FEX_CONFIG=", "MICROOS_PROTON_HOOK=ok"});
+        systemd.units = {{u"app-steam-app292120-100.scope"_s, RunningGame::Slice, 100, {10, 11, 12}}};
+        RunningGame game(bus(u"game"_s), m_h.path(u"proc"_s));
+        game.refresh();
+        QTRY_COMPARE(game.info().value(u"appid"_s).toString(), u"292120"_s);
+        QVariantMap info = game.info();
+        QCOMPARE(info.value(u"unit"_s).toString(), u"app-steam-app292120-100.scope"_s);
+        QCOMPARE(info.value(u"hook"_s).toString(), u"ok"_s);
+        QCOMPARE(info.value(u"tool"_s).toString(), u"Proton 11.0 (ARM64)"_s);
+        QVERIFY(info.value(u"proton"_s).toBool());
+        QVERIFY(!info.value(u"steamFex"_s).toBool());
+        QCOMPARE(info.value(u"profile"_s).toString(), QString());
+        QVERIFY(systemd.calls.contains(u"Subscribe"_s));
+
+        writeEnviron(20, {tools, "MICROOS_PROTON_HOOK=bad-local,no-fex-profiles", "MICROOS_PROTON_PROFILE=other-tool",
+                     "MICROOS_PROTON_YIELDED=FEX_TSOENABLED", "STEAM_COMPAT_FEX_CONFIG=TSOEnabled"});
+        systemd.units << FakeSystemd::Unit{u"app-steam-app2238900-200.scope"_s, RunningGame::Slice, 300, {20}}
+                      << FakeSystemd::Unit{u"app-steam-app1145360-300.scope"_s, u"app.slice"_s, 400, {20}}
+                      << FakeSystemd::Unit{u"app-steam-app0-1.scope"_s, RunningGame::Slice, 500, {20}}
+                      << FakeSystemd::Unit{u"app-steam-appX-1.scope"_s, RunningGame::Slice, 500, {20}};
+        game.refresh();
+        QTRY_COMPARE(game.info().value(u"appid"_s).toString(), u"2238900"_s);
+        info = game.info();
+        QCOMPARE(info.value(u"hook"_s).toString(), u"bad-local,no-fex-profiles"_s);
+        QCOMPARE(info.value(u"profile"_s).toString(), u"other-tool"_s);
+        QCOMPARE(info.value(u"yielded"_s).toString(), u"FEX_TSOENABLED"_s);
+        QVERIFY(info.value(u"steamFex"_s).toBool());
+
+        writeEnviron(20, {tools});
+        game.refresh();
+        QTRY_COMPARE(game.info().value(u"hook"_s).toString(), QString());
+        QVERIFY(game.info().value(u"proton"_s).toBool());
+        QCOMPARE(game.info().value(u"tool"_s).toString(), u"Proton 11.0 (ARM64)"_s);
+        writeEnviron(20, {"SteamGameId=2238900"});
+        game.refresh();
+        QTRY_VERIFY(!game.info().value(u"proton"_s).toBool());
+        QCOMPARE(game.info().value(u"tool"_s).toString(), QString());
+        writeEnviron(20, {tools});
+        game.refresh();
+        QTRY_VERIFY(game.info().value(u"proton"_s).toBool());
+        writeEnviron(20, {"STEAM_COMPAT_TOOL_PATHS=" + QFile::encodeName(runtime)});
+        game.refresh();
+        QTRY_VERIFY(!game.info().value(u"proton"_s).toBool());
+        QCOMPARE(game.info().value(u"tool"_s).toString(), QString());
+        m_h.writeFile(u"common/linked/target"_s, "#!/usr/bin/env python3\n");
+        QVERIFY(QFile::link(m_h.path(u"common/linked/target"_s), m_h.path(u"common/linked/proton"_s)));
+        writeEnviron(20, {tools});
+        game.refresh();
+        QTRY_VERIFY(game.info().value(u"proton"_s).toBool());
+        writeEnviron(20, {"STEAM_COMPAT_TOOL_PATHS=" + QFile::encodeName(m_h.path(u"common/linked"_s))});
+        game.refresh();
+        QTRY_VERIFY(!game.info().value(u"proton"_s).toBool());
+        writeEnviron(20, {tools});
+        game.refresh();
+        QTRY_VERIFY(game.info().value(u"proton"_s).toBool());
+        writeEnviron(20, {"STEAM_COMPAT_TOOL_PATHS=common/Proton 11.0 (ARM64)"});
+        game.refresh();
+        QTRY_VERIFY(!game.info().value(u"proton"_s).toBool());
+        writeEnviron(20, {tools, "MICROOS_PROTON_HOOK=ok", QByteArray("X=") + QByteArray(RunningGame::MaxEnviron, 'x')});
+        game.refresh();
+        QTest::qWait(200);
+        QCOMPARE(game.info().value(u"hook"_s).toString(), QString());
+
+        writeEnviron(20, {"STEAM_COMPAT_TOOL_PATHS=", "MICROOS_PROTON_HOOK=ok"});
+        game.refresh();
+        QTRY_COMPARE(game.info().value(u"hook"_s).toString(), u"ok"_s);
+        QVERIFY(!game.info().value(u"proton"_s).toBool());
+
+        QSignalSpy changed(&game, &RunningGame::changed);
+        systemd.removed(u"app-steam-app292120-100.scope"_s);
+        systemd.state(0, u"failed"_s);
+        QTest::qWait(200);
+        QCOMPARE(changed.count(), 0);
+        systemd.state(1, u"active"_s);
+        QTest::qWait(200);
+        QCOMPARE(changed.count(), 0);
+        systemd.removed(u"app-steam-app2238900-200.scope"_s);
+        QTRY_VERIFY(game.info().value(u"gone"_s).toBool());
+        QCOMPARE(game.info().value(u"appid"_s).toString(), u"2238900"_s);
+        game.refresh();
+        QTRY_VERIFY(!game.info().value(u"gone"_s).toBool());
+        systemd.state(1, u"failed"_s);
+        QTRY_VERIFY(game.info().value(u"gone"_s).toBool());
+
+        game.skip({u"2238900"_s});
+        game.refresh();
+        QTRY_COMPARE(game.info().value(u"appid"_s).toString(), u"292120"_s);
+        systemd.fail = true;
+        game.refresh();
+        QTRY_VERIFY(game.info().isEmpty());
+        systemd.fail = false;
+        game.refresh();
+        QTRY_COMPARE(game.info().value(u"appid"_s).toString(), u"292120"_s);
+        systemd.units.clear();
+        game.refresh();
+        QTRY_VERIFY(game.info().isEmpty());
+        QCOMPARE(systemd.calls.count(u"Subscribe"_s), 1);
+        manager.unregisterObject(FakeSystemd::Path, QDBusConnection::UnregisterTree);
+        manager.unregisterService(u"org.freedesktop.systemd1"_s);
+        QDBusConnection::disconnectFromBus(u"systemd"_s);
+        QDBusConnection::disconnectFromBus(u"game"_s);
+    }
+
+    void thisGameRows()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s}});
+        const QStringList files{FakeMicroSetd::shipped()};
+        const auto made = [&](const QVariantMap &stored) {
+            auto model = std::make_unique<SettingsModel>();
+            model->setFixture(FakeMicroSetd::describe(files), stored, {});
+            QMap<QString, QJsonObject> effective;
+            for (const QString &appid : {u"292120"_s, u"2238900"_s})
+                effective.insert(appid, FakeMicroSetd::effective(files, stored, FakeMicroSetd::Profiles, appid));
+            model->setProtonFixture(effective);
+            return model;
+        };
+        const auto model = made({});
+        QCOMPARE(keysOf(model->groups(0)).first(), u"label-microset"_s);
+        const QVariantMap ok{{u"appid"_s, u"292120"_s}, {u"unit"_s, u"app-steam-app292120-100.scope"_s}, {u"hook"_s, u"ok"_s},
+                             {u"tool"_s, u"Proton 11.0 (ARM64)"_s}, {u"proton"_s, true}, {u"steamFex"_s, false}};
+        model->setGame(ok);
+        QVariantList rows = model->groups(0);
+        QCOMPARE(keysOf(rows).mid(0, 5), (QStringList{u"label-this game"_s, u"game-292120"_s, u"game-profile"_s,
+                                                      u"label-microset"_s, u"group-audio"_s}));
+        QCOMPARE(rowOf(rows, u"label-this game"_s).value(u"kind"_s).toString(), u"label"_s);
+        QCOMPARE(rowOf(rows, u"label-this game"_s).value(u"title"_s).toString(), u"this game"_s);
+        const QVariantMap row = rowOf(rows, u"game-292120"_s);
+        QCOMPARE(row.value(u"kind"_s).toString(), u"row"_s);
+        QCOMPARE(row.value(u"title"_s).toString(), u"FINAL FANTASY XIII"_s);
+        QCOMPARE(row.value(u"group"_s).toString(), u"app.292120"_s);
+        QCOMPARE(row.value(u"value"_s).toString(), QString());
+        QCOMPARE(rowOf(rows, u"game-profile"_s).value(u"kind"_s).toString(), u"info"_s);
+        QCOMPARE(rowOf(rows, u"game-profile"_s).value(u"title"_s).toString(), u"MicroOS profile"_s);
+        QCOMPARE(rowOf(rows, u"game-profile"_s).value(u"value"_s).toString(), u"on"_s);
+
+        const auto shown = [&](const QVariantMap &change) {
+            QVariantMap game = ok;
+            game.insert(change);
+            model->setGame(game);
+            return model->groups(0);
+        };
+        rows = shown({{u"hook"_s, QString()}});
+        QCOMPARE(rowOf(rows, u"game-missing"_s).value(u"title"_s).toString(), u"hook missing in"_s);
+        QCOMPARE(rowOf(rows, u"game-missing"_s).value(u"value"_s).toString(), u"Proton 11.0 (ARM64)"_s);
+        QVERIFY(!keysOf(rows).contains(u"game-state"_s));
+        QVERIFY(!keysOf(rows).contains(u"game-profile"_s));
+        rows = shown({{u"hook"_s, u"bad-local,no-fex-profiles"_s}});
+        QCOMPARE(rowOf(rows, u"game-state"_s).value(u"title"_s).toString(), u"settings not reaching the game"_s);
+        QCOMPARE(rowOf(rows, u"game-state"_s).value(u"value"_s).toString(), u"bad-local, no-fex-profiles"_s);
+        rows = shown({{u"hook"_s, u"ok"_s}, {u"profile"_s, u"other-tool"_s}});
+        QCOMPARE(rowOf(rows, u"game-profile"_s).value(u"title"_s).toString(), u"profile not for this Proton"_s);
+        QCOMPARE(rowOf(rows, u"game-profile"_s).value(u"value"_s).toString(), QString());
+        rows = shown({{u"hook"_s, u"no-fex-profiles"_s}, {u"yielded"_s, u"FEX_TSOENABLED,FEX_MULTIBLOCK"_s}});
+        QCOMPARE(keysOf(rows).mid(0, 5), (QStringList{u"label-this game"_s, u"game-292120"_s, u"game-state"_s,
+                                                      u"game-profile"_s, u"game-yield"_s}));
+        QCOMPARE(rowOf(rows, u"game-yield"_s).value(u"title"_s).toString(), u"profile gives way to Steam"_s);
+        QCOMPARE(rowOf(rows, u"game-yield"_s).value(u"value"_s).toString(), u"FEX_TSOENABLED, FEX_MULTIBLOCK"_s);
+        rows = shown({{u"gone"_s, true}});
+        QCOMPARE(rowOf(rows, u"game-state"_s).value(u"value"_s).toString(), u"unknown"_s);
+        QVERIFY(!keysOf(rows).contains(u"game-profile"_s));
+        rows = shown({{u"gone"_s, true}, {u"profile"_s, u"other-tool"_s}});
+        QVERIFY(!keysOf(rows).contains(u"game-profile"_s));
+        QCOMPARE(rowOf(rows, u"game-292120"_s).value(u"title"_s).toString(), u"FINAL FANTASY XIII"_s);
+        rows = shown({{u"gone"_s, true}, {u"yielded"_s, u"FEX_TSOENABLED"_s}});
+        QVERIFY(!keysOf(rows).contains(u"game-yield"_s));
+        rows = shown({{u"appid"_s, u"2238900"_s}, {u"hook"_s, QString()}, {u"tool"_s, QString()}, {u"proton"_s, false}});
+        QCOMPARE(keysOf(rows).mid(0, 3), (QStringList{u"label-this game"_s, u"game-2238900"_s, u"label-microset"_s}));
+        rows = shown({{u"appid"_s, u"2238900"_s}});
+        QCOMPARE(keysOf(rows).mid(0, 3), (QStringList{u"label-this game"_s, u"game-2238900"_s, u"label-microset"_s}));
+
+        model->setGame(ok);
+        model->enter(u"app.292120"_s);
+        QVERIFY(!keysOf(model->rows(u"app.292120"_s, 0)).contains(u"game-steam"_s));
+        rows = shown({{u"steamFex"_s, true}});
+        const QVariantList page = model->rows(u"app.292120"_s, 0);
+        QCOMPARE(keysOf(page).mid(keysOf(page).size() - 2), (QStringList{u"game-next"_s, u"game-steam"_s}));
+        QCOMPARE(rowOf(page, u"game-steam"_s).value(u"title"_s).toString(), u"Set in Steam"_s);
+        QCOMPARE(rowOf(page, u"game-steam"_s).value(u"value"_s).toString(), u"TSO, Multiblock"_s);
+        model->enter(u"app.2238900"_s);
+        QVERIFY(!keysOf(model->rows(u"app.2238900"_s, 0)).contains(u"game-steam"_s));
+        model->setGame({});
+        QCOMPARE(keysOf(model->groups(0)).first(), u"label-microset"_s);
+
+        const auto off = made({{u"app.292120.profile"_s, u"off"_s}});
+        off->setGame(ok);
+        QCOMPARE(rowOf(off->groups(0), u"game-profile"_s).value(u"value"_s).toString(), u"off"_s);
+        qunsetenv("MICROSET_STEAM_DIR");
     }
 
 public slots:

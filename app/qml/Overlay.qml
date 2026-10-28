@@ -86,6 +86,14 @@ Window {
                 page.handleAction("down", false)
                 page.handleAction("a", false)
             })
+        } else if (root.shotState === "game-page") {
+            view.open("app.292120")
+            const page = view.stack.currentItem
+            Qt.callLater(() => {
+                page.focusIndex = page.rows.length - 1
+                page.completeScroll()
+                page.flick.contentY = page.maxContentY()
+            })
         } else if (root.shotState === "hint-page") {
             view.toast.show("", root.holdText)
             view.toast.complete()

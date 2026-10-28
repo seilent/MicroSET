@@ -13,6 +13,7 @@
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
 #include <QRegularExpression>
+#include <QTemporaryDir>
 #include <QTextStream>
 #include <QTimer>
 #include <QtQml/qqmlextensionplugin.h>
@@ -37,8 +38,31 @@ const QStringList &states()
 {
     static const QStringList names{u"top"_s,  u"audio"_s,         u"portrait"_s,      u"hint-page"_s,
                                    u"hint"_s, u"hint-portrait"_s, u"sheet"_s,         u"sheet-portrait"_s,
-                                   u"undervolt-after-sheet"_s};
+                                   u"undervolt-after-sheet"_s, u"game"_s, u"game-missing"_s, u"game-state"_s,
+                                   u"game-yield"_s, u"game-other-tool"_s, u"game-gone"_s, u"game-native"_s,
+                                   u"game-page"_s};
     return names;
+}
+
+QVariantMap gameOf(const QString &state)
+{
+    QVariantMap game{{u"appid"_s, u"292120"_s}, {u"unit"_s, u"app-steam-app292120-100.scope"_s}, {u"hook"_s, u"ok"_s},
+                     {u"tool"_s, u"Proton 11.0 (ARM64)"_s}, {u"proton"_s, true}, {u"steamFex"_s, false}};
+    if (state == "game-missing"_L1)
+        game.insert(u"hook"_s, QString());
+    else if (state == "game-state"_L1)
+        game.insert(u"hook"_s, u"bad-local,no-fex-profiles"_s);
+    else if (state == "game-yield"_L1)
+        game.insert({{u"hook"_s, u"no-fex-profiles"_s}, {u"yielded"_s, u"FEX_TSOENABLED,FEX_MULTIBLOCK"_s}});
+    else if (state == "game-other-tool"_L1)
+        game.insert(u"profile"_s, u"other-tool"_s);
+    else if (state == "game-gone"_L1)
+        game.insert(u"gone"_s, true);
+    else if (state == "game-native"_L1)
+        game = {{u"appid"_s, u"2238900"_s}, {u"hook"_s, QString()}, {u"tool"_s, QString()}, {u"proton"_s, false}};
+    else if (state == "game-page"_L1)
+        game.insert(u"steamFex"_s, true);
+    return game;
 }
 
 class ShotOverlay : public QObject
@@ -97,7 +121,9 @@ int main(int argc, char *argv[])
         {u"audio.output"_s, u"speaker"_s},
         {u"audio.eq.headphones.on"_s, true},
         {u"audio.eq.headphones.name"_s, u"Sennheiser HD 600 ParametricEQ"_s},
-        {u"display.rotation"_s, state == "portrait"_L1 || state == "hint-portrait"_L1 || state == "sheet-portrait"_L1 ? u"portrait"_s : u"landscape-flipped"_s},
+        {u"display.rotation"_s, state == "portrait"_L1 || state == "hint-portrait"_L1 || state == "sheet-portrait"_L1
+                                    || (state.startsWith("game"_L1) && size.captured(2).toInt() > size.captured(1).toInt())
+                                    ? u"portrait"_s : u"landscape-flipped"_s},
         {u"rgb.brightness"_s, 50u},
         {u"power.gpu_undervolt"_s, u"off"_s},
         {u"power.gpu_undervolt_active"_s, u"stock"_s}};
@@ -132,6 +158,16 @@ int main(int argc, char *argv[])
     } else {
         model = std::make_unique<SettingsModel>();
         model->setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), values, stored);
+    }
+    QTemporaryDir steam;
+    if (state.startsWith("game"_L1)) {
+        const QStringList files{FakeMicroSetd::shipped()};
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s},
+                                                 {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s}});
+        model->setProtonFixture({{u"292120"_s, FakeMicroSetd::effective(files, {}, FakeMicroSetd::Profiles, u"292120"_s)},
+                                 {u"2238900"_s, FakeMicroSetd::effective(files, {}, FakeMicroSetd::Profiles, u"2238900"_s)}});
+        model->setGame(gameOf(state));
     }
     model->updates()->setFixture(u"testing-38784f1"_s, u"none"_s, {});
     ShotOverlay overlay;

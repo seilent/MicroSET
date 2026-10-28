@@ -1,7 +1,8 @@
 find_package(Qt6 REQUIRED COMPONENTS Test)
 
 add_executable(tst_overlay tst_overlay.cpp)
-target_link_libraries(tst_overlay PRIVATE microset_overlay_core microset_harness Qt6::Quick Qt6::Test)
+target_link_libraries(tst_overlay PRIVATE microset_overlay_core microset_harness microset_page_fixtures microset_ui Qt6::Quick
+    Qt6::Test)
 add_test(NAME overlay COMMAND tst_overlay)
 set_tests_properties(overlay PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
@@ -31,8 +32,9 @@ if(NOT MICROSET_TEST_FONT_DIR)
     return()
 endif()
 
-set(states_960x640 top audio hint-page hint sheet undervolt-after-sheet)
-set(states_640x960 top audio portrait hint-page hint hint-portrait sheet sheet-portrait undervolt-after-sheet)
+set(game_states game game-missing game-state game-yield game-other-tool game-gone game-native game-page)
+set(states_960x640 top audio hint-page hint sheet undervolt-after-sheet ${game_states})
+set(states_640x960 top audio portrait hint-page hint hint-portrait sheet sheet-portrait undervolt-after-sheet ${game_states})
 foreach(size 960x640 640x960)
     foreach(state IN LISTS states_${size})
         add_test(NAME overlay-shot-${state}-${size}

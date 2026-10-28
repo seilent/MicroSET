@@ -4,8 +4,10 @@
 #include "holdhint.h"
 #include "overlay.h"
 #include "overlayservice.h"
+#include "runninggame.h"
 #include "settingsmodel.h"
 #include "sleepinhibitor.h"
+#include "steamlibrary.h"
 #include "uirelease.h"
 
 #include <QByteArray>
@@ -110,6 +112,13 @@ int main(int argc, char *argv[])
         },
         [](QWindow *window) { window->lower(); });
 
+    RunningGame game(session, u"/proc"_s);
+    game.skip(SteamLibrary::excluded());
+    QObject::connect(&overlay, &Overlay::shownChanged, &game, [&overlay, &game] {
+        if (overlay.shown())
+            game.refresh();
+    });
+
     std::unique_ptr<SettingsModel> model;
     std::unique_ptr<QQmlApplicationEngine> engine;
     overlay.setUi([&] {
@@ -117,6 +126,10 @@ int main(int argc, char *argv[])
             return;
         model = std::make_unique<SettingsModel>(system);
         model->load();
+        model->setGame(game.info());
+        QObject::connect(&game, &RunningGame::changed, model.get(), [&game, target = model.get()] {
+            target->setGame(game.info());
+        });
         engine = std::make_unique<QQmlApplicationEngine>();
         QObject::connect(engine.get(), &QQmlApplicationEngine::warnings, engine.get(),
                          [](const QList<QQmlError> &list) {

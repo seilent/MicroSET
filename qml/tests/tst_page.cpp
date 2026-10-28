@@ -337,6 +337,51 @@ private slots:
         key(Qt::Key_Escape);
     }
 
+    void thisGameOpensItsPage()
+    {
+        fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
+        model->setGame({{u"appid"_s, u"292120"_s}, {u"hook"_s, u"bad-local"_s}, {u"tool"_s, u"Proton 11.0 (ARM64)"_s},
+                        {u"proton"_s, true}});
+        QTRY_VERIFY(!row(u"game-profile"_s).isEmpty());
+        QStringList keys;
+        for (const QVariant &r : page()->property("rows").toList())
+            keys << r.toMap().value(u"key"_s).toString();
+        QCOMPARE(keys.mid(0, 5), (QStringList{u"label-this game"_s, u"game-292120"_s, u"game-state"_s, u"game-profile"_s,
+                                              u"label-microset"_s}));
+        focus(u"game-292120"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(page()->property("group").toString(), u"app.292120"_s);
+        QTRY_VERIFY(!row(u"app.292120.fex.tso"_s).isEmpty());
+        key(Qt::Key_Escape);
+        QCOMPARE(page()->property("title").toString(), u"settings"_s);
+        focus(u"game-292120"_s);
+        key(Qt::Key_Down);
+        reachable(u"game-state"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        reachable(u"game-profile"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(page()->property("title").toString(), u"settings"_s);
+        QVERIFY(!sheetShown());
+        model->setGame({{u"appid"_s, u"292120"_s}, {u"tool"_s, u"<i>Proton</i>"_s}, {u"proton"_s, true}});
+        QTRY_COMPARE(value(u"game-missing"_s), u"<i>Proton</i>"_s);
+        int missing = -1;
+        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, missing), Q_ARG(QString, u"game-missing"_s)));
+        QQuickItem *delegate = nullptr;
+        QVERIFY(QMetaObject::invokeMethod(qvariant_cast<QObject *>(page()->property("repeater")), "itemAt",
+                                          Q_RETURN_ARG(QQuickItem *, delegate), Q_ARG(int, missing)));
+        QVERIFY(delegate);
+        QObject *shown = qvariant_cast<QObject *>(delegate->property("valueItem"));
+        QCOMPARE(shown->property("text").toString(), u"<i>Proton</i>"_s);
+        QCOMPARE(shown->property("textFormat").toInt(), int(Qt::PlainText));
+        model->setGame({});
+        QTRY_VERIFY(row(u"game-292120"_s).isEmpty());
+        bool focusable = false;
+        QVERIFY(QMetaObject::invokeMethod(page(), "isFocusable", Q_RETURN_ARG(bool, focusable),
+                                          Q_ARG(int, page()->property("focusIndex").toInt())));
+        QVERIFY(focusable);
+    }
+
     void toastStaysWhileSticky()
     {
         QObject *t = toast();

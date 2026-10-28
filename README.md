@@ -19,7 +19,17 @@ read, change and watch them over D-Bus.
   `/net/seilent/MicroSet/Overlay`, interface `net.seilent.MicroSet.Overlay1` with `Toggle`, `Show`, `Hide` and the
   `Shown` property; refused from a game. While shown it holds the pad through the MicroOS intercept arbiter, and it
   gives way to another overlay that takes the arbiter until it is on top again. Shows "Hold A to format" while
-  `microos-storage format` waits for the hold.
+  `microos-storage format` waits for the hold. Each time it shows it looks for the newest active
+  `app-steam-app<appid>-*.scope` in `game.slice` of the user manager; while one runs the first page starts with `this
+  game`: the game's row, which opens its page, and info rows read from the environ of the scope's processes:
+  `settings not reaching the game` with the `MICROOS_PROTON_HOOK` state when it is not `ok` (`unknown` once the scope
+  is gone), `hook missing in` the tool dir when no process carries `MICROOS_PROTON_HOOK` and the first
+  `STEAM_COMPAT_TOOL_PATHS` entry is a dir holding a regular file `proton`, `MicroOS profile` `on` or `off`
+  (`profile not for this Proton` on `MICROOS_PROTON_PROFILE=other-tool`) and `profile gives way to Steam` with
+  `MICROOS_PROTON_YIELDED`, both while the hook ran and the scope runs. Any other game (native or on a Steam Linux
+  Runtime) gets the game row only. Scopes of the apps the game list leaves out are skipped. A scope that is removed or
+  leaves the active state turns the state row `unknown`. While `STEAM_COMPAT_FEX_CONFIG` is non empty, the running
+  game's page ends with `Set in Steam` (TSO, Multiblock). Row values are plain text.
 - `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and `microset-settings`. The
   page (`SettingsView`) lists the schema groups and edits their keys over `net.seilent.MicroSet`: A on a list or
   number row opens a value sheet, on an on/off row flips it. The `games` group holds `fex.preset`, `wine.sync` and

@@ -143,6 +143,7 @@ Item {
         clip: true
         anchors.baseline: titleText.baseline
         text: item.shownValue
+        textFormat: Text.PlainText
         color: item.editing ? Ui.accent : Ui.white(item.valueAlpha)
         font: Ui.font(Ui.settingsValue)
 

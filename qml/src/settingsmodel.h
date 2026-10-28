@@ -52,6 +52,7 @@ public:
     void load();
     void setFixture(const QJsonObject &schema, const QVariantMap &values, const QVariantMap &stored);
     void setProtonFixture(const QMap<QString, QJsonObject> &effective);
+    void setGame(const QVariantMap &game);
     UpdateInfo *updates();
 
     bool available() const;
@@ -175,11 +176,14 @@ private:
     QVariantList updateRows() const;
     QStringList liveKeys(const QString &group) const;
     QStringList storedApps() const;
+    QVariantMap gameRow(const QString &appid, const QString &title) const;
     QVariantList gameRows() const;
+    QVariantList thisGame() const;
     void fetchEffective(const QString &appid);
     void refreshEffective(const QString &key);
     static QVariant coerce(const QString &type, const QVariant &value);
     static QVariantMap label(const QString &owner);
+    static QVariantMap infoRow(const QString &key, const QString &title, const QString &value);
 
     std::unique_ptr<MicroSet::Client> m_client;
     QDBusConnection m_bus;
@@ -188,6 +192,7 @@ private:
     QMap<QString, QJsonObject> m_templates;
     QSet<QString> m_apps;
     QMap<QString, QString> m_names;
+    QVariantMap m_game;
     QList<SteamLibrary::Game> m_library;
     bool m_libraryRead = false;
     QByteArray m_libraryStamp;

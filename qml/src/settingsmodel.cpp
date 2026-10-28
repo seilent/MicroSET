@@ -156,6 +156,23 @@ void SettingsModel::setProtonFixture(const QMap<QString, QJsonObject> &effective
     bump();
 }
 
+void SettingsModel::setGame(const QVariantMap &game)
+{
+    if (game == m_game)
+        return;
+    m_game = game;
+    const QString appid = game.value(u"appid"_s).toString();
+    if (!appid.isEmpty()) {
+        if (!m_names.contains(appid)) {
+            const QString name = SteamLibrary(SteamLibrary::defaultRoot()).name(appid);
+            if (!name.isEmpty())
+                m_names.insert(appid, name);
+        }
+        fetchEffective(appid);
+    }
+    bump();
+}
+
 UpdateInfo *SettingsModel::updates()
 {
     return &m_updates;
@@ -631,6 +648,13 @@ QVariantMap SettingsModel::rowOf(const Entry &entry) const
     return row;
 }
 
+QVariantMap SettingsModel::infoRow(const QString &key, const QString &title, const QString &value)
+{
+    return {{u"kind"_s, u"info"_s}, {u"key"_s, key}, {u"title"_s, title}, {u"value"_s, value}, {u"readOnly"_s, true},
+            {u"widget"_s, QString()}, {u"swatch"_s, QString()}, {u"hue"_s, -1}, {u"confirm"_s, false},
+            {u"pick"_s, QString()}, {u"bounded"_s, false}};
+}
+
 QVariantMap SettingsModel::label(const QString &owner)
 {
     return {{u"kind"_s, u"label"_s}, {u"key"_s, u"label-"_s + owner}, {u"title"_s, owner}, {u"value"_s, QString()},
@@ -701,28 +725,57 @@ QStringList SettingsModel::storedApps() const
     return out;
 }
 
+QVariantMap SettingsModel::gameRow(const QString &appid, const QString &title) const
+{
+    const QJsonObject preset = m_effective.value(appid).value("options"_L1).toObject().value("fex.preset"_L1).toObject();
+    QVariantMap row = infoRow(u"game-"_s + appid, title, preset.value("value"_L1).toString());
+    row.insert({{u"kind"_s, u"row"_s}, {u"group"_s, AppPrefix + appid}});
+    return row;
+}
+
 QVariantList SettingsModel::gameRows() const
 {
     QVariantList out;
     if (m_templates.isEmpty() || !m_libraryRead)
         return out;
     QSet<QString> listed;
-    QVariantMap row{{u"readOnly"_s, true}, {u"widget"_s, QString()}, {u"swatch"_s, QString()}, {u"hue"_s, -1},
-                    {u"confirm"_s, false}, {u"pick"_s, QString()}, {u"bounded"_s, false}};
     for (const SteamLibrary::Game &game : m_library) {
         listed.insert(game.appid);
-        const QJsonObject preset = m_effective.value(game.appid).value("options"_L1).toObject().value("fex.preset"_L1).toObject();
-        row.insert({{u"kind"_s, u"row"_s}, {u"key"_s, u"game-"_s + game.appid}, {u"title"_s, game.name},
-                    {u"value"_s, preset.value("value"_L1).toString()}, {u"group"_s, AppPrefix + game.appid}});
-        out << row;
+        out << gameRow(game.appid, game.name);
     }
-    row.remove(u"group"_s);
-    for (const QString &appid : storedApps()) {
-        if (listed.contains(appid))
-            continue;
-        row.insert({{u"kind"_s, u"info"_s}, {u"key"_s, u"game-"_s + appid}, {u"title"_s, appid}, {u"value"_s, u"not installed"_s}});
-        out << row;
-    }
+    for (const QString &appid : storedApps())
+        if (!listed.contains(appid))
+            out << infoRow(u"game-"_s + appid, appid, u"not installed"_s);
+    return out;
+}
+
+QVariantList SettingsModel::thisGame() const
+{
+    const QString appid = m_game.value(u"appid"_s).toString();
+    if (appid.isEmpty() || m_templates.isEmpty())
+        return {};
+    QVariantMap row = gameRow(appid, pageTitle(AppPrefix + appid, 0));
+    row.insert(u"value"_s, QString());
+    QVariantList out{label(u"this game"_s), row};
+    const QString hook = m_game.value(u"hook"_s).toString();
+    if (hook.isEmpty() && !m_game.value(u"proton"_s).toBool())
+        return out;
+    const QString state = u"settings not reaching the game"_s;
+    if (m_game.value(u"gone"_s).toBool())
+        out << infoRow(u"game-state"_s, state, u"unknown"_s);
+    else if (hook.isEmpty())
+        out << infoRow(u"game-missing"_s, u"hook missing in"_s, m_game.value(u"tool"_s).toString());
+    else if (hook != "ok"_L1)
+        out << infoRow(u"game-state"_s, state, QString(hook).replace(u',', u", "_s));
+    const QJsonObject profile = m_effective.value(appid).value("profile"_L1).toObject();
+    const bool ran = !hook.isEmpty() && !m_game.value(u"gone"_s).toBool();
+    if (ran && m_game.value(u"profile"_s).toString() == "other-tool"_L1)
+        out << infoRow(u"game-profile"_s, u"profile not for this Proton"_s, QString());
+    else if (ran && !profile.isEmpty())
+        out << infoRow(u"game-profile"_s, u"MicroOS profile"_s, profile.value("on"_L1).toBool() ? u"on"_s : u"off"_s);
+    const QString yielded = m_game.value(u"yielded"_s).toString();
+    if (ran && !yielded.isEmpty())
+        out << infoRow(u"game-yield"_s, u"profile gives way to Steam"_s, QString(yielded).replace(u',', u", "_s));
     return out;
 }
 
@@ -806,11 +859,15 @@ QVariantList SettingsModel::rows(const QString &group, int) const
     const QVariantList games = group == GamesGroup ? gameRows() : QVariantList();
     if (!games.isEmpty())
         out << label(GamesGroup) << games;
-    if (!AppPage.match(group).hasMatch() || out.isEmpty())
+    const QString appid = AppPage.match(group).captured(1);
+    if (appid.isEmpty() || out.isEmpty())
         return out;
-    out << QVariantMap{{u"kind"_s, u"info"_s}, {u"key"_s, u"game-next"_s}, {u"title"_s, u"Applies at next launch"_s},
-                       {u"value"_s, QString()}, {u"readOnly"_s, true}, {u"widget"_s, QString()}, {u"swatch"_s, QString()},
-                       {u"hue"_s, -1}, {u"confirm"_s, false}, {u"pick"_s, QString()}, {u"bounded"_s, false}};
+    out << infoRow(u"game-next"_s, u"Applies at next launch"_s, QString());
+    if (appid == m_game.value(u"appid"_s).toString() && m_game.value(u"steamFex"_s).toBool()) {
+        const QString tso = m_templates.value(u"fex.tso"_s).value("label"_L1).toString();
+        const QString multiblock = m_templates.value(u"fex.multiblock"_s).value("label"_L1).toString();
+        out << infoRow(u"game-steam"_s, u"Set in Steam"_s, tso + u", "_s + multiblock);
+    }
     return out;
 }
 
@@ -847,7 +904,7 @@ QVariantList SettingsModel::groups(int) const
             return b.title == UpdatesGroup;
         return a.order != b.order ? a.order < b.order : a.title < b.title;
     });
-    QVariantList out;
+    QVariantList out = thisGame();
     QString section;
     for (const Item &item : std::as_const(items)) {
         if (out.isEmpty() || item.owner != section) {
