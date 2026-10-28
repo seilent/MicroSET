@@ -44,6 +44,13 @@
     <method name="Unsubscribe">
       <arg name="key" type="s" direction="in"/>
     </method>
+    <method name="Effective">
+      <arg name="appid" type="s" direction="in"/>
+      <arg name="json" type="s" direction="out"/>
+    </method>
+    <method name="Profiles">
+      <arg name="json" type="s" direction="out"/>
+    </method>
     <signal name="Changed">
       <arg name="key" type="s"/>
       <arg name="value" type="v"/>

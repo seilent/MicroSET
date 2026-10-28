@@ -3,6 +3,8 @@
 #include "fakelogind.h"
 #include "harness.h"
 #include "powerbridge.h"
+#include "protonprofiles.h"
+#include "protonresolver.h"
 #include "schema.h"
 #include "service.h"
 #include "settings.h"
@@ -258,6 +260,8 @@ private:
         Store store{h.path(u"state"_s)};
         Settings settings{schema, store};
         UndervoltsProvider undervolts{h.path(u"gpu-undervolt.conf"_s), h.path(u"available_frequencies"_s)};
+        ProtonProfiles profiles;
+        ProtonResolver resolver{settings, profiles};
         std::unique_ptr<PowerBridge> bridge;
         std::unique_ptr<Auth> auth;
         std::unique_ptr<BacklightApplier> backlight;
@@ -291,7 +295,7 @@ private:
             bridge = std::make_unique<PowerBridge>(bus, settings, undervolts);
             auth = std::make_unique<Auth>(bus, h.path(u"proc"_s));
             backlight = std::make_unique<BacklightApplier>(settings, h.path(u"backlight"_s), h.path(u"run"_s));
-            service = std::make_unique<Service>(bus, settings, *auth, *bridge, *backlight);
+            service = std::make_unique<Service>(bus, settings, *auth, *bridge, *backlight, resolver);
             service->addLive(Rotation);
             applier = std::make_unique<SscApplier>(settings, rotation);
             QObject::connect(service.get(), &Service::subscribersChanged, applier.get(),

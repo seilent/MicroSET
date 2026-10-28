@@ -29,7 +29,9 @@ add_library(microsetd_core STATIC
     daemon/alsalibcontrol.cpp
     daemon/backlightapplier.cpp
     daemon/powerbridge.cpp
+    daemon/protonapplier.cpp
     daemon/protonprofiles.cpp
+    daemon/protonresolver.cpp
     daemon/qrtrlink.cpp
     daemon/rgbapplier.cpp
     daemon/schema.cpp

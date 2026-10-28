@@ -51,7 +51,16 @@ default removes the key, at most 512 games hold values (`Failed`, "too many game
 
 Proton profiles come from `/usr/share/microos/proton/profiles.json` (`MICROSET_PROTON_PROFILES`):
 `{"version": 1, "profiles": {"<appid>": {"tool": "<Proton version prefix>", "set": {"<per game key>": "<value>"}}}}`.
-A bad entry is dropped with one log line, and `microsetd --check-profiles <file>` exits 1 when it drops anything.
+A bad entry is dropped with one log line, and `microsetd --check-profiles <file>` exits 1 when it drops anything. A
+value counts as set when it differs from its default. Per option the first of these wins: the game's value, the game's
+`fex.preset`, the global `fex.preset` (for the options it sets) or `wine.sync`, the profile while `proton.profiles` and
+the game's `profile` are `on`, then Proton's own. `Effective(appid)` returns the result as JSON with the source of each
+value (`set`, `preset`, `global`, `profile`, `default`), `Profiles()` the loaded profiles.
+
+`microsetd` writes the result to `/run/microset/proton/` (dir 0755, files 0644): `default.json` and `<appid>.json` for
+every game with a value or a profile, each by rename and at most 4096 bytes, before it takes its bus name and on every
+change. Format version 2: `features.<feature>.env` (with `fallback` for the names a profile set), `below_local` (names
+from a profile or a default rule) and `profile` (`names`, `yield`, `tool`), read by the MicroOS Proton hook.
 
 Keys marked `"override": true` (`rgb.enabled`, `rgb.hue`, `rgb.saturation`, `display.brightness`) take an
 `Override`: one per caller bus name per key, the newest wins, dropped on `ClearOverride` or when the caller leaves the bus. Overrides live in memory;

@@ -32,12 +32,13 @@ QString appOf(const QString &name)
 }
 
 Service::Service(const QDBusConnection &bus, Settings &settings, const Auth &auth, PowerBridge &bridge,
-                 BacklightApplier &backlight, QObject *parent)
+                 BacklightApplier &backlight, const ProtonResolver &resolver, QObject *parent)
     : QObject(parent)
     , m_settings(settings)
     , m_auth(auth)
     , m_bridge(bridge)
     , m_backlight(backlight)
+    , m_resolver(resolver)
     , m_watcher(QString(), bus, QDBusServiceWatcher::WatchForUnregistration)
 {
     qDBusRegisterMetaType<QMap<QString, QString>>();
@@ -276,6 +277,20 @@ QString Service::Schema(const QString &prefix)
         out.insert(key, entry);
     }
     return QString::fromUtf8(QJsonDocument(out).toJson(QJsonDocument::Compact));
+}
+
+QString Service::Effective(const QString &appid)
+{
+    if (!::Schema::isAppId(appid)) {
+        sendErrorReply(Errors::InvalidArgs, u"not an appid"_s);
+        return {};
+    }
+    return QString::fromUtf8(QJsonDocument(m_resolver.effective(appid)).toJson(QJsonDocument::Compact));
+}
+
+QString Service::Profiles()
+{
+    return QString::fromUtf8(QJsonDocument(m_resolver.profiles().toJson()).toJson(QJsonDocument::Compact));
 }
 
 void Service::addLive(const QString &key)

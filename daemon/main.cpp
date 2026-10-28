@@ -3,7 +3,9 @@
 #include "auth.h"
 #include "backlightapplier.h"
 #include "powerbridge.h"
+#include "protonapplier.h"
 #include "protonprofiles.h"
+#include "protonresolver.h"
 #include "qrtrlink.h"
 #include "rgbapplier.h"
 #include "schema.h"
@@ -91,13 +93,19 @@ int main(int argc, char **argv)
     ProtonProfiles profiles;
     profiles.load(qEnvironmentVariable("MICROSET_PROTON_PROFILES", u"/usr/share/microos/proton/profiles.json"_s),
                   schema);
+    ProtonResolver resolver(settings, profiles);
+    const QString runtime = qEnvironmentVariable("RUNTIME_DIRECTORY", u"/run/microset"_s);
+    ProtonApplier proton(settings, resolver, runtime + u"/proton"_s);
+    proton.addFeature(fexFeature(resolver));
+    proton.addFeature(wineFeature(resolver));
+    proton.start();
 
     PowerBridge bridge(bus, settings, undervolts);
     Auth auth(bus, qEnvironmentVariable("MICROOS_PROC", u"/proc"_s));
     const QString backlight = qEnvironmentVariable("MICROSET_BACKLIGHT", u"/sys/class/backlight/backlight"_s);
-    BacklightApplier light(settings, backlight, qEnvironmentVariable("RUNTIME_DIRECTORY", u"/run/microset"_s));
+    BacklightApplier light(settings, backlight, runtime);
     light.start();
-    Service service(bus, settings, auth, bridge, light);
+    Service service(bus, settings, auth, bridge, light, resolver);
     service.addLive(u"display.rotation"_s);
     SleepInhibitor sleep(bus, u"stop the rotation sensor and the stick LEDs"_s);
     SscRotation rotation(new QrtrLink, &sleep);

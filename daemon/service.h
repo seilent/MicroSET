@@ -3,6 +3,7 @@
 #include "auth.h"
 #include "backlightapplier.h"
 #include "powerbridge.h"
+#include "protonresolver.h"
 #include "settings.h"
 
 #include <QDBusConnection>
@@ -21,7 +22,7 @@ class Service : public QObject, protected QDBusContext
 
 public:
     Service(const QDBusConnection &bus, Settings &settings, const Auth &auth, PowerBridge &bridge,
-            BacklightApplier &backlight, QObject *parent = nullptr);
+            BacklightApplier &backlight, const ProtonResolver &resolver, QObject *parent = nullptr);
 
     void addLive(const QString &key);
     bool held(const QString &key) const;
@@ -37,6 +38,8 @@ public slots:
     Q_SCRIPTABLE QString Schema(const QString &prefix);
     Q_SCRIPTABLE void Subscribe(const QString &key);
     Q_SCRIPTABLE void Unsubscribe(const QString &key);
+    Q_SCRIPTABLE QString Effective(const QString &appid);
+    Q_SCRIPTABLE QString Profiles();
 
 signals:
     Q_SCRIPTABLE void Changed(const QString &key, const QDBusVariant &value);
@@ -55,6 +58,7 @@ private:
     const Auth &m_auth;
     PowerBridge &m_bridge;
     BacklightApplier &m_backlight;
+    const ProtonResolver &m_resolver;
     QDBusServiceWatcher m_watcher;
     QSet<QString> m_live;
     QHash<QString, QSet<QString>> m_subscribers;

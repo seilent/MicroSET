@@ -1,6 +1,11 @@
 #include "fakelogind.h"
 #include "fakepowerd.h"
 #include "harness.h"
+#include "protonprofiles.h"
+#include "protonresolver.h"
+#include "schema.h"
+#include "settings.h"
+#include "store.h"
 
 #include <microset/client.h>
 
@@ -8,9 +13,12 @@
 #include <QDBusMetaType>
 #include <QDBusVariant>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QSignalSpy>
 #include <QTest>
 #include <QXmlStreamReader>
@@ -184,7 +192,7 @@ private slots:
         QFile xml(QStringLiteral(MICROSET_SOURCE_DIR) + u"/data/net.seilent.MicroSet1.xml"_s);
         QVERIFY(xml.open(QIODevice::ReadOnly));
         const QStringList shipped = members(QString::fromUtf8(xml.readAll()));
-        QCOMPARE(shipped.size(), 12);
+        QCOMPARE(shipped.size(), 14);
         QCOMPARE(members(reply.arguments().value(0).toString()), shipped);
     }
 
@@ -1037,6 +1045,96 @@ private slots:
         QCOMPARE(stored(u"app."_s), (QVariantMap{{u"app.2238900.wine.sync"_s, u"fsync"_s},
                                                  {u"app.292120.fex.tso"_s, u"off"_s},
                                                  {u"app.292120.profile"_s, u"off"_s}}));
+    }
+
+    void effectiveAndProfiles()
+    {
+        h->writeFile(u"profiles.json"_s, R"({"version": 1, "profiles": {
+            "292120": {"tool": "proton-11.0-", "set": {"fex.tso": "off", "wine.sync": "fsync"}},
+            "7": {"set": {"fex.smc": "bad"}}}})");
+        QVERIFY(up());
+        QVERIFY(h->daemonLog().contains("profiles.json: profile 7: bad value for fex.smc, dropped"_L1));
+        const auto json = [](const QDBusMessage &reply) {
+            return QJsonDocument::fromJson(reply.arguments().value(0).toString().toUtf8()).object();
+        };
+        QCOMPARE(json(h->call(u"Profiles"_s, {})),
+                 QJsonDocument::fromJson(R"({"292120": {"tool": "proton-11.0-", "set": {"fex.tso": "off", "wine.sync": "fsync"}}})")
+                     .object());
+        for (const QString &appid : {u"0"_s, u"app.292120"_s, QString(), u"12345678901"_s, u"29212x"_s})
+            QCOMPARE(errorOf(h->call(u"Effective"_s, {appid})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
+        QCOMPARE(set(u"fex.preset"_s, u"compatibility"_s), QString());
+        QCOMPARE(set(u"app.292120.fex.multiblock"_s, u"off"_s), QString());
+        QCOMPARE(set(u"app.2238900.fex.preset"_s, u"performance"_s), QString());
+        const QStringList appids = {u"292120"_s, u"2238900"_s, u"4294967295"_s};
+        QList<QJsonObject> views;
+        for (const QString &appid : appids)
+            views << json(h->call(u"Effective"_s, {appid}));
+        const QStringList sources = {u"set"_s, u"preset"_s, u"global"_s, u"profile"_s, u"default"_s};
+        for (const QJsonObject &view : std::as_const(views)) {
+            const QJsonObject options = view.value("options"_L1).toObject();
+            QCOMPARE(options.size(), 12);
+            for (const QJsonValue &entry : options) {
+                QCOMPARE(entry.toObject().keys(), (QStringList{u"source"_s, u"value"_s}));
+                QVERIFY(sources.contains(entry.toObject().value("source"_L1).toString()));
+            }
+        }
+        const auto option = [&](int view, const char *name) {
+            const QJsonObject entry = views.at(view).value("options"_L1).toObject().value(QLatin1StringView(name)).toObject();
+            return entry.value("value"_L1).toString() + u' ' + entry.value("source"_L1).toString();
+        };
+        QCOMPARE(option(0, "fex.tso"), u"on global"_s);
+        QCOMPARE(option(0, "fex.multiblock"), u"off set"_s);
+        QCOMPARE(option(0, "wine.sync"), u"fsync profile"_s);
+        QCOMPARE(option(0, "fex.preset"), u"compatibility global"_s);
+        QCOMPARE(option(1, "fex.tso"), u"off preset"_s);
+        QCOMPARE(option(1, "fex.half_barrier"), u" preset"_s);
+        QCOMPARE(option(1, "fex.preset"), u"performance set"_s);
+        QCOMPARE(option(2, "fex.vector_tso"), u"on global"_s);
+        QCOMPARE(option(2, "wine.sync"), u"ntsync default"_s);
+        QCOMPARE(views.at(0).value("profile"_L1).toObject().value("overridden"_L1).toArray(), QJsonArray{u"fex.tso"_s});
+        QVERIFY(!views.at(1).contains("profile"_L1));
+        h->stopDaemon();
+        Schema schema;
+        for (const QString &applier : {u"power"_s, u"alsa"_s, u"ssc"_s, u"rgb"_s, u"backlight"_s})
+            schema.addApplier(applier);
+        schema.addProvider(u"sessions"_s, [] { return QStringList{u"steam"_s}; });
+        schema.addProvider(u"gpu_undervolts"_s, [] { return QStringList{u"off"_s}; });
+        schema.load(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+        Store store(h->path(u"state"_s));
+        store.load();
+        Settings settings(schema, store);
+        ProtonProfiles profiles;
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"profiles.json: profile 7: bad value for fex.smc, dropped"_s));
+        profiles.load(h->path(u"profiles.json"_s), schema);
+        const ProtonResolver resolver(settings, profiles);
+        for (qsizetype i = 0; i < appids.size(); ++i)
+            QCOMPARE(views.at(i), resolver.effective(appids.at(i)));
+    }
+
+    void importEveryGameKeyInTime()
+    {
+        QVERIFY(up());
+        const QJsonObject templates =
+            QJsonDocument::fromJson(h->call(u"Schema"_s, {u"app."_s}).arguments().value(0).toString().toUtf8()).object();
+        QCOMPARE(templates.size(), 13);
+        QVariantMap values;
+        for (int game = 1; game <= 512; ++game)
+            for (auto it = templates.begin(); it != templates.end(); ++it)
+                values.insert(u"app.%1.%2"_s.arg(game).arg(it.key().mid(4)),
+                              it.value().toObject().value("enum"_L1).toArray().at(1).toString());
+        QCOMPARE(values.size(), 512 * 13);
+        QDBusMessage message = QDBusMessage::createMethodCall(u"net.seilent.MicroSet"_s, u"/net/seilent/MicroSet"_s,
+                                                              u"net.seilent.MicroSet1"_s, u"Import"_s);
+        message.setArguments({values});
+        QElapsedTimer timer;
+        timer.start();
+        const QDBusMessage reply = h->client().call(message, QDBus::BlockWithGui, 120000);
+        const qint64 spent = timer.elapsed();
+        QCOMPARE(errorOf(reply), QString());
+        QCOMPARE(reply.arguments().value(0).toStringList().size(), 512 * 13);
+        QVERIFY2(spent < 20000, qPrintable(u"import of 512 games took %1 ms"_s.arg(spent)));
+        QCOMPARE(QDir(h->path(u"run/proton"_s)).entryList({u"*.json"_s}, QDir::Files).size(), 513);
+        QCOMPARE(stored(u"app.512."_s).size(), 13);
     }
 
     void perGameCap()
