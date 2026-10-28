@@ -49,6 +49,10 @@ default removes the key, at most 512 games hold values (`Failed`, "too many game
 `Subscribe`. The global keys are `fex.preset` (`default` or `compatibility`), `wine.sync` (`fsync` or `ntsync`) and
 `proton.profiles` (`on` or `off`); the FEX presets are under `presets` in `10-microset.json`.
 
+Proton profiles come from `/usr/share/microos/proton/profiles.json` (`MICROSET_PROTON_PROFILES`):
+`{"version": 1, "profiles": {"<appid>": {"tool": "<Proton version prefix>", "set": {"<per game key>": "<value>"}}}}`.
+A bad entry is dropped with one log line, and `microsetd --check-profiles <file>` exits 1 when it drops anything.
+
 Keys marked `"override": true` (`rgb.enabled`, `rgb.hue`, `rgb.saturation`, `display.brightness`) take an
 `Override`: one per caller bus name per key, the newest wins, dropped on `ClearOverride` or when the caller leaves the bus. Overrides live in memory;
 `libmicroset` sends them again when `microsetd` restarts. Under an override `Set` still stores its value, and it shows

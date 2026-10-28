@@ -3,6 +3,7 @@
 #include "auth.h"
 #include "backlightapplier.h"
 #include "powerbridge.h"
+#include "protonprofiles.h"
 #include "qrtrlink.h"
 #include "rgbapplier.h"
 #include "schema.h"
@@ -49,12 +50,6 @@ int main(int argc, char **argv)
         QCoreApplication::quit();
     });
 
-    QDBusConnection bus = QDBusConnection::systemBus();
-    if (!bus.isConnected()) {
-        qCritical("no system bus: %s", qPrintable(bus.lastError().message()));
-        return 1;
-    }
-
     SessionsProvider sessions(qEnvironmentVariable("MICROSET_SESSIONS_ROOT"));
     Schema schema;
     schema.addApplier(u"power"_s);
@@ -69,6 +64,20 @@ int main(int argc, char **argv)
     schema.addProvider(u"gpu_undervolts"_s, [&undervolts] { return undervolts.names(); },
                        [&undervolts] { return undervolts.labels(); });
     schema.load(qEnvironmentVariable("MICROSET_SCHEMA_DIR", QStringLiteral(MICROSET_SCHEMA_DIR)));
+    const QStringList arguments = app.arguments().mid(1);
+    if (!arguments.isEmpty()) {
+        if (arguments.size() != 2 || arguments.first() != "--check-profiles"_L1) {
+            qCritical("usage: microsetd [--check-profiles <file>]");
+            return 2;
+        }
+        return ProtonProfiles().load(arguments.at(1), schema) ? 0 : 1;
+    }
+
+    QDBusConnection bus = QDBusConnection::systemBus();
+    if (!bus.isConnected()) {
+        qCritical("no system bus: %s", qPrintable(bus.lastError().message()));
+        return 1;
+    }
 
     Store store(qEnvironmentVariable("STATE_DIRECTORY", u"/var/lib/microset"_s));
     store.load();
@@ -79,6 +88,9 @@ int main(int argc, char **argv)
         settings.setCoalesceDelay(delay);
     PowerBridge::importState(qEnvironmentVariable("MICROSET_POWER_CONF", u"/var/lib/microos/power.conf"_s), settings);
     settings.moveBtCodec();
+    ProtonProfiles profiles;
+    profiles.load(qEnvironmentVariable("MICROSET_PROTON_PROFILES", u"/usr/share/microos/proton/profiles.json"_s),
+                  schema);
 
     PowerBridge bridge(bus, settings, undervolts);
     Auth auth(bus, qEnvironmentVariable("MICROOS_PROC", u"/proc"_s));
