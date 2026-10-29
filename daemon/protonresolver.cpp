@@ -13,6 +13,14 @@ const QString PresetOption = u"fex.preset"_s;
 const QString ProfileOption = u"profile"_s;
 const QString ProfilesKey = u"proton.profiles"_s;
 const QString On = u"on"_s;
+const QString Off = u"off"_s;
+const QString Default = u"default"_s;
+const QString LsfgState = u"lsfg.state"_s;
+const QString LsfgEnabled = u"lsfg.enabled"_s;
+const QString LsfgMode = u"lsfg.mode"_s;
+const QString LsfgMultiplier = u"lsfg.multiplier"_s;
+const QString LsfgCap = u"lsfg.fps_cap"_s;
+constexpr uint PanelHz = 60;
 
 QString app(const QString &appid, const QString &option)
 {
@@ -41,6 +49,21 @@ ProtonResolver::Resolved ProtonResolver::preset(const QString &appid) const
 
 ProtonResolver::Resolved ProtonResolver::resolve(const QString &appid, const QString &option, bool profile) const
 {
+    if (option == LsfgState && m_settings.isSet(LsfgEnabled))
+        return {Off, u"global"_s};
+    const Resolved out = chain(appid, option, profile);
+    if (out.source != Default)
+        return out;
+    if (option == LsfgState)
+        return {m_settings.value(LsfgMode).toString() == "blacklist"_L1 ? On : Off, Default};
+    if (option != LsfgCap || out.value != "auto"_L1)
+        return out;
+    const uint multiplier = resolve(appid, LsfgMultiplier, profile).value.toUInt();
+    return multiplier > 0 ? Resolved{QString::number(PanelHz / multiplier), Default} : out;
+}
+
+ProtonResolver::Resolved ProtonResolver::chain(const QString &appid, const QString &option, bool profile) const
+{
     const Schema &schema = m_settings.schema();
     const bool fex = option.startsWith("fex."_L1);
     if (!appid.isEmpty() && m_settings.isSet(app(appid, option)))
@@ -59,7 +82,7 @@ ProtonResolver::Resolved ProtonResolver::resolve(const QString &appid, const QSt
     if (own && own->set.contains(option) && profileInForce(appid))
         return {own->set.value(option), u"profile"_s};
     const Key *global = fex ? nullptr : schema.key(option);
-    return {global ? global->defaultValue.toString() : QString(), u"default"_s};
+    return {global ? global->defaultValue.toString() : QString(), Default};
 }
 
 bool ProtonResolver::profileInForce(const QString &appid) const
@@ -90,9 +113,15 @@ QStringList ProtonResolver::apps() const
 QJsonObject ProtonResolver::effective(const QString &appid) const
 {
     QJsonObject options{{PresetOption, entry(preset(appid))}};
-    for (const QString &option : m_settings.schema().options())
-        if (option != PresetOption && option != ProfileOption)
-            options.insert(option, entry(resolve(appid, option)));
+    for (const QString &option : m_settings.schema().options()) {
+        if (option == PresetOption || option == ProfileOption)
+            continue;
+        const Resolved resolved = resolve(appid, option);
+        QJsonObject item = entry(resolved);
+        if (option == LsfgState && resolved.source == Default)
+            item.insert(u"mode"_s, m_settings.value(LsfgMode).toString());
+        options.insert(option, item);
+    }
     QJsonObject out{{u"appid"_s, appid}, {u"options"_s, options}};
     const ProtonProfiles::Entry *own = m_profiles.entry(appid);
     if (!own)

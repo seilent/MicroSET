@@ -192,7 +192,14 @@ QProcessEnvironment Harness::environment() const
     env.insert(u"MICROSET_RGB_DEVICE"_s, path(u"dev/ttyHS2"_s));
     env.insert(u"MICROSET_BACKLIGHT"_s, path(u"backlight"_s));
     env.insert(u"RUNTIME_DIRECTORY"_s, path(u"run"_s));
+    for (auto it = m_environment.cbegin(); it != m_environment.cend(); ++it)
+        env.insert(it.key(), it.value());
     return env;
+}
+
+void Harness::setEnvironment(const QString &name, const QString &value)
+{
+    m_environment.insert(name, value);
 }
 
 bool Harness::startDaemon()

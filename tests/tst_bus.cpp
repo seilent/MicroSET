@@ -1073,10 +1073,14 @@ private slots:
         for (const QJsonObject &view : std::as_const(views)) {
             const QJsonObject options = view.value("options"_L1).toObject();
             QCOMPARE(options.size(), 15);
-            for (const QJsonValue &entry : options) {
-                QCOMPARE(entry.toObject().keys(), (QStringList{u"source"_s, u"value"_s}));
-                QVERIFY(sources.contains(entry.toObject().value("source"_L1).toString()));
+            for (auto it = options.begin(); it != options.end(); ++it) {
+                const QJsonObject entry = it.value().toObject();
+                const bool mode = it.key() == "lsfg.state"_L1 && entry.value("source"_L1) == "default"_L1;
+                QCOMPARE(entry.keys(), (mode ? QStringList{u"mode"_s, u"source"_s, u"value"_s}
+                                             : QStringList{u"source"_s, u"value"_s}));
+                QVERIFY(sources.contains(entry.value("source"_L1).toString()));
             }
+            QCOMPARE(options.value("lsfg.state"_L1).toObject().value("mode"_L1).toString(), u"whitelist"_s);
         }
         const auto option = [&](int view, const char *name) {
             const QJsonObject entry = views.at(view).value("options"_L1).toObject().value(QLatin1StringView(name)).toObject();
@@ -1109,6 +1113,49 @@ private slots:
         const ProtonResolver resolver(settings, profiles);
         for (qsizetype i = 0; i < appids.size(); ++i)
             QCOMPARE(views.at(i), resolver.effective(appids.at(i)));
+    }
+
+    void rollbackKeepsLsfgKeys()
+    {
+        QFile shipped(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema/10-microset.json"_s);
+        QVERIFY(shipped.open(QIODevice::ReadOnly));
+        QJsonObject root = QJsonDocument::fromJson(shipped.readAll()).object();
+        QJsonObject keys = root.value("keys"_L1).toObject();
+        for (const QString &key : keys.keys())
+            if (key.startsWith("lsfg."_L1) || key.startsWith("app.lsfg."_L1))
+                keys.remove(key);
+        root.insert(u"keys"_s, keys);
+        QJsonObject groups = root.value("groups"_L1).toObject();
+        groups.remove(u"lsfg"_s);
+        root.insert(u"groups"_s, groups);
+        h->writeFile(u"old-schema/10-microset.json"_s, QJsonDocument(root).toJson());
+        h->setEnvironment(u"MICROSET_SCHEMA_DIR"_s, h->path(u"old-schema"_s));
+        const QStringList lsfg{u"lsfg.enabled"_s, u"lsfg.mode"_s, u"lsfg.multiplier"_s, u"app.2238900.lsfg.state"_s,
+                               u"app.2238900.lsfg.fps_cap"_s};
+        h->writeState(R"({"lsfg.enabled": false, "lsfg.mode": "blacklist", "lsfg.multiplier": 3,
+                          "app.2238900.lsfg.state": "on", "app.2238900.lsfg.fps_cap": "20", "app.2238900.fex.tso": "off"})");
+        QVERIFY(up());
+        QCOMPARE(errorOf(h->call(u"Get"_s, {u"lsfg.mode"_s})), u"net.seilent.MicroSet1.Error.UnknownKey"_s);
+        QCOMPARE(errorOf(h->call(u"Get"_s, {u"app.2238900.lsfg.state"_s})), u"net.seilent.MicroSet1.Error.UnknownKey"_s);
+        QCOMPARE(get(u"app.2238900.fex.tso"_s), QVariant(u"off"_s));
+        QCOMPARE(errorOf(h->call(u"List"_s, {QString()})), QString());
+        QCOMPARE(set(u"audio.volume_step"_s, 10u), QString());
+        QCOMPARE(set(u"app.2238900.fex.tso"_s, u"on"_s), QString());
+        QTRY_COMPARE(onDisk().value("app.2238900.fex.tso"_L1).toString(), u"on"_s);
+        const QJsonObject disk = onDisk();
+        for (const QString &key : lsfg)
+            QVERIFY2(disk.contains(key), qPrintable(key));
+        QFile game(h->path(u"run/proton/2238900.json"_s));
+        QVERIFY(game.open(QIODevice::ReadOnly));
+        const QJsonObject file = QJsonDocument::fromJson(game.readAll()).object();
+        QCOMPARE(file.value("features"_L1).toObject().value("fex"_L1).toObject().value("env"_L1).toObject(),
+                 (QJsonObject{{u"FEX_TSOENABLED"_s, u"1"_s}}));
+        h->stopDaemon();
+        h->setEnvironment(u"MICROSET_SCHEMA_DIR"_s, QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+        QVERIFY(h->startDaemon());
+        QCOMPARE(get(u"lsfg.mode"_s), QVariant(u"blacklist"_s));
+        QCOMPARE(get(u"lsfg.enabled"_s), QVariant(false));
+        QCOMPARE(get(u"app.2238900.lsfg.state"_s), QVariant(u"on"_s));
     }
 
     void importEveryGameKeyInTime()

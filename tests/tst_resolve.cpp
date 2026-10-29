@@ -1,4 +1,5 @@
 #include "harness.h"
+#include "protonapplier.h"
 #include "protonprofiles.h"
 #include "protonresolver.h"
 #include "schema.h"
@@ -31,7 +32,7 @@ private:
         ProtonProfiles profiles;
         std::unique_ptr<ProtonResolver> resolver;
 
-        explicit Fixture(const QByteArray &state = {})
+        explicit Fixture(const QByteArray &state = {}, const QByteArray &table = Profiles)
         {
             for (const QString &applier : {u"power"_s, u"alsa"_s, u"ssc"_s, u"rgb"_s, u"backlight"_s})
                 schema.addApplier(applier);
@@ -43,9 +44,14 @@ private:
             store = std::make_unique<Store>(h.path(u"state"_s));
             store->load();
             settings = std::make_unique<Settings>(schema, *store);
-            h.writeFile(u"profiles.json"_s, Profiles);
+            h.writeFile(u"profiles.json"_s, table);
             profiles.load(h.path(u"profiles.json"_s), schema);
             resolver = std::make_unique<ProtonResolver>(*settings, profiles);
+        }
+
+        ProtonSection lsfg(const QString &appid) const
+        {
+            return lsfgFeature(*resolver)->section(appid, true);
         }
 
         QString resolved(const QString &appid, const QString &option) const
@@ -128,6 +134,219 @@ private slots:
         QFETCH(QString, expected);
         const Fixture f(state);
         QCOMPARE(f.resolved(appid, option), expected);
+    }
+
+    void lsfgChain_data()
+    {
+        QTest::addColumn<QByteArray>("state");
+        QTest::addColumn<QString>("appid");
+        QTest::addColumn<QString>("option");
+        QTest::addColumn<QString>("expected");
+        const QString so2r = u"2238900"_s;
+        const QString state = u"lsfg.state"_s;
+        const QString multiplier = u"lsfg.multiplier"_s;
+        const QString cap = u"lsfg.fps_cap"_s;
+        QTest::newRow("whitelist default") << "{}"_ba << so2r << state << u"off default"_s;
+        QTest::newRow("blacklist default") << R"({"lsfg.mode": "blacklist"})"_ba << so2r << state << u"on default"_s;
+        QTest::newRow("whitelist set on") << R"({"app.2238900.lsfg.state": "on"})"_ba << so2r << state << u"on set"_s;
+        QTest::newRow("whitelist set off") << R"({"app.2238900.lsfg.state": "off"})"_ba << so2r << state << u"off set"_s;
+        QTest::newRow("blacklist set off") << R"({"lsfg.mode": "blacklist", "app.2238900.lsfg.state": "off"})"_ba << so2r
+                                           << state << u"off set"_s;
+        QTest::newRow("blacklist set on") << R"({"lsfg.mode": "blacklist", "app.2238900.lsfg.state": "on"})"_ba << so2r
+                                          << state << u"on set"_s;
+        QTest::newRow("blacklist auto") << R"({"lsfg.mode": "blacklist", "app.2238900.lsfg.state": "auto"})"_ba << so2r
+                                        << state << u"on default"_s;
+        QTest::newRow("enabled off over set on") << R"({"lsfg.enabled": false, "app.2238900.lsfg.state": "on"})"_ba << so2r
+                                                 << state << u"off global"_s;
+        QTest::newRow("enabled off in blacklist") << R"({"lsfg.enabled": false, "lsfg.mode": "blacklist"})"_ba << so2r
+                                                  << state << u"off global"_s;
+        QTest::newRow("enabled stored on") << R"({"lsfg.enabled": true, "lsfg.mode": "blacklist"})"_ba << so2r << state
+                                           << u"on default"_s;
+        QTest::newRow("default file whitelist") << "{}"_ba << QString() << state << u"off default"_s;
+        QTest::newRow("default file blacklist") << R"({"lsfg.mode": "blacklist"})"_ba << QString() << state
+                                                << u"on default"_s;
+        QTest::newRow("default file skips game values") << R"({"app.2238900.lsfg.state": "on"})"_ba << QString() << state
+                                                        << u"off default"_s;
+        QTest::newRow("default file enabled off") << R"({"lsfg.enabled": false})"_ba << QString() << state
+                                                  << u"off global"_s;
+        QTest::newRow("multiplier default") << "{}"_ba << so2r << multiplier << u"2 default"_s;
+        QTest::newRow("multiplier global") << R"({"lsfg.multiplier": 3})"_ba << so2r << multiplier << u"3 global"_s;
+        QTest::newRow("multiplier set") << R"({"app.2238900.lsfg.multiplier": "3"})"_ba << so2r << multiplier << u"3 set"_s;
+        QTest::newRow("multiplier set over global") << R"({"lsfg.multiplier": 3, "app.2238900.lsfg.multiplier": "2"})"_ba
+                                                    << so2r << multiplier << u"2 set"_s;
+        QTest::newRow("cap auto at 2x") << "{}"_ba << so2r << cap << u"30 default"_s;
+        QTest::newRow("cap auto from the game's 3x") << R"({"app.2238900.lsfg.multiplier": "3"})"_ba << so2r << cap
+                                                     << u"20 default"_s;
+        QTest::newRow("cap auto from the global 3x") << R"({"lsfg.multiplier": 3})"_ba << so2r << cap << u"20 default"_s;
+        QTest::newRow("cap auto from the game's 2x") << R"({"lsfg.multiplier": 3, "app.2238900.lsfg.multiplier": "2"})"_ba
+                                                     << so2r << cap << u"30 default"_s;
+        QTest::newRow("default file cap skips the game's 3x") << R"({"app.2238900.lsfg.multiplier": "3"})"_ba << QString()
+                                                              << cap << u"30 default"_s;
+        QTest::newRow("cap global off") << R"({"lsfg.fps_cap": "off"})"_ba << so2r << cap << u"off global"_s;
+        QTest::newRow("cap global 20") << R"({"lsfg.fps_cap": "20"})"_ba << so2r << cap << u"20 global"_s;
+        QTest::newRow("cap set") << R"({"app.2238900.lsfg.multiplier": "3", "app.2238900.lsfg.fps_cap": "30"})"_ba << so2r
+                                 << cap << u"30 set"_s;
+        QTest::newRow("cap set off over global") << R"({"lsfg.fps_cap": "20", "app.2238900.lsfg.fps_cap": "off"})"_ba
+                                                 << so2r << cap << u"off set"_s;
+    }
+
+    void lsfgChain()
+    {
+        QFETCH(QByteArray, state);
+        QFETCH(QString, appid);
+        QFETCH(QString, option);
+        QFETCH(QString, expected);
+        const Fixture f(state);
+        QCOMPARE(f.resolved(appid, option), expected);
+    }
+
+    void lsfgProfile()
+    {
+        const QByteArray table =
+            R"({"version": 1, "profiles": {"2238900": {"set": {"lsfg.state": "on", "lsfg.multiplier": "3"}}}})";
+        const Fixture f({}, table);
+        QCOMPARE(f.resolved(u"2238900"_s, u"lsfg.state"_s), u"on profile"_s);
+        QCOMPARE(f.resolved(u"2238900"_s, u"lsfg.multiplier"_s), u"3 profile"_s);
+        QCOMPARE(f.resolved(u"2238900"_s, u"lsfg.fps_cap"_s), u"20 default"_s);
+        QCOMPARE(f.resolver->resolve(u"2238900"_s, u"lsfg.state"_s, false).source, u"default"_s);
+        const Fixture off(R"({"app.2238900.profile": "off"})", table);
+        QCOMPARE(off.resolved(u"2238900"_s, u"lsfg.state"_s), u"off default"_s);
+        QCOMPARE(off.resolved(u"2238900"_s, u"lsfg.fps_cap"_s), u"30 default"_s);
+        const Fixture disabled(R"({"lsfg.enabled": false})", table);
+        QCOMPARE(disabled.resolved(u"2238900"_s, u"lsfg.state"_s), u"off global"_s);
+        const QJsonObject profile = disabled.resolver->effective(u"2238900"_s).value("profile"_L1).toObject();
+        QCOMPARE(profile.value("overridden"_L1).toArray(), QJsonArray{u"lsfg.state"_s});
+
+        const ProtonSection on = f.lsfg(u"2238900"_s);
+        QCOMPARE(on.env.value(u"LSFGVK_MULTIPLIER"_s), u"3"_s);
+        QCOMPARE(on.env.value(u"VKD3D_FRAME_RATE"_s), u"20"_s);
+        QCOMPARE(on.profile, (QStringList{u"LSFGVK_ENV"_s, u"LSFGVK_FLOW_SCALE"_s, u"LSFGVK_MULTIPLIER"_s,
+                                          u"LSFGVK_PERFORMANCE_MODE"_s, u"LSFGVK_PRESENT_WAIT_OFFSET"_s,
+                                          u"VKD3D_FRAME_RATE"_s, u"dxgi.maxFrameRate"_s, u"d3d9.maxFrameRate"_s,
+                                          u"DISABLE_LSFGVK"_s}));
+        QVERIFY(on.rules.isEmpty());
+        QVERIFY(on.yield.isEmpty());
+        const Fixture set(R"({"app.2238900.lsfg.state": "on"})", table);
+        const ProtonSection mixed = set.lsfg(u"2238900"_s);
+        QCOMPARE(mixed.profile, (QStringList{u"LSFGVK_MULTIPLIER"_s, u"VKD3D_FRAME_RATE"_s, u"dxgi.maxFrameRate"_s,
+                                             u"d3d9.maxFrameRate"_s}));
+        QCOMPARE(mixed.rules, (QStringList{u"LSFGVK_FLOW_SCALE"_s, u"LSFGVK_PERFORMANCE_MODE"_s,
+                                           u"LSFGVK_PRESENT_WAIT_OFFSET"_s}));
+        const ProtonSection plain = lsfgFeature(*set.resolver)->section(u"2238900"_s, false);
+        QCOMPARE(plain.env.value(u"LSFGVK_MULTIPLIER"_s), u"2"_s);
+        QVERIFY(plain.profile.isEmpty());
+    }
+
+    void lsfgSections()
+    {
+        const QStringList on{u"LSFGVK_ENV"_s,
+                             u"DISABLE_LSFGVK"_s,
+                             u"LSFGVK_MULTIPLIER"_s,
+                             u"LSFGVK_FLOW_SCALE"_s,
+                             u"LSFGVK_PERFORMANCE_MODE"_s,
+                             u"LSFGVK_PRESENT_WAIT_OFFSET"_s,
+                             u"VKD3D_FRAME_RATE"_s,
+                             u"dxgi.maxFrameRate"_s,
+                             u"d3d9.maxFrameRate"_s};
+        const QStringList untouched{u"LSFGVK_FLOW_SCALE"_s, u"LSFGVK_PERFORMANCE_MODE"_s, u"LSFGVK_PRESENT_WAIT_OFFSET"_s};
+        const QStringList cap{u"VKD3D_FRAME_RATE"_s, u"dxgi.maxFrameRate"_s, u"d3d9.maxFrameRate"_s};
+        const QMap<QString, QString> off{{u"DISABLE_LSFGVK"_s, u"1"_s}};
+        const QMap<QString, QString> defaults{{u"LSFGVK_ENV"_s, u"1"_s},
+                                              {u"LSFGVK_MULTIPLIER"_s, u"2"_s},
+                                              {u"LSFGVK_FLOW_SCALE"_s, u"0.5"_s},
+                                              {u"LSFGVK_PERFORMANCE_MODE"_s, u"1"_s},
+                                              {u"LSFGVK_PRESENT_WAIT_OFFSET"_s, u"2"_s},
+                                              {u"VKD3D_FRAME_RATE"_s, u"30"_s}};
+
+        const ProtonSection whitelist = Fixture().lsfg(u"2238900"_s);
+        QCOMPARE(whitelist.env, off);
+        QCOMPARE(whitelist.state, u"off"_s);
+        QCOMPARE(whitelist.rules, QStringList{u"DISABLE_LSFGVK"_s});
+        QVERIFY(whitelist.token.isEmpty() && whitelist.dxvk.isEmpty() && whitelist.profile.isEmpty());
+        QCOMPARE(Fixture().lsfg({}).rules, QStringList{u"DISABLE_LSFGVK"_s});
+
+        for (const QByteArray &state : {R"({"lsfg.mode": "blacklist", "app.2238900.lsfg.state": "off"})"_ba,
+                                        R"({"app.2238900.lsfg.state": "off"})"_ba,
+                                        R"({"lsfg.enabled": false, "app.2238900.lsfg.state": "on"})"_ba,
+                                        R"({"lsfg.enabled": false, "lsfg.mode": "blacklist"})"_ba}) {
+            const ProtonSection section = Fixture(state).lsfg(u"2238900"_s);
+            QCOMPARE(section.env, off);
+            QCOMPARE(section.state, u"off"_s);
+            QVERIFY2(section.rules.isEmpty() && section.profile.isEmpty(), state.constData());
+        }
+
+        const ProtonSection blacklist = Fixture(R"({"lsfg.mode": "blacklist"})").lsfg(u"2238900"_s);
+        QCOMPARE(blacklist.env, defaults);
+        QCOMPARE(blacklist.dxvk, (QStringList{u"dxgi.maxFrameRate = 30"_s, u"d3d9.maxFrameRate = 30"_s}));
+        QCOMPARE(blacklist.token, u"lsfg-ready"_s);
+        QCOMPARE(blacklist.otherwise, off);
+        QVERIFY(blacklist.state.isEmpty());
+        QCOMPARE(blacklist.rules, on);
+        QCOMPARE(Fixture(R"({"lsfg.mode": "blacklist"})").lsfg({}).rules, on);
+
+        const ProtonSection set = Fixture(R"({"app.2238900.lsfg.state": "on", "app.2238900.lsfg.multiplier": "3"})")
+                                      .lsfg(u"2238900"_s);
+        QCOMPARE(set.env.value(u"LSFGVK_MULTIPLIER"_s), u"3"_s);
+        QCOMPARE(set.env.value(u"VKD3D_FRAME_RATE"_s), u"20"_s);
+        QCOMPARE(set.dxvk, (QStringList{u"dxgi.maxFrameRate = 20"_s, u"d3d9.maxFrameRate = 20"_s}));
+        QCOMPARE(set.token, u"lsfg-ready"_s);
+        QCOMPARE(set.rules, untouched + cap);
+        QVERIFY(set.profile.isEmpty() && set.state.isEmpty());
+
+        const ProtonSection alone = Fixture(R"({"app.2238900.lsfg.state": "on"})").lsfg(u"2238900"_s);
+        QCOMPARE(alone.rules, QStringList{u"LSFGVK_MULTIPLIER"_s} + untouched + cap);
+        const ProtonSection global = Fixture(R"({"app.2238900.lsfg.state": "on", "lsfg.multiplier": 3,
+                                                 "lsfg.fps_cap": "30", "lsfg.flow_scale": 75})")
+                                         .lsfg(u"2238900"_s);
+        QCOMPARE(global.env.value(u"LSFGVK_MULTIPLIER"_s), u"3"_s);
+        QCOMPARE(global.rules, QStringList{u"LSFGVK_MULTIPLIER"_s} + untouched + cap);
+        const ProtonSection picked = Fixture(R"({"lsfg.mode": "blacklist", "app.2238900.lsfg.multiplier": "3",
+                                                 "app.2238900.lsfg.fps_cap": "30"})")
+                                         .lsfg(u"2238900"_s);
+        QCOMPARE(picked.rules, (QStringList{u"LSFGVK_ENV"_s, u"DISABLE_LSFGVK"_s} + untouched));
+
+        const ProtonSection uncapped = Fixture(R"({"app.2238900.lsfg.state": "on", "lsfg.fps_cap": "off"})")
+                                           .lsfg(u"2238900"_s);
+        QVERIFY(!uncapped.env.contains(u"VKD3D_FRAME_RATE"_s));
+        QVERIFY(uncapped.dxvk.isEmpty());
+        QCOMPARE(uncapped.env.value(u"LSFGVK_ENV"_s), u"1"_s);
+
+        const ProtonSection capped = Fixture(R"({"app.2238900.lsfg.state": "on", "app.2238900.lsfg.fps_cap": "20"})")
+                                         .lsfg(u"2238900"_s);
+        QCOMPARE(capped.env.value(u"LSFGVK_MULTIPLIER"_s), u"2"_s);
+        QCOMPARE(capped.env.value(u"VKD3D_FRAME_RATE"_s), u"20"_s);
+
+        const QList<QPair<QByteArray, QString>> flows{{"25", u"0.25"_s}, {"50", u"0.5"_s}, {"75", u"0.75"_s},
+                                                      {"100", u"1.0"_s}, {"60", u"0.5"_s}, {"63", u"0.75"_s}};
+        for (const auto &[flow, text] : flows) {
+            const ProtonSection section =
+                Fixture("{\"app.2238900.lsfg.state\": \"on\", \"lsfg.flow_scale\": " + flow + "}").lsfg(u"2238900"_s);
+            QCOMPARE(section.env.value(u"LSFGVK_FLOW_SCALE"_s), text);
+        }
+        const ProtonSection tuned = Fixture(R"({"app.2238900.lsfg.state": "on", "lsfg.performance_mode": false,
+                                                "lsfg.present_wait_offset": 5})")
+                                        .lsfg(u"2238900"_s);
+        QCOMPARE(tuned.env.value(u"LSFGVK_PERFORMANCE_MODE"_s), u"0"_s);
+        QCOMPARE(tuned.env.value(u"LSFGVK_PRESENT_WAIT_OFFSET"_s), u"5"_s);
+    }
+
+    void lsfgEffective()
+    {
+        const auto state = [](const QByteArray &values) {
+            const Fixture f(values);
+            return f.resolver->effective(u"2238900"_s).value("options"_L1).toObject().value("lsfg.state"_L1).toObject();
+        };
+        QCOMPARE(state("{}"), (QJsonObject{{u"value"_s, u"off"_s}, {u"source"_s, u"default"_s}, {u"mode"_s, u"whitelist"_s}}));
+        QCOMPARE(state(R"({"lsfg.mode": "blacklist"})"),
+                 (QJsonObject{{u"value"_s, u"on"_s}, {u"source"_s, u"default"_s}, {u"mode"_s, u"blacklist"_s}}));
+        QCOMPARE(state(R"({"lsfg.mode": "blacklist", "app.2238900.lsfg.state": "off"})"),
+                 (QJsonObject{{u"value"_s, u"off"_s}, {u"source"_s, u"set"_s}}));
+        QCOMPARE(state(R"({"lsfg.enabled": false})"), (QJsonObject{{u"value"_s, u"off"_s}, {u"source"_s, u"global"_s}}));
+        const Fixture f(R"({"app.2238900.lsfg.multiplier": "3"})");
+        const QJsonObject options = f.resolver->effective(u"2238900"_s).value("options"_L1).toObject();
+        QCOMPARE(options.value("lsfg.multiplier"_L1).toObject(), (QJsonObject{{u"value"_s, u"3"_s}, {u"source"_s, u"set"_s}}));
+        QCOMPARE(options.value("lsfg.fps_cap"_L1).toObject(),
+                 (QJsonObject{{u"value"_s, u"20"_s}, {u"source"_s, u"default"_s}}));
     }
 
     void globalSyncSetBackKeepsTheProfile()

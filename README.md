@@ -94,6 +94,16 @@ every game with a value or a profile, each by rename and at most 4096 bytes, bef
 change. Format version 2: `features.<feature>.env` (with `fallback` for the names a profile set), `below_local` (names
 from a profile or a default rule) and `profile` (`names`, `yield`, `tool`), read by the MicroOS Proton hook.
 
+Frame generation (`lsfg`): a game is off while `lsfg.enabled` is off, else it takes its `lsfg.state`, then its profile's,
+then `lsfg.mode` (`whitelist` off, `blacklist` on). Off writes `DISABLE_LSFGVK=1` and the state `off`. On writes the
+lsfg-vk env mode names `LSFGVK_ENV`, `LSFGVK_MULTIPLIER`, `LSFGVK_FLOW_SCALE`, `LSFGVK_PERFORMANCE_MODE` and
+`LSFGVK_PRESENT_WAIT_OFFSET`, and the real frame cap as `VKD3D_FRAME_RATE` and the DXVK fragments `dxgi.maxFrameRate`
+and `d3d9.maxFrameRate`, under `requires` `lsfg-ready` with `otherwise` `DISABLE_LSFGVK=1`. The `auto` cap is 60 divided
+by the game's multiplier; `off` writes no cap. A `lsfg.flow_scale` off its steps is written as the nearest step. A name
+goes in `below_local` when its own value comes from a default, `lsfg.mode` or a global key other than `lsfg.enabled`
+(`LSFGVK_ENV` and `DISABLE_LSFGVK` follow the game's state); a value set for the game and `lsfg.enabled` off stay out.
+`Effective` names the mode for a game left to it.
+
 Keys marked `"override": true` (`rgb.enabled`, `rgb.hue`, `rgb.saturation`, `display.brightness`) take an
 `Override`: one per caller bus name per key, the newest wins, dropped on `ClearOverride` or when the caller leaves the bus. Overrides live in memory;
 `libmicroset` sends them again when `microsetd` restarts. Under an override `Set` still stores its value, and it shows

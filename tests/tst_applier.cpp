@@ -79,7 +79,7 @@ private:
         std::unique_ptr<ProtonResolver> resolver;
         std::unique_ptr<ProtonApplier> applier;
 
-        explicit Fixture(const QByteArray &state = {})
+        explicit Fixture(const QByteArray &state = {}, bool lsfg = false)
         {
             for (const QString &applier : {u"power"_s, u"alsa"_s, u"ssc"_s, u"rgb"_s, u"backlight"_s})
                 schema.addApplier(applier);
@@ -97,6 +97,8 @@ private:
             applier = std::make_unique<ProtonApplier>(*settings, *resolver, dir());
             applier->addFeature(fexFeature(*resolver));
             applier->addFeature(wineFeature(*resolver));
+            if (lsfg)
+                applier->addFeature(lsfgFeature(*resolver));
         }
 
         QString dir() const
@@ -301,30 +303,54 @@ private slots:
 
     void contractFixture()
     {
-        Fixture f;
+        Fixture f({}, true);
         QJsonArray cases;
         const auto add = [&](const QJsonObject &set, const QString &appid) {
             const QJsonObject file = f.applier->document(appid);
             QVERIFY(QJsonDocument(file).toJson(QJsonDocument::Compact).size() <= 4096);
             cases << QJsonObject{{u"set"_s, set}, {u"appid"_s, appid}, {u"file"_s, file}};
         };
-        const auto each = [&](const QString &name, const Key &key, const QStringList &appids) {
-            for (const QVariant &value : key.enumValues) {
-                if (value == key.defaultValue)
+        const auto each = [&](const QString &name, const QVariantList &values, const QStringList &appids) {
+            const QVariant before = f.settings->value(name);
+            for (const QVariant &value : values) {
+                if (value == f.schema.key(name)->defaultValue)
                     continue;
                 QCOMPARE(f.settings->store(name, value), Settings::Changed);
                 for (const QString &appid : appids)
-                    add({{name, value.toString()}}, appid);
-                QCOMPARE(f.settings->store(name, key.defaultValue), Settings::Changed);
+                    add({{name, QJsonValue::fromVariant(value)}}, appid);
+                QCOMPARE(f.settings->store(name, before), Settings::Changed);
             }
+        };
+        const auto together = [&](const QVariantMap &values, const QStringList &appids) {
+            QCOMPARE(f.settings->store(values), Settings::Changed);
+            for (const QString &appid : appids)
+                add(QJsonObject::fromVariantMap(values), appid);
+            for (auto it = values.cbegin(); it != values.cend(); ++it)
+                QCOMPARE(f.settings->store(it.key(), f.schema.key(it.key())->defaultValue), Settings::Changed);
         };
         add({}, {});
         add({}, u"292120"_s);
         for (const QString &appid : {u"5"_s, u"292120"_s})
             for (const QString &option : f.schema.options())
-                each(u"app.%1.%2"_s.arg(appid, option), *f.schema.perApp(option), {appid});
-        for (const QString &global : {u"fex.preset"_s, u"wine.sync"_s, u"proton.profiles"_s})
-            each(global, *f.schema.key(global), {QString(), u"5"_s, u"292120"_s});
+                each(u"app.%1.%2"_s.arg(appid, option), f.schema.perApp(option)->enumValues, {appid});
+        const QStringList all{QString(), u"5"_s, u"292120"_s};
+        for (const QString &global : {u"fex.preset"_s, u"wine.sync"_s, u"proton.profiles"_s, u"lsfg.mode"_s})
+            each(global, f.schema.key(global)->enumValues, all);
+        each(u"lsfg.enabled"_s, {false}, all);
+        const QList<QPair<QString, QVariantList>> blacklisted{{u"lsfg.fps_cap"_s, {u"20"_s, u"30"_s, u"off"_s}},
+                                                              {u"lsfg.multiplier"_s, {3u}},
+                                                              {u"lsfg.flow_scale"_s, {25u, 75u, 100u}},
+                                                              {u"lsfg.performance_mode"_s, {false}},
+                                                              {u"lsfg.present_wait_offset"_s, {0u, 8u}}};
+        for (const auto &[name, values] : blacklisted)
+            for (const QVariant &value : values)
+                together({{u"lsfg.mode"_s, u"blacklist"_s}, {name, value}}, all);
+        together({{u"lsfg.mode"_s, u"blacklist"_s}, {u"app.5.lsfg.state"_s, u"off"_s}}, {u"5"_s});
+        together({{u"lsfg.enabled"_s, false}, {u"app.5.lsfg.state"_s, u"on"_s}}, {u"5"_s});
+        together({{u"lsfg.mode"_s, u"blacklist"_s}, {u"app.5.lsfg.multiplier"_s, u"3"_s}}, {QString(), u"5"_s});
+        together({{u"app.5.lsfg.state"_s, u"on"_s}, {u"app.5.lsfg.multiplier"_s, u"3"_s}}, {u"5"_s});
+        together({{u"app.5.lsfg.state"_s, u"on"_s}, {u"lsfg.fps_cap"_s, u"off"_s}}, {u"5"_s});
+        together({{u"app.292120.lsfg.state"_s, u"on"_s}, {u"app.292120.fex.tso"_s, u"on"_s}}, {u"292120"_s});
         const QJsonObject actual{{u"profiles"_s, json(Profiles)}, {u"cases"_s, cases}};
         QFile shipped(QStringLiteral(MICROSET_SOURCE_DIR) + u"/tests/fixtures/proton-env-all.json"_s);
         const QJsonObject expected =
@@ -356,6 +382,115 @@ private slots:
         QCOMPARE(feature(f.applier->document(u"2238900"_s), "fake"),
                  json(R"({"env": {"FAKE_SET": "1"}, "requires": "fake-ready", "otherwise": {"FAKE_OFF": "1"},
                           "state": "off"})"));
+    }
+
+    void lsfgFiles()
+    {
+        const Fixture f({}, true);
+        QCOMPARE(f.applier->document(u"292120"_s), json(R"({"version": 2,
+            "features": {"fex": {"env": {"FEX_TSOENABLED": "0"}, "fallback": {}},
+                         "wine": {"env": {"PROTON_NO_NTSYNC": "1"}, "fallback": {}},
+                         "lsfg": {"env": {"DISABLE_LSFGVK": "1"}, "state": "off"}},
+            "below_local": ["DISABLE_LSFGVK", "FEX_TSOENABLED", "PROTON_NO_NTSYNC"],
+            "profile": {"names": ["FEX_TSOENABLED", "PROTON_NO_NTSYNC"], "yield": ["FEX_TSOENABLED"], "tool": "proton-11.0-"}})"));
+        const QJsonObject whitelist = json(R"({"version": 2, "features": {"lsfg": {"env": {"DISABLE_LSFGVK": "1"}, "state": "off"}},
+                                              "below_local": ["DISABLE_LSFGVK"]})");
+        QCOMPARE(f.applier->document({}), whitelist);
+        QCOMPARE(f.applier->document(u"2238900"_s), whitelist);
+
+        const QJsonObject on = json(R"({"env": {"LSFGVK_ENV": "1", "LSFGVK_FLOW_SCALE": "0.5", "LSFGVK_MULTIPLIER": "2",
+                                                "LSFGVK_PERFORMANCE_MODE": "1", "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                                                "VKD3D_FRAME_RATE": "30"},
+                                        "dxvk": ["dxgi.maxFrameRate = 30", "d3d9.maxFrameRate = 30"],
+                                        "requires": "lsfg-ready", "otherwise": {"DISABLE_LSFGVK": "1"}})");
+        const QJsonArray untouched{u"LSFGVK_FLOW_SCALE"_s, u"LSFGVK_MULTIPLIER"_s, u"LSFGVK_PERFORMANCE_MODE"_s,
+                                   u"LSFGVK_PRESENT_WAIT_OFFSET"_s, u"VKD3D_FRAME_RATE"_s, u"d3d9.maxFrameRate"_s,
+                                   u"dxgi.maxFrameRate"_s};
+        const Fixture set(R"({"app.2238900.lsfg.state": "on"})", true);
+        QCOMPARE(set.applier->document(u"2238900"_s),
+                 (QJsonObject{{u"version"_s, 2}, {u"features"_s, QJsonObject{{u"lsfg"_s, on}}}, {u"below_local"_s, untouched}}));
+        QCOMPARE(set.applier->document({}), whitelist);
+        const Fixture both(R"({"app.2238900.lsfg.state": "on", "app.2238900.lsfg.multiplier": "3"})", true);
+        const QJsonObject picked = both.applier->document(u"2238900"_s);
+        QCOMPARE(picked.keys(), (QStringList{u"below_local"_s, u"features"_s, u"version"_s}));
+        QCOMPARE(feature(picked, "lsfg").value("env"_L1).toObject().value("LSFGVK_MULTIPLIER"_L1).toString(), u"3"_s);
+        QCOMPARE(picked.value("below_local"_L1).toArray(),
+                 (QJsonArray{u"LSFGVK_FLOW_SCALE"_s, u"LSFGVK_PERFORMANCE_MODE"_s, u"LSFGVK_PRESENT_WAIT_OFFSET"_s,
+                             u"VKD3D_FRAME_RATE"_s, u"d3d9.maxFrameRate"_s, u"dxgi.maxFrameRate"_s}));
+        const Fixture chosen(R"({"lsfg.mode": "blacklist", "app.2238900.lsfg.multiplier": "3"})", true);
+        const QJsonArray ranked = chosen.applier->document(u"2238900"_s).value("below_local"_L1).toArray();
+        QVERIFY(ranked.contains(u"LSFGVK_ENV"_s) && ranked.contains(u"DISABLE_LSFGVK"_s));
+        QVERIFY(!ranked.contains(u"LSFGVK_MULTIPLIER"_s));
+
+        const Fixture blacklist(R"({"lsfg.mode": "blacklist"})", true);
+        const QJsonArray rules{u"DISABLE_LSFGVK"_s, u"LSFGVK_ENV"_s, u"LSFGVK_FLOW_SCALE"_s, u"LSFGVK_MULTIPLIER"_s,
+                               u"LSFGVK_PERFORMANCE_MODE"_s, u"LSFGVK_PRESENT_WAIT_OFFSET"_s, u"VKD3D_FRAME_RATE"_s,
+                               u"d3d9.maxFrameRate"_s, u"dxgi.maxFrameRate"_s};
+        for (const QString &appid : {QString(), u"2238900"_s}) {
+            QCOMPARE(feature(blacklist.applier->document(appid), "lsfg"), on);
+            QCOMPARE(blacklist.applier->document(appid).value("below_local"_L1).toArray(), rules);
+        }
+        QCOMPARE(blacklist.applier->document(u"292120"_s).value("below_local"_L1).toArray(),
+                 (QJsonArray{u"DISABLE_LSFGVK"_s, u"FEX_TSOENABLED"_s, u"LSFGVK_ENV"_s, u"LSFGVK_FLOW_SCALE"_s,
+                             u"LSFGVK_MULTIPLIER"_s, u"LSFGVK_PERFORMANCE_MODE"_s, u"LSFGVK_PRESENT_WAIT_OFFSET"_s,
+                             u"PROTON_NO_NTSYNC"_s, u"VKD3D_FRAME_RATE"_s, u"d3d9.maxFrameRate"_s, u"dxgi.maxFrameRate"_s}));
+
+        const QJsonObject off = json(R"({"env": {"DISABLE_LSFGVK": "1"}, "state": "off"})");
+        for (const QByteArray &state : {R"({"lsfg.mode": "blacklist", "app.2238900.lsfg.state": "off"})"_ba,
+                                        R"({"lsfg.enabled": false, "app.2238900.lsfg.state": "on"})"_ba}) {
+            const Fixture fixed(state, true);
+            QCOMPARE(feature(fixed.applier->document(u"2238900"_s), "lsfg"), off);
+            QCOMPARE(fixed.applier->document(u"2238900"_s).value("below_local"_L1).toArray(), QJsonArray());
+        }
+        const Fixture disabled(R"({"lsfg.enabled": false})", true);
+        QCOMPARE(disabled.applier->document({}),
+                 json(R"({"version": 2, "features": {"lsfg": {"env": {"DISABLE_LSFGVK": "1"}, "state": "off"}}, "below_local": []})"));
+    }
+
+    void lsfgGlobalChangeRewritesEveryFile()
+    {
+        Fixture f(R"({"app.2238900.fex.multiblock": "off"})", true);
+        QVERIFY(f.applier->start());
+        const QStringList files{u"default.json"_s, u"2238900.json"_s, u"292120.json"_s};
+        for (const QString &name : files)
+            QCOMPARE(feature(f.read(name), "lsfg").value("state"_L1).toString(), u"off"_s);
+        QCOMPARE(f.settings->store(u"lsfg.mode"_s, u"blacklist"_s), Settings::Changed);
+        for (const QString &name : files)
+            QCOMPARE(feature(f.read(name), "lsfg").value("requires"_L1).toString(), u"lsfg-ready"_s);
+        QCOMPARE(f.settings->store(u"lsfg.multiplier"_s, 3u), Settings::Changed);
+        for (const QString &name : files)
+            QCOMPARE(feature(f.read(name), "lsfg").value("env"_L1).toObject().value("VKD3D_FRAME_RATE"_L1).toString(), u"20"_s);
+        QCOMPARE(f.settings->store(u"app.2238900.lsfg.state"_s, u"off"_s), Settings::Changed);
+        QCOMPARE(feature(f.read(u"2238900.json"_s), "lsfg"), json(R"({"env": {"DISABLE_LSFGVK": "1"}, "state": "off"})"));
+        QCOMPARE(feature(f.read(u"default.json"_s), "lsfg").value("requires"_L1).toString(), u"lsfg-ready"_s);
+        QCOMPARE(f.settings->store(u"app.7.lsfg.state"_s, u"off"_s), Settings::Changed);
+        QVERIFY(f.files().contains(u"7.json"_s));
+        QCOMPARE(f.settings->store(u"app.7.lsfg.state"_s, u"auto"_s), Settings::Changed);
+        QVERIFY(!f.files().contains(u"7.json"_s));
+    }
+
+    void lsfgNamesClaimedOnce()
+    {
+        Fixture f({}, true);
+        const auto refused = [&](const std::function<void(FakeFeature &)> &change, const char *why) {
+            auto fake = std::make_unique<FakeFeature>();
+            change(*fake);
+            QTest::ignoreMessage(QtWarningMsg, QRegularExpression(QString::fromLatin1(why)));
+            return !f.applier->addFeature(std::move(fake));
+        };
+        QVERIFY(refused([](FakeFeature &fake) { fake.table.insert(u"DISABLE_LSFGVK"_s, u"1"_s); },
+                        "proton feature fake: DISABLE_LSFGVK claimed twice, refused"));
+        QVERIFY(refused([](FakeFeature &fake) { fake.table.insert(u"VKD3D_FRAME_RATE"_s, u"[0-9]+"_s); },
+                        "proton feature fake: VKD3D_FRAME_RATE claimed twice, refused"));
+        QVERIFY(refused([](FakeFeature &fake) { fake.keys.insert(u"dxgi.maxFrameRate"_s, u"[0-9]+"_s); },
+                        "proton feature fake: dxgi.maxFrameRate claimed twice, refused"));
+        QVERIFY(refused([](FakeFeature &fake) { fake.label = u"lsfg"_s; }, "proton feature lsfg: bad or taken feature name"));
+        Fixture first;
+        auto fake = std::make_unique<FakeFeature>();
+        fake->keys.insert(u"d3d9.maxFrameRate"_s, u"[0-9]+"_s);
+        QVERIFY(first.applier->addFeature(std::move(fake)));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(u"proton feature lsfg: d3d9.maxFrameRate claimed twice, refused"_s));
+        QVERIFY(!first.applier->addFeature(lsfgFeature(*first.resolver)));
     }
 
     void allowlist()
@@ -546,7 +681,7 @@ private slots:
         QFile game(dir + u"/292120.json"_s);
         QVERIFY(game.open(QIODevice::ReadOnly));
         QCOMPARE(QJsonDocument::fromJson(game.readAll()).object().value("below_local"_L1).toArray(),
-                 (QJsonArray{u"FEX_TSOENABLED"_s, u"PROTON_NO_NTSYNC"_s}));
+                 (QJsonArray{u"DISABLE_LSFGVK"_s, u"FEX_TSOENABLED"_s, u"PROTON_NO_NTSYNC"_s}));
         QDBusConnection::disconnectFromBus(u"squatter"_s);
     }
 

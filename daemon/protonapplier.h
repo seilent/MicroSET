@@ -37,6 +37,7 @@ public:
 
 std::unique_ptr<ProtonFeature> fexFeature(const ProtonResolver &resolver);
 std::unique_ptr<ProtonFeature> wineFeature(const ProtonResolver &resolver);
+std::unique_ptr<ProtonFeature> lsfgFeature(const ProtonResolver &resolver);
 
 class ProtonApplier : public QObject
 {
