@@ -4,8 +4,15 @@
             "appid": "",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
                 },
                 "version": 2
             },
@@ -16,6 +23,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -26,6 +34,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -54,12 +68,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_HALFBARRIERTSOENABLED": "1"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -72,12 +93,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_HALFBARRIERTSOENABLED": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -90,12 +118,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_MAXINST": "500"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -108,12 +143,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_MAXINST": "1000"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -126,12 +168,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_MAXINST": "2000"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -144,12 +193,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_MAXINST": "5000"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -162,12 +218,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_MEMCPYSETTSOENABLED": "1"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -180,12 +243,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_MEMCPYSETTSOENABLED": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -198,12 +268,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_MONOHACKS": "1"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -216,12 +293,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_MONOHACKS": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -234,12 +318,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_MULTIBLOCK": "1"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -252,12 +343,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_MULTIBLOCK": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -270,8 +368,15 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
                 },
                 "version": 2
             },
@@ -283,6 +388,7 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
@@ -293,6 +399,12 @@
                             "FEX_VECTORTSOENABLED": "1",
                             "FEX_X87REDUCEDPRECISION": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -305,12 +417,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_TSOENABLED": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -323,12 +442,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_SMCCHECKS": "none"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -341,12 +467,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_SMCCHECKS": "mtrack"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -359,12 +492,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_SMCCHECKS": "full"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -377,12 +517,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_TSOENABLED": "1"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -395,12 +542,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_TSOENABLED": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -413,12 +567,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_VECTORTSOENABLED": "1"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -431,12 +592,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_VECTORTSOENABLED": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -449,12 +617,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_VOLATILEMETADATA": "1"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -467,12 +642,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_VOLATILEMETADATA": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -485,12 +667,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_X87REDUCEDPRECISION": "1"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -503,12 +692,19 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
                         "env": {
                             "FEX_X87REDUCEDPRECISION": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -521,8 +717,15 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
                 },
                 "version": 2
             },
@@ -534,8 +737,15 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
                 },
                 "version": 2
             },
@@ -547,8 +757,15 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
                 },
                 "version": 2
             },
@@ -560,8 +777,15 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
                 },
                 "version": 2
             },
@@ -573,8 +797,15 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
                 },
                 "version": 2
             },
@@ -586,8 +817,33 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
                 ],
                 "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
                 },
                 "version": 2
             },
@@ -601,6 +857,12 @@
                 "below_local": [
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
                 },
                 "version": 2
             },
@@ -612,8 +874,15 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
                 },
                 "version": 2
             },
@@ -625,8 +894,15 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    },
                     "wine": {
                         "env": {
                             "PROTON_NO_NTSYNC": "1"
@@ -643,8 +919,15 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    },
                     "wine": {
                         "env": {
                             "PROTON_NO_NTSYNC": "0"
@@ -661,6 +944,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -672,6 +956,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -701,6 +991,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -712,6 +1003,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -741,6 +1038,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -752,6 +1050,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -781,6 +1085,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -792,6 +1097,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -821,6 +1132,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -832,6 +1144,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -861,6 +1179,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -872,6 +1191,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -901,6 +1226,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -912,6 +1238,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -941,6 +1273,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -952,6 +1285,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -981,6 +1320,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -992,6 +1332,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1021,6 +1367,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1032,6 +1379,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1061,6 +1414,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1072,6 +1426,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1101,6 +1461,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1112,6 +1473,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1141,9 +1508,16 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "PROTON_NO_NTSYNC"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    },
                     "wine": {
                         "env": {
                             "PROTON_NO_NTSYNC": "1"
@@ -1170,6 +1544,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "PROTON_NO_NTSYNC"
                 ],
                 "features": {
@@ -1181,6 +1556,12 @@
                             "FEX_VECTORTSOENABLED": "1",
                             "FEX_X87REDUCEDPRECISION": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1208,6 +1589,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "PROTON_NO_NTSYNC"
                 ],
                 "features": {
@@ -1215,6 +1597,12 @@
                         "env": {
                             "FEX_TSOENABLED": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1242,6 +1630,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1253,6 +1642,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1282,6 +1677,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1293,6 +1689,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1322,6 +1724,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1333,6 +1736,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1362,6 +1771,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "PROTON_NO_NTSYNC"
                 ],
                 "features": {
@@ -1369,6 +1779,12 @@
                         "env": {
                             "FEX_TSOENABLED": "1"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1396,6 +1812,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "PROTON_NO_NTSYNC"
                 ],
                 "features": {
@@ -1403,6 +1820,12 @@
                         "env": {
                             "FEX_TSOENABLED": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1430,6 +1853,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1441,6 +1865,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1470,6 +1900,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1481,6 +1912,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1510,6 +1947,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1521,6 +1959,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1550,6 +1994,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1561,6 +2006,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1590,6 +2041,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1601,6 +2053,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1630,6 +2088,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1641,6 +2100,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1670,6 +2135,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1680,6 +2146,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1709,6 +2181,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1719,6 +2192,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1748,6 +2227,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1758,6 +2238,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1787,6 +2273,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1797,6 +2284,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1826,6 +2319,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED",
                     "PROTON_NO_NTSYNC"
                 ],
@@ -1836,6 +2330,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1866,7 +2366,14 @@
             "file": {
                 "below_local": [
                     "FEX_TSOENABLED",
-                    "PROTON_NO_NTSYNC"
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "PROTON_NO_NTSYNC",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
                 ],
                 "features": {
                     "fex": {
@@ -1875,6 +2382,24 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
                     },
                     "wine": {
                         "env": {
@@ -1915,6 +2440,12 @@
                         "fallback": {
                         }
                     },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    },
                     "wine": {
                         "env": {
                             "PROTON_NO_NTSYNC": "1"
@@ -1943,8 +2474,15 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
                 },
                 "version": 2
             },
@@ -1956,6 +2494,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED"
                 ],
                 "features": {
@@ -1965,6 +2504,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -1991,6 +2536,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED"
                 ],
                 "features": {
@@ -2000,6 +2546,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -2026,6 +2578,7 @@
             "appid": "",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
@@ -2036,6 +2589,12 @@
                             "FEX_VECTORTSOENABLED": "1",
                             "FEX_X87REDUCEDPRECISION": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -2048,6 +2607,7 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
                     "fex": {
@@ -2058,6 +2618,12 @@
                             "FEX_VECTORTSOENABLED": "1",
                             "FEX_X87REDUCEDPRECISION": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     }
                 },
                 "version": 2
@@ -2070,6 +2636,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "PROTON_NO_NTSYNC"
                 ],
                 "features": {
@@ -2081,6 +2648,12 @@
                             "FEX_VECTORTSOENABLED": "1",
                             "FEX_X87REDUCEDPRECISION": "0"
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -2108,8 +2681,15 @@
             "appid": "",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    },
                     "wine": {
                         "env": {
                             "PROTON_NO_NTSYNC": "1"
@@ -2126,8 +2706,15 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    },
                     "wine": {
                         "env": {
                             "PROTON_NO_NTSYNC": "1"
@@ -2144,6 +2731,7 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK",
                     "FEX_TSOENABLED"
                 ],
                 "features": {
@@ -2153,6 +2741,12 @@
                         },
                         "fallback": {
                         }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
                     },
                     "wine": {
                         "env": {
@@ -2179,8 +2773,15 @@
             "appid": "",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
                 },
                 "version": 2
             },
@@ -2192,8 +2793,15 @@
             "appid": "5",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
                 },
                 "version": 2
             },
@@ -2205,13 +2813,1965 @@
             "appid": "292120",
             "file": {
                 "below_local": [
+                    "DISABLE_LSFGVK"
                 ],
                 "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
                 },
                 "version": 2
             },
             "set": {
                 "proton.profiles": "off"
+            }
+        },
+        {
+            "appid": "",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "FEX_TSOENABLED",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "PROTON_NO_NTSYNC",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "",
+            "file": {
+                "below_local": [
+                ],
+                "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.enabled": false
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                ],
+                "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.enabled": false
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "FEX_TSOENABLED",
+                    "PROTON_NO_NTSYNC"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.enabled": false
+            }
+        },
+        {
+            "appid": "",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 20",
+                            "d3d9.maxFrameRate = 20"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "20"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.fps_cap": "20",
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 20",
+                            "d3d9.maxFrameRate = 20"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "20"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.fps_cap": "20",
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "FEX_TSOENABLED",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "PROTON_NO_NTSYNC",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 20",
+                            "d3d9.maxFrameRate = 20"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "20"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.fps_cap": "20",
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.fps_cap": "30",
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.fps_cap": "30",
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "FEX_TSOENABLED",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "PROTON_NO_NTSYNC",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.fps_cap": "30",
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET"
+                ],
+                "features": {
+                    "lsfg": {
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.fps_cap": "off",
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET"
+                ],
+                "features": {
+                    "lsfg": {
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.fps_cap": "off",
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "FEX_TSOENABLED",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "PROTON_NO_NTSYNC"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "lsfg": {
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.fps_cap": "off",
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 20",
+                            "d3d9.maxFrameRate = 20"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "3",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "20"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist",
+                "lsfg.multiplier": 3
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 20",
+                            "d3d9.maxFrameRate = 20"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "3",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "20"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist",
+                "lsfg.multiplier": 3
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "FEX_TSOENABLED",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "PROTON_NO_NTSYNC",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 20",
+                            "d3d9.maxFrameRate = 20"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "3",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "20"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist",
+                "lsfg.multiplier": 3
+            }
+        },
+        {
+            "appid": "",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.25",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.flow_scale": 25,
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.25",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.flow_scale": 25,
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "FEX_TSOENABLED",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "PROTON_NO_NTSYNC",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.25",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.flow_scale": 25,
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.75",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.flow_scale": 75,
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.75",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.flow_scale": 75,
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "FEX_TSOENABLED",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "PROTON_NO_NTSYNC",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.75",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.flow_scale": 75,
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "1.0",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.flow_scale": 100,
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "1.0",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.flow_scale": 100,
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "FEX_TSOENABLED",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "PROTON_NO_NTSYNC",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "1.0",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.flow_scale": 100,
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "0",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist",
+                "lsfg.performance_mode": false
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "0",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist",
+                "lsfg.performance_mode": false
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "FEX_TSOENABLED",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "PROTON_NO_NTSYNC",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "0",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist",
+                "lsfg.performance_mode": false
+            }
+        },
+        {
+            "appid": "",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "0",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist",
+                "lsfg.present_wait_offset": 0
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "0",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist",
+                "lsfg.present_wait_offset": 0
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "FEX_TSOENABLED",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "PROTON_NO_NTSYNC",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "0",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist",
+                "lsfg.present_wait_offset": 0
+            }
+        },
+        {
+            "appid": "",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "8",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist",
+                "lsfg.present_wait_offset": 8
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "8",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist",
+                "lsfg.present_wait_offset": 8
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "FEX_TSOENABLED",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "PROTON_NO_NTSYNC",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "8",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "lsfg.mode": "blacklist",
+                "lsfg.present_wait_offset": 8
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                ],
+                "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "app.5.lsfg.state": "off",
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                ],
+                "features": {
+                    "lsfg": {
+                        "env": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "state": "off"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "app.5.lsfg.state": "on",
+                "lsfg.enabled": false
+            }
+        },
+        {
+            "appid": "",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "app.5.lsfg.multiplier": "3",
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "DISABLE_LSFGVK",
+                    "LSFGVK_ENV",
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 20",
+                            "d3d9.maxFrameRate = 20"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "3",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "20"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "app.5.lsfg.multiplier": "3",
+                "lsfg.mode": "blacklist"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 20",
+                            "d3d9.maxFrameRate = 20"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "3",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "20"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "app.5.lsfg.multiplier": "3",
+                "app.5.lsfg.state": "on"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET"
+                ],
+                "features": {
+                    "lsfg": {
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    }
+                },
+                "version": 2
+            },
+            "set": {
+                "app.5.lsfg.state": "on",
+                "lsfg.fps_cap": "off"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "LSFGVK_FLOW_SCALE",
+                    "LSFGVK_MULTIPLIER",
+                    "LSFGVK_PERFORMANCE_MODE",
+                    "LSFGVK_PRESENT_WAIT_OFFSET",
+                    "PROTON_NO_NTSYNC",
+                    "VKD3D_FRAME_RATE",
+                    "d3d9.maxFrameRate",
+                    "dxgi.maxFrameRate"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "1"
+                        }
+                    },
+                    "lsfg": {
+                        "dxvk": [
+                            "dxgi.maxFrameRate = 30",
+                            "d3d9.maxFrameRate = 30"
+                        ],
+                        "env": {
+                            "LSFGVK_ENV": "1",
+                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_MULTIPLIER": "2",
+                            "LSFGVK_PERFORMANCE_MODE": "1",
+                            "LSFGVK_PRESENT_WAIT_OFFSET": "2",
+                            "VKD3D_FRAME_RATE": "30"
+                        },
+                        "otherwise": {
+                            "DISABLE_LSFGVK": "1"
+                        },
+                        "requires": "lsfg-ready"
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "app.292120.fex.tso": "on",
+                "app.292120.lsfg.state": "on"
             }
         }
     ],

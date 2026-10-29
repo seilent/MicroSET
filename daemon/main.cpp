@@ -98,6 +98,7 @@ int main(int argc, char **argv)
     ProtonApplier proton(settings, resolver, runtime + u"/proton"_s);
     proton.addFeature(fexFeature(resolver));
     proton.addFeature(wineFeature(resolver));
+    proton.addFeature(lsfgFeature(resolver));
     proton.start();
 
     PowerBridge bridge(bus, settings, undervolts);

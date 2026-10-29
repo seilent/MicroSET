@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cmath>
 #include <cstring>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -22,6 +23,10 @@ constexpr qsizetype MaxFile = 4096;
 const QString Owner = u"proton"_s;
 const QString HookPrefix = u"MICROOS_"_s;
 const QString NoNtsync = u"PROTON_NO_NTSYNC"_s;
+const QString NoLsfg = u"DISABLE_LSFGVK"_s;
+const QString LsfgCapEnv = u"VKD3D_FRAME_RATE"_s;
+const QStringList LsfgFragments = {u"dxgi.maxFrameRate"_s, u"d3d9.maxFrameRate"_s};
+const QList<std::pair<uint, QString>> FlowScale = {{100, u"1.0"_s}, {75, u"0.75"_s}, {50, u"0.5"_s}, {25, u"0.25"_s}};
 const QRegularExpression FilePattern(u"^([1-9][0-9]{0,9}|default)\\.json$"_s);
 const QRegularExpression TempPattern(u"^\\.([1-9][0-9]{0,9}|default)\\.json\\.[A-Za-z0-9]{6}$"_s);
 const QRegularExpression FeaturePattern(u"^[a-z][a-z0-9]*$"_s);
@@ -53,6 +58,15 @@ bool writeData(int fd, const QByteArray &data)
         done += n;
     }
     return true;
+}
+
+QString flowScale(uint percent)
+{
+    auto best = FlowScale.cbegin();
+    for (auto it = FlowScale.cbegin(); it != FlowScale.cend(); ++it)
+        if (std::abs(double(it->first) - percent) < std::abs(double(best->first) - percent))
+            best = it;
+    return best->second;
 }
 
 QJsonArray sorted(QStringList names)
@@ -143,6 +157,94 @@ private:
     const ProtonResolver &m_resolver;
 };
 
+class LsfgFeature : public ProtonFeature
+{
+public:
+    explicit LsfgFeature(const ProtonResolver &resolver)
+        : m_resolver(resolver)
+    {
+    }
+
+    QString name() const override
+    {
+        return u"lsfg"_s;
+    }
+
+    QMap<QString, QString> names() const override
+    {
+        return {{NoLsfg, u"1"_s},
+                {u"LSFGVK_ENV"_s, u"1"_s},
+                {u"LSFGVK_MULTIPLIER"_s, u"[23]"_s},
+                {u"LSFGVK_FLOW_SCALE"_s, u"0\\.25|0\\.5|0\\.75|1\\.0"_s},
+                {u"LSFGVK_PERFORMANCE_MODE"_s, u"[01]"_s},
+                {u"LSFGVK_PRESENT_WAIT_OFFSET"_s, u"[0-8]"_s},
+                {LsfgCapEnv, u"[0-9]{1,3}"_s}};
+    }
+
+    QMap<QString, QString> fragments() const override
+    {
+        QMap<QString, QString> out;
+        for (const QString &key : LsfgFragments)
+            out.insert(key, u"[0-9]{1,3}"_s);
+        return out;
+    }
+
+    ProtonSection section(const QString &appid, bool profile) const override
+    {
+        ProtonSection out;
+        const ProtonResolver::Resolved state = m_resolver.resolve(appid, u"lsfg.state"_s, profile);
+        if (state.value != "on"_L1) {
+            out.env.insert(NoLsfg, u"1"_s);
+            out.state = u"off"_s;
+            if (state.source != "global"_L1)
+                place(&out, {NoLsfg}, state.source);
+            return out;
+        }
+        const ProtonResolver::Resolved multiplier = m_resolver.resolve(appid, u"lsfg.multiplier"_s, profile);
+        const ProtonResolver::Resolved cap = m_resolver.resolve(appid, u"lsfg.fps_cap"_s, profile);
+        const ProtonResolver::Resolved flow = m_resolver.resolve(appid, u"lsfg.flow_scale"_s, profile);
+        const ProtonResolver::Resolved performance = m_resolver.resolve(appid, u"lsfg.performance_mode"_s, profile);
+        const ProtonResolver::Resolved offset = m_resolver.resolve(appid, u"lsfg.present_wait_offset"_s, profile);
+        out.env = {{u"LSFGVK_ENV"_s, u"1"_s},
+                   {u"LSFGVK_MULTIPLIER"_s, multiplier.value},
+                   {u"LSFGVK_FLOW_SCALE"_s, flowScale(flow.value.toUInt())},
+                   {u"LSFGVK_PERFORMANCE_MODE"_s, performance.value == "true"_L1 ? u"1"_s : u"0"_s},
+                   {u"LSFGVK_PRESENT_WAIT_OFFSET"_s, offset.value}};
+        QStringList capped;
+        if (cap.value != "off"_L1) {
+            out.env.insert(LsfgCapEnv, cap.value);
+            for (const QString &key : LsfgFragments)
+                out.dxvk << key + u" = "_s + cap.value;
+            capped << LsfgCapEnv << LsfgFragments;
+        }
+        out.token = u"lsfg-ready"_s;
+        out.otherwise = {{NoLsfg, u"1"_s}};
+        if (state.source == "profile"_L1) {
+            place(&out, out.env.keys() + LsfgFragments + QStringList{NoLsfg}, state.source);
+            return out;
+        }
+        place(&out, {u"LSFGVK_ENV"_s, NoLsfg}, state.source);
+        place(&out, {u"LSFGVK_MULTIPLIER"_s}, multiplier.source);
+        place(&out, {u"LSFGVK_FLOW_SCALE"_s}, flow.source);
+        place(&out, {u"LSFGVK_PERFORMANCE_MODE"_s}, performance.source);
+        place(&out, {u"LSFGVK_PRESENT_WAIT_OFFSET"_s}, offset.source);
+        const bool derived = cap.source == "default"_L1 && multiplier.source == "profile"_L1;
+        place(&out, capped, derived ? multiplier.source : cap.source);
+        return out;
+    }
+
+private:
+    static void place(ProtonSection *out, const QStringList &names, const QString &source)
+    {
+        if (source == "default"_L1 || source == "global"_L1)
+            out->rules << names;
+        else if (source == "profile"_L1)
+            out->profile << names;
+    }
+
+    const ProtonResolver &m_resolver;
+};
+
 }
 
 QMap<QString, QString> ProtonFeature::fragments() const
@@ -158,6 +260,11 @@ std::unique_ptr<ProtonFeature> fexFeature(const ProtonResolver &resolver)
 std::unique_ptr<ProtonFeature> wineFeature(const ProtonResolver &resolver)
 {
     return std::make_unique<WineFeature>(resolver);
+}
+
+std::unique_ptr<ProtonFeature> lsfgFeature(const ProtonResolver &resolver)
+{
+    return std::make_unique<LsfgFeature>(resolver);
 }
 
 ProtonApplier::ProtonApplier(const Settings &settings, const ProtonResolver &resolver, const QString &dir,

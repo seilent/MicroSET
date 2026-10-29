@@ -26,6 +26,8 @@ public:
     const ProtonProfiles &profiles() const;
 
 private:
+    Resolved chain(const QString &appid, const QString &option, bool profile) const;
+
     const Settings &m_settings;
     const ProtonProfiles &m_profiles;
 };

@@ -2,6 +2,7 @@
 
 #include <QDBusConnection>
 #include <QDBusMessage>
+#include <QMap>
 #include <QProcess>
 #include <QTemporaryDir>
 
@@ -35,6 +36,7 @@ public:
     QDBusConnection client() const;
     void writeCgroup(qint64 pid, const QByteArray &cgroup) const;
     QProcessEnvironment environment() const;
+    void setEnvironment(const QString &name, const QString &value);
 
     bool startDaemon();
     void stopDaemon();
@@ -52,4 +54,5 @@ private:
     QProcess m_daemon;
     QByteArray m_log;
     QString m_address;
+    QMap<QString, QString> m_environment;
 };
