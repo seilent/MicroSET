@@ -50,7 +50,14 @@ read, change and watch them over D-Bus.
   source shows once (`auto (default)`); `Preset` shows `auto (<source>)`; while the row holds its own value its `auto`
   entry reads `auto`. The safety notes are `leads` in `10-microset.json`; `auto` shows the note of the value it resolves
   to, and `on` of `MicroOS profile` the first profile entry with a note that no value above the profile overrides
-  (`TSO off: may crash, hang or damage saves`).
+  (`TSO off: may crash, hang or damage saves`). The `Frame generation` group shows while MicroOS's Lossless Scaling
+  detection (`~/.local/state/microos-lsfg/state.json`, `MICROSET_LSFG_STATE`, watched) reports it owned or
+  installed, or while a frame generation value is set: the install state (`install sent` for 20 minutes after a send
+  in the same boot), `Install Lossless Scaling` (in the Steam session only, from `/run/microos/session-current`; asks
+  first, then starts `microos-lsfg-send@manual.service`), `Frame generation`, `Mode`, `Games` (A opens the game list
+  with each game's state, A on a game flips it with one `Set`, on a game that is not installed clears its values),
+  `Multiplier`, `Real frame cap`, `Flow scale` and a note on Steam's frame limit. Game pages then add
+  `Frame generation`, `Multiplier` and `Real frame cap`.
 - Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other
   file only keys under its owner name (`microdap.*`, `microemu.*`). A key can carry `ui` hints for the page (`order`,
   `widget` `none`, `hue` or `edit` (left/right edit instead of a sheet), `step` or a `steps` list (a value off the list

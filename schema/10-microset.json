@@ -491,16 +491,19 @@
       "type": "b",
       "default": true,
       "applier": null,
-      "group": null,
-      "label": "Frame generation"
+      "group": "lsfg",
+      "label": "Frame generation",
+      "ui": {"order": 0}
     },
     "lsfg.mode": {
       "type": "s",
       "default": "whitelist",
       "enum": ["whitelist", "blacklist"],
       "applier": null,
-      "group": null,
-      "label": "Mode"
+      "group": "lsfg",
+      "label": "Mode",
+      "ui": {"order": 1, "apply": "confirm",
+             "values": {"whitelist": "whitelist (picked games)", "blacklist": "blacklist (all but picked)"}}
     },
     "lsfg.multiplier": {
       "type": "u",
@@ -508,16 +511,18 @@
       "min": 2,
       "max": 3,
       "applier": null,
-      "group": null,
-      "label": "Multiplier"
+      "group": "lsfg",
+      "label": "Multiplier",
+      "ui": {"order": 2, "apply": "confirm", "steps": [2, 3], "values": {"2": "2x", "3": "3x"}}
     },
     "lsfg.fps_cap": {
       "type": "s",
       "default": "auto",
       "enum": ["auto", "20", "30", "off"],
       "applier": null,
-      "group": null,
-      "label": "Real frame cap"
+      "group": "lsfg",
+      "label": "Real frame cap",
+      "ui": {"order": 3, "apply": "confirm"}
     },
     "lsfg.flow_scale": {
       "type": "u",
@@ -525,8 +530,9 @@
       "min": 25,
       "max": 100,
       "applier": null,
-      "group": null,
-      "label": "Flow scale"
+      "group": "lsfg",
+      "label": "Flow scale",
+      "ui": {"order": 4, "apply": "confirm", "steps": [25, 50, 75, 100], "unit": "%"}
     },
     "lsfg.performance_mode": {
       "type": "b",
@@ -675,7 +681,7 @@
       "per_app": true,
       "group": null,
       "label": "Frame generation",
-      "ui": {"widget": "none"}
+      "ui": {"order": 13, "apply": "confirm"}
     },
     "app.lsfg.multiplier": {
       "type": "s",
@@ -684,7 +690,7 @@
       "per_app": true,
       "group": null,
       "label": "Multiplier",
-      "ui": {"widget": "none"}
+      "ui": {"order": 14, "apply": "confirm", "values": {"2": "2x", "3": "3x"}}
     },
     "app.lsfg.fps_cap": {
       "type": "s",
@@ -693,7 +699,7 @@
       "per_app": true,
       "group": null,
       "label": "Real frame cap",
-      "ui": {"widget": "none"}
+      "ui": {"order": 15, "apply": "confirm"}
     }
   },
   "presets": {
@@ -707,6 +713,7 @@
     "rgb": {"label": "stick leds", "order": 2},
     "power": {"label": "power", "order": 3},
     "games": {"label": "games", "order": 4},
-    "system": {"label": "system", "order": 5}
+    "lsfg": {"label": "Frame generation", "order": 5},
+    "system": {"label": "system", "order": 6}
   }
 }

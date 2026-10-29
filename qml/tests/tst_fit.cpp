@@ -5,7 +5,9 @@
 #include <QFontInfo>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
+#include <QJsonDocument>
 #include <QQuickWindow>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QtQml/qqmlextensionplugin.h>
 
@@ -93,7 +95,8 @@ class FitTest : public QObject
         QVERIFY(QMetaObject::invokeMethod(page, "back"));
     }
 
-    static void checkRows(QObject *view, SettingsModel &model, const QString &group, Count &count)
+    static void checkRows(QObject *view, SettingsModel &model, const QString &group, Count &count,
+                          const QMap<QString, QStringList> &extra = {})
     {
         QVERIFY(QMetaObject::invokeMethod(view, "open", Q_ARG(QString, group)));
         QObject *page = qvariant_cast<QObject *>(qvariant_cast<QObject *>(view->property("stack"))->property("currentItem"));
@@ -108,13 +111,15 @@ class FitTest : public QObject
             const QVariantMap row = item->property("modelData").toMap();
             const QString key = row.value(u"key"_s).toString();
             const QString option = key.mid(group.size() + 1);
-            if (!key.startsWith(group + u'.') || (!option.startsWith("fex."_L1) && option != "wine.sync"_L1))
+            const bool game = key.startsWith(group + u'.')
+                && (option.startsWith("fex."_L1) || option.startsWith("lsfg."_L1) || option == "wine.sync"_L1);
+            if (!game && !extra.contains(u"*"_s))
                 continue;
             auto *title = qvariant_cast<QQuickItem *>(item->property("titleItem"));
             auto *value = qvariant_cast<QQuickItem *>(item->property("valueItem"));
             QTRY_COMPARE(item->width(), 640.0);
             QStringList values{row.value(u"value"_s).toString()};
-            values << model.sheet(key).value(u"words"_s).toStringList();
+            values << model.sheet(key).value(u"words"_s).toStringList() << extra.value(key);
             for (const QString &text : std::as_const(values)) {
                 item->setProperty("shownValue", text);
                 const qreal room = value->property("room").toReal();
@@ -153,6 +158,57 @@ private slots:
         QVERIFY(count.leads >= 1);
         QVERIFY2(count.misses.isEmpty(),
                  qPrintable(u"sheet words, titles or leads wider than the panel at 640 wide:\n"_s + count.misses.join(u'\n')));
+    }
+
+    void lsfgFitsAt640()
+    {
+        QVERIFY(qEnvironmentVariableIsSet("MICROSET_FONT_DIR"));
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s}});
+        const QStringList files{FakeMicroSetd::shipped()};
+        const QVariantMap stored{{u"app.77.lsfg.state"_s, u"on"_s}, {u"app.2238900.lsfg.multiplier"_s, u"3"_s}};
+        SettingsModel model;
+        model.setFixture(FakeMicroSetd::describe(files), stored, {});
+        QMap<QString, QJsonObject> effective;
+        for (const QString &appid : {u"292120"_s, u"2238900"_s, u"77"_s})
+            effective.insert(appid, FakeMicroSetd::effective(files, stored, FakeMicroSetd::Profiles, appid));
+        model.setProtonFixture(effective);
+        model.lsfg()->setFixture(QJsonDocument::fromJson(R"({"owned": "yes", "install": "none"})").object(), true, u"steam"_s);
+        QQmlApplicationEngine engine;
+        QObject *view = viewOf(engine, model);
+        QVERIFY(view);
+        const QString lsfg = u"Frame generation"_s;
+        Count count;
+        check(view, model, lsfg, count);
+        const int words = count.words;
+        model.toggle(u"lsfg-games"_s);
+        const QMap<QString, QStringList> extra{
+            {u"*"_s, {}},
+            {u"lsfg-status"_s,
+             {u"installed"_s, u"installing"_s, u"install sent"_s, u"no Steam client"_s, u"game running"_s,
+              u"not installed"_s, u"on microSD"_s, u"ownership unknown"_s, u"old layer in home"_s,
+              u"switch to the lsfg-vk beta"_s}},
+            {u"lsfg-games"_s, {u"99 on"_s, u"off"_s}},
+            {u"lsfg-game-292120"_s, {u"on"_s, u"off"_s, u"not installed"_s}},
+            {u"lsfg.enabled"_s, {u"on"_s, u"off"_s}},
+        };
+        checkRows(view, model, lsfg, count, extra);
+        for (const QString &appid : {u"292120"_s, u"2238900"_s}) {
+            check(view, model, u"app."_s + appid, count);
+            checkRows(view, model, u"app."_s + appid, count);
+        }
+        model.lsfg()->setFixture({}, true, u"steam"_s);
+        QVariantMap off = stored;
+        off.insert(u"lsfg.enabled"_s, false);
+        model.setFixture(FakeMicroSetd::describe(files), off, {});
+        checkRows(view, model, lsfg, count, extra);
+        QVERIFY(words >= 12);
+        QVERIFY(count.rows >= 60);
+        QVERIFY2(count.misses.isEmpty(),
+                 qPrintable(u"frame generation words, titles or row values wider than their room at 640 wide:\n"_s
+                            + count.misses.join(u'\n')));
+        qunsetenv("MICROSET_STEAM_DIR");
     }
 
     void gameSheetsFitAt640_data()
