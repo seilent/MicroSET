@@ -37,7 +37,9 @@ if(NOT MICROSET_TEST_FONT_DIR)
     return()
 endif()
 
-set(game_states game game-missing game-state game-yield game-other-tool game-gone game-native game-page)
+set(game_states game game-missing game-state game-yield game-other-tool game-gone game-native game-page game-lsfg
+    game-lsfg-limit game-lsfg-failed game-lsfg-cap game-lsfg-young game-lsfg-off game-lsfg-no-dll game-lsfg-env
+    game-lsfg-check game-lsfg-state game-lsfg-page)
 set(menu_states menu menu-game menu-not-installed menu-refused menu-page menu-toast leaving)
 set(states_960x640 top audio hint-page hint sheet undervolt-after-sheet ${game_states} ${menu_states})
 set(states_640x960 top audio portrait hint-page hint hint-portrait sheet sheet-portrait undervolt-after-sheet ${game_states} ${menu_states})

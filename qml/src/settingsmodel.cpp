@@ -813,6 +813,24 @@ QVariantList SettingsModel::thisGame() const
     const QString yielded = m_game.value(u"yielded"_s).toString();
     if (ran && !yielded.isEmpty())
         out << infoRow(u"game-yield"_s, u"profile gives way to Steam"_s, QString(yielded).replace(u',', u", "_s));
+    const QString lsfg = m_game.value(u"lsfg"_s).toString();
+    if (m_game.value(u"gone"_s).toBool() || lsfg.isEmpty() || !lsfgShown())
+        return out;
+    const bool held = m_game.value(u"lsfgHeld"_s).toBool();
+    const QMap<QString, QString> words{{u"off"_s, u"off"_s},
+                                       {u"no-dll"_s, u"Lossless.dll not found"_s},
+                                       {u"disabled-by-env"_s, u"off by launch option"_s},
+                                       {u"check-failed"_s, u"check failed"_s}};
+    QString text = words.value(lsfg, lsfg);
+    if ((lsfg == "on"_L1 || lsfg == "cap-overridden"_L1) && held)
+        text = lsfg == "on"_L1 ? u"on"_s : u"on, cap by launch option"_s;
+    else if (lsfg == "on"_L1 || lsfg == "cap-overridden"_L1)
+        text = m_game.value(u"lsfgYoung"_s).toBool() ? u"not running yet"_s : u"failed to start"_s;
+    out << infoRow(u"game-lsfg"_s, u"Frame generation"_s, text);
+    bool known = false;
+    const int limit = m_game.value(u"fpsLimit"_s).toInt(&known);
+    if (held && known && limit > 0 && limit < int(PanelHz))
+        out << infoRow(u"game-lsfg-limit"_s, u"Steam frame limit"_s, u"on: counts generated frames"_s);
     return out;
 }
 
