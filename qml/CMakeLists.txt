@@ -37,7 +37,7 @@ qt_add_qml_module(microset_ui
     OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/imports/MicroSet
     QML_FILES ${microset_qml}
     SOURCES src/env.cpp src/env.h src/settingsmodel.cpp src/settingsmodel.h src/steamlibrary.cpp src/steamlibrary.h
-        src/updateinfo.cpp src/updateinfo.h
+        src/updateinfo.cpp src/updateinfo.h src/lsfgstate.cpp src/lsfgstate.h
 )
 target_include_directories(microset_ui PUBLIC src)
 target_compile_definitions(microset_ui PRIVATE MICROSET_UI_FONT_DIR="${MICROSET_UI_FONT_DIR}")

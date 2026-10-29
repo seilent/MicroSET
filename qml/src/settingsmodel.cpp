@@ -28,6 +28,15 @@ const QRegularExpression AppKey(u"^app\\.([1-9][0-9]{0,9})\\.(.+)$"_s);
 const QRegularExpression AppPage(u"^app\\.([1-9][0-9]{0,9})$"_s);
 constexpr int Last = std::numeric_limits<int>::max();
 constexpr int MaxSteps = 64;
+constexpr uint PanelHz = 60;
+const QString LsfgEnabledKey = u"lsfg.enabled"_s;
+const QString LsfgModeKey = u"lsfg.mode"_s;
+const QString LsfgMultiplierKey = u"lsfg.multiplier"_s;
+const QString LsfgCapKey = u"lsfg.fps_cap"_s;
+const QString LsfgStateOption = u"lsfg.state"_s;
+const QString LsfgGamesKey = u"lsfg-games"_s;
+const QString LsfgGamePrefix = u"lsfg-game-"_s;
+const QString LsfgInstallKey = u"lsfg-install"_s;
 
 bool isNumeric(const QString &type)
 {
@@ -76,6 +85,7 @@ SettingsModel::SettingsModel(QObject *parent)
     , m_fixture(true)
 {
     connect(&m_updates, &UpdateInfo::changed, this, &SettingsModel::bump);
+    connect(&m_lsfg, &LsfgState::changed, this, &SettingsModel::bump);
 }
 
 SettingsModel::SettingsModel(const QDBusConnection &bus, QObject *parent)
@@ -88,7 +98,9 @@ SettingsModel::SettingsModel(const QDBusConnection &bus, QObject *parent)
     auto *watcher = new QDBusServiceWatcher(Service, bus, QDBusServiceWatcher::WatchForOwnerChange, this);
     connect(watcher, &QDBusServiceWatcher::serviceOwnerChanged, this, &SettingsModel::onOwnerChanged);
     connect(&m_updates, &UpdateInfo::changed, this, &SettingsModel::bump);
+    connect(&m_lsfg, &LsfgState::changed, this, &SettingsModel::bump);
     m_updates.watch();
+    m_lsfg.watch();
 }
 
 SettingsModel::~SettingsModel()
@@ -176,6 +188,11 @@ void SettingsModel::setGame(const QVariantMap &game)
 UpdateInfo *SettingsModel::updates()
 {
     return &m_updates;
+}
+
+LsfgState *SettingsModel::lsfg()
+{
+    return &m_lsfg;
 }
 
 bool SettingsModel::available() const
@@ -327,8 +344,12 @@ void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, 
     QMap<QString, QString> groupLabels;
     QSet<QString> live;
     QSet<QString> referenced;
+    QVariantMap lsfgDefaults;
     for (auto it = schema.begin(); it != schema.end(); ++it) {
         const QJsonObject object = it.value().toObject();
+        if (it.key().startsWith("lsfg."_L1))
+            lsfgDefaults.insert(it.key(),
+                                coerce(object.value("type"_L1).toString(), object.value("default"_L1).toVariant()));
         if (object.value("per_app"_L1).toBool() && it.key().startsWith(AppPrefix)) {
             templates.insert(it.key().mid(AppPrefix.size()), object);
             continue;
@@ -358,6 +379,7 @@ void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, 
     m_groupLabels = groupLabels;
     m_live = live;
     m_referenced = referenced;
+    m_lsfgDefaults = lsfgDefaults;
 }
 
 void SettingsModel::setAvailable(bool available)
@@ -522,6 +544,12 @@ QString SettingsModel::textOf(const Entry &entry, const QVariant &value) const
     const QJsonValue label = entry.labels.value(raw);
     if (label.isString())
         return label.toString();
+    if (entry.key == LsfgCapKey && raw == "auto"_L1) {
+        const auto multiplier = m_entries.constFind(LsfgMultiplierKey);
+        const uint times = multiplier == m_entries.cend() ? 0 : multiplier->shown.toUInt();
+        if (times > 0)
+            return u"auto (%1)"_s.arg(PanelHz / times);
+    }
     const bool scaled = entry.scale > 0 && !raw.isEmpty();
     const QString number = entry.type == "d"_L1 ? QString::number(value.toDouble(), 'f', decimalsOf(entry.step)) : raw;
     const QString text = scaled ? QString::number(std::round(value.toDouble() / entry.scale)) : number;
@@ -542,6 +570,12 @@ QString SettingsModel::autoText(const Entry &entry) const
     if (entry.option == "fex.preset"_L1)
         return u"auto (%1)"_s.arg(source);
     const QString value = own.value("value"_L1).toString();
+    if (entry.option == LsfgStateOption && source == "default"_L1)
+        return u"auto (%1, %2)"_s.arg(value, own.value("mode"_L1).toString());
+    if (entry.option == LsfgMultiplierKey || entry.option == LsfgCapKey) {
+        const QJsonValue label = entry.labels.value(value);
+        return u"auto (%1)"_s.arg(label.isString() ? label.toString() : value);
+    }
     const QString word = value.isEmpty() ? u"default"_s : value;
     return word == source ? u"auto (%1)"_s.arg(word) : u"auto (%1, %2)"_s.arg(word, source);
 }
@@ -667,7 +701,10 @@ QList<const SettingsModel::Entry *> SettingsModel::visible(const QString &group)
     QList<const Entry *> out;
     const auto fallback = m_entries.constFind(TuningFallbackKey);
     const bool fallbackShown = fallback != m_entries.cend() && !textOf(*fallback, fallback->shown).isEmpty();
+    const bool lsfg = lsfgShown();
     for (const Entry &entry : m_entries) {
+        if (!lsfg && (entry.group == LsfgGroup || (!entry.appid.isEmpty() && entry.option.startsWith("lsfg."_L1))))
+            continue;
         if (titleOf(entry.group) != group || (kindOf(entry) == "info"_L1 && textOf(entry, entry.shown).isEmpty()))
             continue;
         if (entry.key == TuningTripKey && fallbackShown)
@@ -779,6 +816,159 @@ QVariantList SettingsModel::thisGame() const
     return out;
 }
 
+bool SettingsModel::lsfgShown() const
+{
+    const QJsonObject state = m_lsfg.state();
+    const QString install = state.value("install"_L1).toString();
+    if (state.value("owned"_L1).toString() == "yes"_L1 || (!install.isEmpty() && install != "none"_L1))
+        return true;
+    for (auto it = m_lsfgDefaults.cbegin(); it != m_lsfgDefaults.cend(); ++it)
+        if (m_values.contains(it.key()) && m_values.value(it.key()) != it.value())
+            return true;
+    return !lsfgApps().isEmpty();
+}
+
+bool SettingsModel::installShown() const
+{
+    const QJsonObject state = m_lsfg.state();
+    return state.value("owned"_L1).toString() == "yes"_L1 && state.value("install"_L1).toString() == "none"_L1
+        && m_lsfg.session() == "steam"_L1;
+}
+
+QStringList SettingsModel::lsfgApps() const
+{
+    QSet<QString> found;
+    for (auto it = m_values.cbegin(); it != m_values.cend(); ++it) {
+        if (!it.key().contains(".lsfg."_L1))
+            continue;
+        const QRegularExpressionMatch match = AppKey.match(it.key());
+        const auto shape = m_templates.constFind(match.captured(2));
+        if (!match.hasMatch() || !match.captured(2).startsWith("lsfg."_L1) || shape == m_templates.cend()
+            || SteamLibrary::excluded().contains(match.captured(1)))
+            continue;
+        if (it.value() != shape->value("default"_L1).toVariant())
+            found.insert(match.captured(1));
+    }
+    QStringList out(found.cbegin(), found.cend());
+    std::sort(out.begin(), out.end(), [](const QString &a, const QString &b) { return a.toULongLong() < b.toULongLong(); });
+    return out;
+}
+
+QVariantList SettingsModel::lsfgRows(const QVariantList &rows) const
+{
+    QVariantList out;
+    for (const QVariant &row : rows) {
+        const QString key = row.toMap().value(u"key"_s).toString();
+        if (key == LsfgEnabledKey) {
+            out << infoRow(u"lsfg-status"_s, u"Lossless Scaling"_s, m_lsfg.status());
+            if (installShown()) {
+                QVariantMap install = infoRow(LsfgInstallKey, u"Install Lossless Scaling"_s, QString());
+                install.insert({{u"kind"_s, u"row"_s}, {u"action"_s, LsfgInstallKey}, {u"ask"_s, u"lossless scaling"_s},
+                                {u"accept"_s, u"install"_s}});
+                out << install;
+            }
+        }
+        out << row;
+        if (key == LsfgModeKey)
+            out << lsfgGames();
+    }
+    out << infoRow(u"lsfg-limit"_s, u"Steam frame limit"_s, u"set it off for these games"_s);
+    return out;
+}
+
+QVariantList SettingsModel::lsfgGames() const
+{
+    const auto enabled = m_entries.constFind(LsfgEnabledKey);
+    const bool on = enabled == m_entries.cend() || enabled->shown.toBool();
+    const auto stateOf = [this](const QString &appid) {
+        const QJsonObject options = m_effective.value(appid).value("options"_L1).toObject();
+        return options.value(LsfgStateOption).toObject().value("value"_L1).toString();
+    };
+    QVariantList subs;
+    QSet<QString> listed;
+    int count = 0;
+    for (const SteamLibrary::Game &game : m_library) {
+        listed.insert(game.appid);
+        const QString state = stateOf(game.appid);
+        count += state == "on"_L1 ? 1 : 0;
+        QVariantMap sub = infoRow(LsfgGamePrefix + game.appid, game.name, state);
+        sub.insert(u"kind"_s, u"sub"_s);
+        subs << sub;
+    }
+    for (const QString &appid : lsfgApps()) {
+        if (listed.contains(appid))
+            continue;
+        QVariantMap sub = infoRow(LsfgGamePrefix + appid, m_names.value(appid, appid), u"not installed"_s);
+        sub.insert(u"kind"_s, u"sub"_s);
+        subs << sub;
+    }
+    QVariantMap games = infoRow(LsfgGamesKey, u"Games"_s, on ? u"%1 on"_s.arg(count) : u"off"_s);
+    games.insert(u"kind"_s, u"row"_s);
+    if (on)
+        games.insert(u"expand"_s, true);
+    QVariantList out{games};
+    if (!on)
+        return out << infoRow(u"lsfg-off"_s, u"Frame generation is off"_s, QString());
+    if (!m_lsfgOpen)
+        return out;
+    out << infoRow(u"lsfg-proton"_s, u"Proton games only"_s, QString());
+    return out << subs;
+}
+
+void SettingsModel::flipLsfg(const QString &appid)
+{
+    const QString key = AppPrefix + appid + u'.' + LsfgStateOption;
+    const QJsonObject view = m_effective.value(appid);
+    const QJsonObject state = view.value("options"_L1).toObject().value(LsfgStateOption).toObject();
+    const auto enabled = m_entries.constFind(LsfgEnabledKey);
+    const bool installed = std::any_of(m_library.cbegin(), m_library.cend(),
+                                       [&appid](const SteamLibrary::Game &game) { return game.appid == appid; });
+    if (!AppPage.match(AppPrefix + appid).hasMatch() || !m_templates.contains(LsfgStateOption)
+        || (installed && state.isEmpty()) || busy(key) || (enabled != m_entries.cend() && !enabled->shown.toBool()))
+        return;
+    if (!m_apps.contains(appid)) {
+        m_apps.insert(appid);
+        instantiate(m_entries, appid);
+    }
+    if (!installed) {
+        QStringList keys;
+        for (auto it = m_templates.cbegin(); it != m_templates.cend(); ++it)
+            if (it.key().startsWith("lsfg."_L1))
+                keys << AppPrefix + appid + u'.' + it.key();
+        if (std::none_of(keys.cbegin(), keys.cend(), [this](const QString &item) { return busy(item); }))
+            for (const QString &item : std::as_const(keys))
+                write(item, u"auto"_s);
+        return;
+    }
+    const QJsonObject profile = view.value("profile"_L1).toObject();
+    const QJsonObject set = profile.value("set"_L1).toObject();
+    const QString kept = profile.value("on"_L1).toBool() ? set.value(LsfgStateOption).toString() : QString();
+    const auto mode = m_entries.constFind(LsfgModeKey);
+    const bool blacklist = mode != m_entries.cend() && mode->shown.toString() == "blacklist"_L1;
+    const bool fallback = kept.isEmpty() ? blacklist : kept == "on"_L1;
+    const bool wanted = state.value("value"_L1).toString() != "on"_L1;
+    write(key, wanted == fallback ? u"auto"_s : wanted ? u"on"_s : u"off"_s);
+}
+
+void SettingsModel::act(const QString &key)
+{
+    if (key == LsfgInstallKey && installShown())
+        m_lsfg.install();
+}
+
+void SettingsModel::toggle(const QString &key)
+{
+    if (key.startsWith(LsfgGamePrefix)) {
+        flipLsfg(key.mid(LsfgGamePrefix.size()));
+        return;
+    }
+    const auto enabled = m_entries.constFind(LsfgEnabledKey);
+    if (key != LsfgGamesKey || enabled == m_entries.cend() || !enabled->shown.toBool())
+        return;
+    m_lsfgOpen = !m_lsfgOpen;
+    bump();
+}
+
 void SettingsModel::fetchEffective(const QString &appid)
 {
     if (m_fixture) {
@@ -812,7 +1002,8 @@ void SettingsModel::refreshEffective(const QString &key)
         fetchEffective(appid);
         return;
     }
-    if (key.startsWith("fex."_L1) || key.startsWith("wine."_L1) || key.startsWith("proton."_L1)) {
+    if (key.startsWith("fex."_L1) || key.startsWith("wine."_L1) || key.startsWith("proton."_L1)
+        || key.startsWith("lsfg."_L1)) {
         for (const QString &cached : m_effective.keys())
             fetchEffective(cached);
     }
@@ -856,6 +1047,8 @@ QVariantList SettingsModel::rows(const QString &group, int) const
     }
     if (!placed)
         place();
+    if (group == titleOf(LsfgGroup) && !out.isEmpty())
+        out = lsfgRows(out);
     const QVariantList games = group == GamesGroup ? gameRows() : QVariantList();
     if (!games.isEmpty())
         out << label(GamesGroup) << games;
@@ -1211,8 +1404,20 @@ void SettingsModel::enter(const QString &group)
         bump();
         return;
     }
-    if (group != GamesGroup || m_templates.isEmpty())
+    const bool lsfg = group == titleOf(LsfgGroup);
+    if ((group != GamesGroup && !lsfg) || m_templates.isEmpty())
         return;
+    readLibrary();
+    for (const SteamLibrary::Game &game : std::as_const(m_library))
+        fetchEffective(game.appid);
+    if (lsfg)
+        for (const QString &appid : lsfgApps())
+            fetchEffective(appid);
+    bump();
+}
+
+void SettingsModel::readLibrary()
+{
     const SteamLibrary library(SteamLibrary::defaultRoot());
     const QByteArray stamp = library.stamp();
     if (!m_libraryRead || stamp != m_libraryStamp) {
@@ -1220,15 +1425,14 @@ void SettingsModel::enter(const QString &group)
         m_libraryStamp = stamp;
         m_libraryRead = true;
     }
-    for (const SteamLibrary::Game &game : std::as_const(m_library))
-        fetchEffective(game.appid);
-    bump();
 }
 
 void SettingsModel::leave(const QString &group)
 {
     for (const QString &key : liveKeys(group))
         drop(key);
+    if (group == titleOf(LsfgGroup))
+        m_lsfgOpen = false;
 }
 
 QVariant SettingsModel::value(const QString &key, int) const

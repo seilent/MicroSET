@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lsfgstate.h"
 #include "steamlibrary.h"
 #include "updateinfo.h"
 
@@ -34,6 +35,7 @@ class SettingsModel : public QObject
 public:
     static inline const QString UpdatesGroup = QStringLiteral("updates");
     static inline const QString GamesGroup = QStringLiteral("games");
+    static inline const QString LsfgGroup = QStringLiteral("lsfg");
     static inline const QString AccentKey = QStringLiteral("microdap.accent_hue");
     static inline const QString LedHueKey = QStringLiteral("rgb.hue");
     static inline const QString UndervoltKey = QStringLiteral("power.gpu_undervolt");
@@ -54,6 +56,7 @@ public:
     void setProtonFixture(const QMap<QString, QJsonObject> &effective);
     void setGame(const QVariantMap &game);
     UpdateInfo *updates();
+    LsfgState *lsfg();
 
     bool available() const;
     int revision() const;
@@ -79,6 +82,8 @@ public:
     Q_INVOKABLE QVariant value(const QString &key, int revision) const;
     Q_INVOKABLE void hold(const QString &key);
     Q_INVOKABLE void drop(const QString &key);
+    Q_INVOKABLE void act(const QString &key);
+    Q_INVOKABLE void toggle(const QString &key);
 
     static int normalizeHue(int hue);
     static QString toastText(const QString &error);
@@ -179,6 +184,13 @@ private:
     QVariantMap gameRow(const QString &appid, const QString &title) const;
     QVariantList gameRows() const;
     QVariantList thisGame() const;
+    bool lsfgShown() const;
+    bool installShown() const;
+    QStringList lsfgApps() const;
+    QVariantList lsfgRows(const QVariantList &rows) const;
+    QVariantList lsfgGames() const;
+    void flipLsfg(const QString &appid);
+    void readLibrary();
     void fetchEffective(const QString &appid);
     void refreshEffective(const QString &key);
     static QVariant coerce(const QString &type, const QVariant &value);
@@ -188,6 +200,9 @@ private:
     std::unique_ptr<MicroSet::Client> m_client;
     QDBusConnection m_bus;
     UpdateInfo m_updates;
+    LsfgState m_lsfg;
+    bool m_lsfgOpen = false;
+    QVariantMap m_lsfgDefaults;
     QMap<QString, Entry> m_entries;
     QMap<QString, QJsonObject> m_templates;
     QSet<QString> m_apps;

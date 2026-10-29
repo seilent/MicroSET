@@ -36,12 +36,32 @@ Window {
         "sheet-preset": ["app.2238900", "app.2238900.fex.preset", 0],
         "sheet-profile": ["app.292120", "app.292120.profile", 0],
         "sheet-smc": ["app.292120", "app.292120.fex.smc", 1],
-        "sheet-global-preset": ["games", "fex.preset", 1]
+        "sheet-global-preset": ["games", "fex.preset", 1],
+        "sheet-lsfg-mode": ["Frame generation", "lsfg.mode", 1],
+        "sheet-lsfg-multiplier": ["Frame generation", "lsfg.multiplier", 0],
+        "sheet-lsfg-cap": ["Frame generation", "lsfg.fps_cap", 0],
+        "sheet-lsfg-flow": ["Frame generation", "lsfg.flow_scale", 0],
+        "sheet-game-lsfg": ["app.2161700", "app.2161700.lsfg.state", 1],
+        "sheet-game-lsfg-multiplier": ["app.2161700", "app.2161700.lsfg.multiplier", 0],
+        "sheet-game-lsfg-cap": ["app.2161700", "app.2161700.lsfg.fps_cap", 0]
     })
     readonly property var gameStates: ({
         "game-profile": "app.292120", "game-overridden": "app.292120", "game-profile-off": "app.292120",
-        "game-preset": "app.2238900", "game-global": "app.2238900", "game-bottom": "app.292120", "game-long": "app.251150"
+        "game-preset": "app.2238900", "game-global": "app.2238900", "game-bottom": "app.292120", "game-long": "app.251150",
+        "game-lsfg": "app.2161700", "game-lsfg-blacklist": "app.2161700", "game-lsfg-disabled": "app.2161700",
+        "game-lsfg-cap-off": "app.2161700"
     })
+    readonly property var lsfgStates: ({
+        lsfg: "lsfg-status", "lsfg-dialog": "lsfg-install", "lsfg-open": "lsfg-game-2238900",
+        "lsfg-blacklist": "lsfg-game-2050650", "lsfg-off": "lsfg-games", "lsfg-bottom": "lsfg-limit",
+        "lsfg-status-long": "lsfg-status", "lsfg-installing": "lsfg-status", "lsfg-sent": "lsfg-status",
+        "lsfg-no-client": "lsfg-status", "lsfg-game-running": "lsfg-status", "lsfg-microsd": "lsfg-status",
+        "lsfg-unknown": "lsfg-status", "lsfg-old-layer": "lsfg-status", "lsfg-install-focus": "lsfg-install",
+        "lsfg-open-empty": "lsfg-proton", "lsfg-gone-long": "lsfg-game-251150", "lsfg-open-top": "lsfg-games",
+        "lsfg-games-motion": "lsfg-games", "lsfg-dialog-motion": "lsfg-install"
+    })
+    readonly property var lsfgOpen: ["lsfg-open", "lsfg-blacklist", "lsfg-bottom", "lsfg-open-empty", "lsfg-gone-long",
+        "lsfg-open-top"]
     property alias view: view
 
     width: root.shotWidth
@@ -126,11 +146,35 @@ Window {
             root.sheet(shot[0], shot[1], shot[2])
         } else if (root.gameStates[root.shotState] !== undefined) {
             view.open(root.gameStates[root.shotState])
-            if (root.shotState === "game-bottom") {
+            if (root.shotState === "game-bottom" || root.shotState.startsWith("game-lsfg")) {
                 const page = view.stack.currentItem
                 page.focusIndex = page.rows.length - 2
                 Qt.callLater(root.bottom)
             }
+        } else if (root.lsfgStates[root.shotState] !== undefined) {
+            view.open("Frame generation")
+            const page = view.stack.currentItem
+            if (root.lsfgOpen.indexOf(root.shotState) >= 0)
+                root.model.toggle("lsfg-games")
+            page.focusIndex = page.indexOfKey(root.lsfgStates[root.shotState])
+            Qt.callLater(() => {
+                if (root.shotState === "lsfg-bottom") {
+                    root.bottom()
+                } else if (root.shotState === "lsfg-open-top" || root.shotState === "lsfg-games-motion") {
+                    page.completeScroll()
+                    page.flick.contentY = Math.min(page.maxContentY(), page.rowTopOf(page.focusIndex))
+                } else {
+                    page.keepFocusVisible()
+                }
+                if (root.shotState === "lsfg-dialog") {
+                    page.activate()
+                    page.confirm.complete()
+                }
+                if (root.shotState.endsWith("-motion")) {
+                    page.animated = true
+                    later.start()
+                }
+            })
         } else if (root.shotState === "games-many") {
             view.open("games")
             const page = view.stack.currentItem
@@ -168,6 +212,13 @@ Window {
         anchors.fill: parent
         model: root.model
         animated: !root.screenshot
+    }
+
+    Timer {
+        id: later
+
+        interval: Motion.listChange
+        onTriggered: view.stack.currentItem.activate()
     }
 
     Timer {

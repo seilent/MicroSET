@@ -57,16 +57,22 @@ foreach(size 960x640 640x960)
             sheet-emu-scheme sheet-emu-scheme-end sheet-emu-variant sheet-long-label flip-before flip-after
             games games-empty games-many games-long games-bottom game-profile game-overridden game-profile-off
             game-preset game-global game-bottom game-long sheet-tso sheet-tso-on sheet-preset sheet-profile sheet-smc
-            sheet-global-preset)
+            sheet-global-preset top-lsfg lsfg lsfg-dialog lsfg-open lsfg-blacklist lsfg-off lsfg-bottom lsfg-status-long
+            sheet-lsfg-mode sheet-lsfg-multiplier sheet-lsfg-cap sheet-lsfg-flow game-lsfg sheet-game-lsfg lsfg-installing
+            lsfg-sent lsfg-no-client lsfg-game-running lsfg-microsd lsfg-unknown lsfg-old-layer lsfg-install-focus
+            lsfg-open-empty lsfg-gone-long lsfg-open-top game-lsfg-blacklist game-lsfg-disabled game-lsfg-cap-off
+            sheet-game-lsfg-multiplier sheet-game-lsfg-cap)
         add_test(NAME page-shot-${state}-${size}
             COMMAND microset-pageshot --screenshot ${CMAKE_CURRENT_BINARY_DIR}/shots/${state}-${size}.png
                 --size ${size} --state ${state})
         set_tests_properties(page-shot-${state}-${size} PROPERTIES
             ENVIRONMENT "QT_QPA_PLATFORM=offscreen;MICROSET_FONT_DIR=${MICROSET_TEST_FONT_DIR}")
     endforeach()
-    add_test(NAME page-frames-sheet-motion-${size}
-        COMMAND microset-pageshot --frames ${CMAKE_CURRENT_BINARY_DIR}/shots/sheet-motion-${size} --size ${size}
-            --state sheet-motion)
-    set_tests_properties(page-frames-sheet-motion-${size} PROPERTIES
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;MICROSET_FONT_DIR=${MICROSET_TEST_FONT_DIR}")
+    foreach(state sheet-motion lsfg-games-motion lsfg-dialog-motion)
+        add_test(NAME page-frames-${state}-${size}
+            COMMAND microset-pageshot --frames ${CMAKE_CURRENT_BINARY_DIR}/shots/${state}-${size} --size ${size}
+                --state ${state})
+        set_tests_properties(page-frames-${state}-${size} PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen;MICROSET_FONT_DIR=${MICROSET_TEST_FONT_DIR}")
+    endforeach()
 endforeach()

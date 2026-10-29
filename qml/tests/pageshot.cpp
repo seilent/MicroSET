@@ -3,6 +3,7 @@
 
 #include <QCommandLineParser>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QFont>
 #include <QFontInfo>
@@ -48,7 +49,13 @@ const QStringList &states()
         u"games"_s, u"games-empty"_s, u"games-many"_s, u"games-long"_s, u"games-bottom"_s, u"game-profile"_s,
         u"game-overridden"_s, u"game-profile-off"_s, u"game-preset"_s, u"game-global"_s, u"game-bottom"_s,
         u"game-long"_s, u"sheet-tso"_s, u"sheet-tso-on"_s, u"sheet-preset"_s, u"sheet-profile"_s, u"sheet-smc"_s,
-        u"sheet-global-preset"_s,
+        u"sheet-global-preset"_s, u"top-lsfg"_s, u"lsfg"_s, u"lsfg-dialog"_s, u"lsfg-open"_s, u"lsfg-blacklist"_s,
+        u"lsfg-off"_s, u"lsfg-bottom"_s, u"lsfg-status-long"_s, u"sheet-lsfg-mode"_s, u"sheet-lsfg-multiplier"_s,
+        u"sheet-lsfg-cap"_s, u"sheet-lsfg-flow"_s, u"game-lsfg"_s, u"sheet-game-lsfg"_s, u"lsfg-installing"_s,
+        u"lsfg-sent"_s, u"lsfg-no-client"_s, u"lsfg-game-running"_s, u"lsfg-microsd"_s, u"lsfg-unknown"_s,
+        u"lsfg-old-layer"_s, u"lsfg-install-focus"_s, u"lsfg-open-empty"_s, u"lsfg-gone-long"_s, u"lsfg-open-top"_s,
+        u"game-lsfg-blacklist"_s, u"game-lsfg-disabled"_s, u"game-lsfg-cap-off"_s, u"sheet-game-lsfg-multiplier"_s,
+        u"sheet-game-lsfg-cap"_s, u"lsfg-games-motion"_s, u"lsfg-dialog-motion"_s,
     };
     return names;
 }
@@ -60,9 +67,44 @@ struct Games
     QVariantMap stored;
 };
 
+const QString LongName = u"The Legend of Heroes: Trails in the Sky the 1st Chapter Deluxe Edition with Every Bonus"_s;
+
+bool lsfgState(const QString &state)
+{
+    return state.startsWith("lsfg"_L1) || state == "top-lsfg"_L1 || state.startsWith("sheet-lsfg"_L1)
+        || state.startsWith("game-lsfg"_L1) || state.startsWith("sheet-game-lsfg"_L1);
+}
+
 Games gamesOf(const QString &state)
 {
     Games out;
+    if (lsfgState(state)) {
+        if (state != "lsfg-open-empty"_L1)
+            out.library = {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s},
+                           {u"2161700"_s, u"Persona 3 Reload"_s}, {u"1621310"_s, u"Atelier Sophie 2: The Alchemist of the Mysterious Dream"_s},
+                           {u"2050650"_s, u"Resident Evil 4"_s}};
+        if (state == "lsfg-gone-long"_L1)
+            out.library << qMakePair(u"251150"_s, LongName);
+        const QMap<QString, QVariantMap> lsfg{
+            {u"lsfg-open"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.2161700.lsfg.state"_s, u"on"_s}}},
+            {u"lsfg-open-top"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.2161700.lsfg.state"_s, u"on"_s}}},
+            {u"lsfg-games-motion"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.2161700.lsfg.state"_s, u"on"_s}}},
+            {u"lsfg-bottom"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}}},
+            {u"lsfg-blacklist"_s, {{u"lsfg.mode"_s, u"blacklist"_s}, {u"app.2050650.lsfg.state"_s, u"off"_s}}},
+            {u"lsfg-off"_s, {{u"lsfg.enabled"_s, false}, {u"app.2238900.lsfg.state"_s, u"on"_s}}},
+            {u"lsfg-unknown"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}}},
+            {u"lsfg-gone-long"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.251150.lsfg.state"_s, u"on"_s}}},
+            {u"game-lsfg"_s, {{u"app.2161700.lsfg.state"_s, u"on"_s}, {u"app.2161700.lsfg.multiplier"_s, u"3"_s}}},
+            {u"sheet-game-lsfg"_s, {{u"app.2161700.lsfg.multiplier"_s, u"3"_s}}},
+            {u"game-lsfg-blacklist"_s, {{u"lsfg.mode"_s, u"blacklist"_s}}},
+            {u"game-lsfg-disabled"_s, {{u"lsfg.enabled"_s, false}}},
+            {u"game-lsfg-cap-off"_s, {{u"lsfg.fps_cap"_s, u"off"_s}}},
+            {u"sheet-game-lsfg-multiplier"_s, {{u"app.2161700.lsfg.multiplier"_s, u"3"_s}}},
+            {u"sheet-game-lsfg-cap"_s, {{u"app.2161700.lsfg.multiplier"_s, u"3"_s}}},
+        };
+        out.stored = lsfg.value(state);
+        return out;
+    }
     if (state == "games"_L1 || state == "games-bottom"_L1) {
         out.library = {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s},
                        {u"2161700"_s, u"Persona 3 Reload"_s}, {u"1621310"_s, u"Atelier Sophie 2: The Alchemist of the Mysterious Dream"_s},
@@ -163,6 +205,32 @@ int main(int argc, char *argv[])
     model.setFixture(FakeMicroSetd::describe(files), values,
                      {{u"rgb.enabled"_s, state != "rgb-off"_L1}, {u"rgb.hue"_s, 200u}, {u"rgb.saturation"_s, 60u}});
     model.setProtonFixture(effective);
+    if (lsfgState(state)) {
+        const QStringList none{u"lsfg"_s, u"lsfg-dialog"_s, u"top-lsfg"_s, u"lsfg-install-focus"_s, u"lsfg-dialog-motion"_s,
+                               u"lsfg-sent"_s, u"lsfg-no-client"_s, u"lsfg-game-running"_s};
+        const bool installed = !none.contains(state) && !state.startsWith("sheet-lsfg"_L1);
+        QJsonObject lsfg{{u"version"_s, 1}, {u"owned"_s, u"yes"_s}, {u"install"_s, installed ? u"installed"_s : u"none"_s},
+                         {u"library"_s, steam.path()}, {u"branch_ok"_s, state != "lsfg-status-long"_L1}};
+        const QMap<QString, QJsonObject> status{
+            {u"lsfg-installing"_s, {{u"install"_s, u"installing"_s}}},
+            {u"lsfg-sent"_s, {{u"send"_s, QJsonObject{{u"result"_s, u"sent"_s}, {u"last_boot"_s, LsfgState::bootId()},
+                                                       {u"last_mono"_s, LsfgState::monotonic()}}}}},
+            {u"lsfg-no-client"_s, {{u"send"_s, QJsonObject{{u"result"_s, u"no-client"_s}}}}},
+            {u"lsfg-game-running"_s, {{u"send"_s, QJsonObject{{u"result"_s, u"game-running"_s}}}}},
+            {u"lsfg-microsd"_s, {{u"library"_s, u"/run/media/micro/SD"_s}}},
+            {u"lsfg-old-layer"_s, {{u"user_layer"_s, true}}},
+        };
+        const QJsonObject change = status.value(state);
+        for (auto it = change.constBegin(); it != change.constEnd(); ++it)
+            lsfg.insert(it.key(), it.value());
+        const bool known = state != "lsfg-unknown"_L1;
+        model.lsfg()->setFixture(known ? lsfg : QJsonObject(), known, u"steam"_s);
+    }
+    if (state == "lsfg-gone-long"_L1) {
+        model.enter(u"app.251150"_s);
+        model.leave(u"app.251150"_s);
+        QFile::remove(steam.path() + u"/steamapps/appmanifest_251150.acf"_s);
+    }
 
     QQmlApplicationEngine engine;
     bool warned = false;

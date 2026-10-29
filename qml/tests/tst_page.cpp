@@ -3,7 +3,9 @@
 #include "settingsmodel.h"
 
 #include <QColor>
+#include <QFile>
 #include <QFont>
+#include <QJsonDocument>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
 #include <QQuickWindow>
@@ -13,6 +15,8 @@
 #include <QTest>
 #include <QtQml/qqmlextensionplugin.h>
 
+#include <algorithm>
+#include <cstdio>
 #include <memory>
 
 Q_IMPORT_QML_PLUGIN(MicroSetPlugin)
@@ -112,6 +116,26 @@ class PageTest : public QObject
                                           Q_ARG(bool, true)));
     }
 
+    void writeAtomic(const QString &name, const QByteArray &data) const
+    {
+        h->writeFile(name + u".tmp"_s, data);
+        QCOMPARE(std::rename(QFile::encodeName(h->path(name + u".tmp"_s)).constData(), QFile::encodeName(h->path(name)).constData()),
+                 0);
+    }
+
+    void writeLsfg(const QByteArray &state) const
+    {
+        writeAtomic(u"lsfg/state.json"_s, state);
+    }
+
+    void openLsfg()
+    {
+        QTRY_VERIFY(!model->rows(Lsfg, model->revision()).isEmpty());
+        open(Lsfg);
+    }
+
+    static inline const QString Lsfg = u"Frame generation"_s;
+
     void ledsOn()
     {
         fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.saturation"_s, 60u}});
@@ -125,6 +149,8 @@ private slots:
     {
         QTest::failOnWarning(QRegularExpression(u"TypeError|ReferenceError|Unable to assign|Binding loop"_s));
         h = std::make_unique<Harness>();
+        qputenv("MICROSET_LSFG_STATE", h->path(u"lsfg/state.json"_s).toUtf8());
+        qputenv("MICROSET_SESSION_CURRENT", h->path(u"run/session-current"_s).toUtf8());
         QVERIFY(h->startBus());
         fake = std::make_unique<FakeMicroSetd>(h->address());
         fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped()}));
@@ -439,6 +465,137 @@ private slots:
         page()->setProperty("screenOff", true);
         QVERIFY(!dialog->property("shown").toBool());
         QCOMPARE(acted.count(), 0);
+    }
+
+    void lsfgInstallAsksFirst()
+    {
+        const QString log = h->path(u"systemctl.log"_s);
+        h->writeFile(u"bin/systemctl"_s, "#!/bin/sh\necho \"$*\" >> '" + QFile::encodeName(log) + "'\n");
+        QFile::setPermissions(h->path(u"bin/systemctl"_s), QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+        const QByteArray path = qgetenv("PATH");
+        qputenv("PATH", QFile::encodeName(h->path(u"bin"_s)) + ':' + path);
+        writeAtomic(u"run/session-current"_s, "steam gamescope-session-plus@steam.service 3 120\n");
+        writeLsfg(R"({"version": 1, "owned": "yes", "install": "none", "send": {"result": null}})");
+        openLsfg();
+        QTRY_VERIFY(!row(u"lsfg-install"_s).isEmpty());
+        auto *dialog = qvariant_cast<QObject *>(page()->property("confirm"));
+        focus(u"lsfg-install"_s);
+        key(Qt::Key_Return);
+        QVERIFY(dialog->property("shown").toBool());
+        QCOMPARE(dialog->property("title").toString(), u"lossless scaling"_s);
+        QCOMPARE(dialog->property("items").toStringList(), (QStringList{u"install"_s, u"cancel"_s}));
+        QCOMPARE(dialog->property("focusIndex").toInt(), 1);
+        key(Qt::Key_Return);
+        QVERIFY(!dialog->property("shown").toBool());
+        QTest::qWait(100);
+        QVERIFY(!QFile::exists(log));
+        key(Qt::Key_Return);
+        key(Qt::Key_Up);
+        key(Qt::Key_Return);
+        QVERIFY(!dialog->property("shown").toBool());
+        QTRY_VERIFY(QFile::exists(log));
+        QFile file(log);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(file.readAll(), "--user start --job-mode=fail microos-lsfg-send@manual.service\n");
+        const QJsonObject send{{u"result"_s, u"sent"_s}, {u"last_boot"_s, LsfgState::bootId()},
+                               {u"last_mono"_s, LsfgState::monotonic()}};
+        writeLsfg(QJsonDocument(QJsonObject{{u"version"_s, 1}, {u"owned"_s, u"yes"_s}, {u"install"_s, u"none"_s}, {u"send"_s, send}})
+                      .toJson(QJsonDocument::Compact));
+        QTRY_COMPARE(value(u"lsfg-status"_s), u"install sent"_s);
+        key(Qt::Key_Return);
+        QVERIFY(dialog->property("shown").toBool());
+        writeLsfg(R"({"version": 1, "owned": "yes", "install": "installing", "send": {"result": "sent"}})");
+        QTRY_VERIFY(!dialog->property("shown").toBool());
+        QTRY_COMPARE(value(u"lsfg-status"_s), u"installing"_s);
+        QVERIFY(row(u"lsfg-install"_s).isEmpty());
+        qputenv("PATH", path);
+    }
+
+    void lsfgListFlipsOnA()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s}});
+        fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
+        writeLsfg(R"({"version": 1, "owned": "yes", "install": "installed"})");
+        openLsfg();
+        QTRY_COMPARE(value(u"lsfg-games"_s), u"0 on"_s);
+        QCOMPARE(value(u"lsfg-status"_s), u"installed"_s);
+        focus(u"lsfg.mode"_s);
+        key(Qt::Key_Down);
+        reachable(u"lsfg-games"_s);
+        key(Qt::Key_Return);
+        QVERIFY(!row(u"lsfg-proton"_s).isEmpty());
+        key(Qt::Key_Down);
+        reachable(u"lsfg-proton"_s);
+        key(Qt::Key_Return);
+        QVERIFY(fake->calls().isEmpty());
+        key(Qt::Key_Down);
+        reachable(u"lsfg-game-292120"_s);
+        QTRY_COMPARE(value(u"lsfg-game-292120"_s), u"off"_s);
+        QCOMPARE(row(u"lsfg-game-292120"_s).value(u"title"_s).toString(), u"FINAL FANTASY XIII"_s);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(value(u"lsfg-game-292120"_s), u"on"_s);
+        QCOMPARE(fake->calls(), QStringList{u"Set app.292120.lsfg.state on"_s});
+        QTRY_COMPARE(value(u"lsfg-games"_s), u"1 on"_s);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(value(u"lsfg-game-292120"_s), u"off"_s);
+        QCOMPARE(fake->calls(), (QStringList{u"Set app.292120.lsfg.state on"_s, u"Set app.292120.lsfg.state auto"_s}));
+        focus(u"lsfg-games"_s);
+        key(Qt::Key_Return);
+        QVERIFY(row(u"lsfg-proton"_s).isEmpty());
+        focus(u"lsfg.enabled"_s);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(value(u"lsfg-games"_s), u"off"_s);
+        QTRY_COMPARE(fake->calls().last(), u"Set lsfg.enabled false"_s);
+        QCOMPARE(row(u"lsfg-off"_s).value(u"title"_s).toString(), u"Frame generation is off"_s);
+        focus(u"lsfg-games"_s);
+        key(Qt::Key_Return);
+        QVERIFY(row(u"lsfg-proton"_s).isEmpty());
+        QCOMPARE(page()->property("group").toString(), Lsfg);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void lsfgListMoves()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s}});
+        fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
+        writeLsfg(R"({"version": 1, "owned": "yes", "install": "installed"})");
+        openLsfg();
+        QTRY_COMPARE(value(u"lsfg-games"_s), u"0 on"_s);
+        QSignalSpy entrance(page(), SIGNAL(entrance(double,int,int,int,bool,int)));
+        focus(u"lsfg-games"_s);
+        key(Qt::Key_Return);
+        QVERIFY(!row(u"lsfg-proton"_s).isEmpty());
+        key(Qt::Key_Return);
+        QVERIFY(row(u"lsfg-proton"_s).isEmpty());
+        QTest::qWait(100);
+        QCOMPARE(entrance.count(), 0);
+        page()->setProperty("animated", true);
+        key(Qt::Key_Return);
+        QVERIFY(!row(u"lsfg-proton"_s).isEmpty());
+        QTRY_COMPARE(entrance.count(), 1);
+        int games = -1;
+        int first = -1;
+        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, games), Q_ARG(QString, u"lsfg-games"_s)));
+        QVERIFY(QMetaObject::invokeMethod(page(), "firstVisible", Q_RETURN_ARG(int, first)));
+        QCOMPARE(entrance.first(), (QVariantList{-5.0, 50, 10, 220, false, std::max(games + 1, first)}));
+        key(Qt::Key_Down);
+        reachable(u"lsfg-proton"_s);
+        key(Qt::Key_Down);
+        reachable(u"lsfg-game-292120"_s);
+        QTRY_COMPARE(value(u"lsfg-game-292120"_s), u"off"_s);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(value(u"lsfg-game-292120"_s), u"on"_s);
+        QTest::qWait(100);
+        QCOMPARE(entrance.count(), 1);
+        focus(u"lsfg-games"_s);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(entrance.count(), 2);
+        QVERIFY(row(u"lsfg-proton"_s).isEmpty());
+        qunsetenv("MICROSET_STEAM_DIR");
     }
 
     void toastStaysWhileSticky()

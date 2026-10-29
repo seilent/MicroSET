@@ -58,6 +58,7 @@ Item {
 
         SettingsPage {
             onOpened: (group) => view.open(group)
+            onActed: (key) => view.model.act(key)
         }
     }
 

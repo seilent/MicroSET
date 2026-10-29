@@ -50,6 +50,22 @@ Page {
         page.entrance(Motion.pivotShift, Motion.pivotRowStagger, Motion.pivotRowCap, Motion.pivotRows, true, page.firstVisible())
     }
 
+    function refreshFrom(index: int): void {
+        if (!page.live)
+            return
+        d.pendingFrom = d.pendingFrom < 0 ? index : Math.min(d.pendingFrom, index)
+        Qt.callLater(page.runRefresh)
+    }
+
+    function runRefresh(): void {
+        const from = d.pendingFrom
+        d.pendingFrom = -1
+        if (from < 0 || !page.live)
+            return
+        page.entrance(Motion.listChangeShift, Motion.listChangeStagger, Motion.listChangeCap, Motion.listChange, false,
+            Math.max(from, page.firstVisible()))
+    }
+
     function rowHeightOf(r: var): real {
         return Ui.px(r.kind === "label" ? Ui.rowHeight : Ui.settingsPitch)
     }
@@ -358,6 +374,12 @@ Page {
             page.act(r)
             return true
         }
+        if (r.kind === "sub" || r.expand === true) {
+            page.model.toggle(r.key)
+            if (r.expand === true)
+                page.refreshFrom(page.focusIndex + 1)
+            return true
+        }
         if (r.kind === "info" || r.readOnly)
             return true
         switch (r.pick) {
@@ -414,6 +436,7 @@ Page {
         }
         switch (kind) {
         case "row":
+        case "sub":
             page.focusIndex = index
             return "a"
         case "header":
@@ -542,6 +565,7 @@ Page {
     QtObject {
         id: d
 
+        property int pendingFrom: -1
         property string valueKey: ""
         property string riseKept: ""
         property var valueValues: []
