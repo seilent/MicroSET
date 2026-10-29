@@ -175,7 +175,7 @@ void LsfgState::read()
 
 void LsfgState::expireSend()
 {
-    const double left = sendLeft(m_state, bootId(), monotonic());
+    const double left = sendLeft(m_state, m_boot, m_now());
     if (left > 0)
         m_sent.start(int(std::ceil(left * 1000)) + 1);
     else
@@ -187,6 +187,14 @@ void LsfgState::setFixture(const QJsonObject &state, bool known, const QString &
     m_state = state;
     m_known = known;
     m_session = session;
+    expireSend();
+    emit changed();
+}
+
+void LsfgState::setClock(const QString &boot, std::function<double()> now)
+{
+    m_boot = boot;
+    m_now = std::move(now);
     expireSend();
     emit changed();
 }
@@ -232,5 +240,5 @@ QString LsfgState::session() const
 
 QString LsfgState::status() const
 {
-    return status(m_state, m_known, bootId(), monotonic());
+    return status(m_state, m_known, m_boot, m_now());
 }
