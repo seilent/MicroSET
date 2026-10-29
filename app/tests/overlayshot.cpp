@@ -40,7 +40,9 @@ const QStringList &states()
                                    u"hint"_s, u"hint-portrait"_s, u"sheet"_s,         u"sheet-portrait"_s,
                                    u"undervolt-after-sheet"_s, u"game"_s, u"game-missing"_s, u"game-state"_s,
                                    u"game-yield"_s, u"game-other-tool"_s, u"game-gone"_s, u"game-native"_s,
-                                   u"game-page"_s};
+                                   u"game-page"_s, u"game-lsfg"_s, u"game-lsfg-limit"_s, u"game-lsfg-failed"_s,
+                                   u"game-lsfg-cap"_s, u"game-lsfg-young"_s, u"game-lsfg-off"_s, u"game-lsfg-no-dll"_s,
+                                   u"game-lsfg-env"_s, u"game-lsfg-check"_s, u"game-lsfg-state"_s, u"game-lsfg-page"_s};
     return names;
 }
 
@@ -61,6 +63,20 @@ QVariantMap gameOf(const QString &state)
     else if (state == "game-native"_L1)
         game = {{u"appid"_s, u"2238900"_s}, {u"hook"_s, QString()}, {u"tool"_s, QString()}, {u"proton"_s, false}};
     else if (state == "game-page"_L1)
+        game.insert(u"steamFex"_s, true);
+    if (!state.startsWith("game-lsfg"_L1))
+        return game;
+    const QMap<QString, QString> lsfg{{u"game-lsfg-cap"_s, u"cap-overridden"_s}, {u"game-lsfg-off"_s, u"off"_s},
+                                      {u"game-lsfg-no-dll"_s, u"no-dll"_s}, {u"game-lsfg-env"_s, u"disabled-by-env"_s},
+                                      {u"game-lsfg-check"_s, u"check-failed"_s}};
+    const QString value = lsfg.value(state, u"on"_s);
+    game.insert({{u"lsfg"_s, value}, {u"fpsLimit"_s, state == "game-lsfg-limit"_L1 ? 30 : 60}});
+    if (value == "on"_L1 || value == "cap-overridden"_L1)
+        game.insert({{u"lsfgHeld"_s, state != "game-lsfg-failed"_L1 && state != "game-lsfg-young"_L1},
+                     {u"lsfgYoung"_s, state == "game-lsfg-young"_L1}});
+    if (state == "game-lsfg-state"_L1)
+        game.insert({{u"hook"_s, u"no-fex-profiles"_s}, {u"yielded"_s, u"FEX_TSOENABLED,FEX_MULTIBLOCK"_s}});
+    else if (state == "game-lsfg-page"_L1)
         game.insert(u"steamFex"_s, true);
     return game;
 }
@@ -167,6 +183,8 @@ int main(int argc, char *argv[])
                                                  {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s}});
         model->setProtonFixture({{u"292120"_s, FakeMicroSetd::effective(files, {}, FakeMicroSetd::Profiles, u"292120"_s)},
                                  {u"2238900"_s, FakeMicroSetd::effective(files, {}, FakeMicroSetd::Profiles, u"2238900"_s)}});
+        if (state.startsWith("game-lsfg"_L1))
+            model->lsfg()->setFixture(QJsonObject{{u"owned"_s, u"yes"_s}, {u"install"_s, u"installed"_s}}, true, u"steam"_s);
         model->setGame(gameOf(state));
     }
     model->updates()->setFixture(u"testing-38784f1"_s, u"none"_s, {});

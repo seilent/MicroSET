@@ -26,6 +26,9 @@
 
 #include <memory>
 
+#include <sys/file.h>
+#include <time.h>
+
 #include <unistd.h>
 
 using namespace Qt::StringLiterals;
@@ -811,6 +814,176 @@ private slots:
         manager.unregisterService(u"org.freedesktop.systemd1"_s);
         QDBusConnection::disconnectFromBus(u"systemd"_s);
         QDBusConnection::disconnectFromBus(u"game"_s);
+    }
+
+    static qulonglong nowUs()
+    {
+        timespec now{};
+        ::clock_gettime(CLOCK_MONOTONIC, &now);
+        return qulonglong(now.tv_sec) * 1000000ULL + qulonglong(now.tv_nsec) / 1000ULL;
+    }
+
+    void runningGameLsfg()
+    {
+        QDBusConnection manager = bus(u"systemd"_s);
+        FakeSystemd systemd(manager);
+        QVERIFY(manager.registerVirtualObject(FakeSystemd::Path, &systemd, QDBusConnection::SubPath));
+        QVERIFY(manager.registerService(u"org.freedesktop.systemd1"_s));
+        const QString active = m_h.path(u"lsfg-active"_s);
+        QVERIFY(QDir().mkpath(active));
+        writeEnviron(41, {"SteamGameId=292120", "MICROOS_LSFG=check-failed"});
+        writeEnviron(42, {"SteamGameId=292120", "MICROOS_LSFG=on"});
+        systemd.units = {{u"app-steam-app292120-400.scope"_s, RunningGame::Slice, 100, {41, 42}}};
+        RunningGame game(bus(u"game"_s), m_h.path(u"proc"_s));
+        game.setSignalDir(active);
+        const auto again = [&] {
+            game.refresh();
+            QTest::qWait(200);
+            return game.info();
+        };
+        game.refresh();
+        QTRY_COMPARE(game.info().value(u"lsfg"_s).toString(), u"check-failed"_s);
+        QVERIFY(!game.info().contains(u"lsfgHeld"_s));
+        QCOMPARE(game.info().value(u"steamGameId"_s).toString(), u"292120"_s);
+        writeEnviron(41, {"SteamGameId=292120"});
+        QVariantMap info = again();
+        QCOMPARE(info.value(u"lsfg"_s).toString(), u"on"_s);
+        QCOMPARE(info.value(u"lsfgHeld"_s), QVariant(false));
+        QCOMPARE(info.value(u"lsfgYoung"_s), QVariant(false));
+
+        const auto lock = [&](const QString &name) {
+            auto file = std::make_unique<QFile>(active + u'/' + name);
+            if (!file->open(QIODevice::WriteOnly) || ::flock(file->handle(), LOCK_EX | LOCK_NB) != 0)
+                return std::unique_ptr<QFile>();
+            return file;
+        };
+        auto other = lock(u"2238900-5"_s);
+        auto odd = lock(u"292120-x"_s);
+        QVERIFY(other && odd);
+        QCOMPARE(again().value(u"lsfgHeld"_s), QVariant(false));
+        m_h.writeFile(u"lsfg-active/292120-6"_s, "");
+        QCOMPARE(again().value(u"lsfgHeld"_s), QVariant(false));
+        auto held = lock(u"292120-77"_s);
+        QVERIFY(held);
+        QCOMPARE(again().value(u"lsfgHeld"_s), QVariant(true));
+        ::flock(held->handle(), LOCK_UN);
+        QCOMPARE(again().value(u"lsfgHeld"_s), QVariant(false));
+        ::flock(held->handle(), LOCK_EX);
+        writeEnviron(42, {"SteamGameId=292120", "MICROOS_LSFG=cap-overridden"});
+        info = again();
+        QCOMPARE(info.value(u"lsfg"_s).toString(), u"cap-overridden"_s);
+        QCOMPARE(info.value(u"lsfgHeld"_s), QVariant(true));
+
+        writeEnviron(51, {"SteamGameId=11868105691086454784", "MICROOS_LSFG=on", "MICROOS_PROTON_HOOK=ok"});
+        systemd.units = {{u"app-steam-app2763258687-402.scope"_s, RunningGame::Slice, 100, {51}}};
+        info = again();
+        QCOMPARE(info.value(u"appid"_s).toString(), u"2763258687"_s);
+        QCOMPARE(info.value(u"steamGameId"_s).toString(), u"11868105691086454784"_s);
+        QCOMPARE(info.value(u"lsfgHeld"_s), QVariant(false));
+        auto shortcut = lock(u"11868105691086454784-77"_s);
+        auto scope = lock(u"2763258687-78"_s);
+        QVERIFY(shortcut && scope);
+        info = again();
+        QCOMPARE(info.value(u"lsfgHeld"_s), QVariant(true));
+        auto model = std::make_unique<SettingsModel>();
+        model->setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {});
+        model->lsfg()->setFixture(QJsonObject{{u"owned"_s, u"yes"_s}, {u"install"_s, u"installed"_s}}, true, u"steam"_s);
+        model->setGame(info);
+        QCOMPARE(rowOf(model->groups(0), u"game-lsfg"_s).value(u"value"_s).toString(), u"on"_s);
+        shortcut.reset();
+        info = again();
+        QCOMPARE(info.value(u"lsfgHeld"_s), QVariant(false));
+        model->setGame(info);
+        QCOMPARE(rowOf(model->groups(0), u"game-lsfg"_s).value(u"value"_s).toString(), u"failed to start"_s);
+        for (const QByteArray &id : {"SteamGameId=1186810569108645478x"_ba, "SteamGameId=118681056910864547840"_ba,
+                                     "SteamGameId=-11868105691086454784"_ba, "SteamGameId="_ba, "Other=1"_ba}) {
+            writeEnviron(51, {id, "MICROOS_LSFG=on"});
+            info = again();
+            QVERIFY2(info.value(u"steamGameId"_s).toString().isEmpty(), id.constData());
+            QVERIFY2(info.value(u"lsfgHeld"_s).toBool(), id.constData());
+        }
+        scope.reset();
+        QCOMPARE(again().value(u"lsfgHeld"_s), QVariant(false));
+
+        held.reset();
+        systemd.units = {{u"app-steam-app292120-401.scope"_s, RunningGame::Slice, nowUs() - 9700000, {41, 42}}};
+        game.refresh();
+        QTRY_COMPARE(game.info().value(u"unit"_s).toString(), u"app-steam-app292120-401.scope"_s);
+        QCOMPARE(game.info().value(u"lsfgYoung"_s), QVariant(true));
+        const int calls = systemd.calls.count(u"ListUnitsByPatterns"_s);
+        QTRY_COMPARE_WITH_TIMEOUT(game.info().value(u"lsfgYoung"_s), QVariant(false), 3000);
+        QVERIFY(systemd.calls.count(u"ListUnitsByPatterns"_s) > calls);
+
+        writeEnviron(41, {"SteamGameId=292120"});
+        writeEnviron(42, {"SteamGameId=292120"});
+        info = again();
+        QCOMPARE(info.value(u"lsfg"_s).toString(), QString());
+        QVERIFY(!info.contains(u"lsfgHeld"_s));
+        manager.unregisterObject(FakeSystemd::Path, QDBusConnection::UnregisterTree);
+        manager.unregisterService(u"org.freedesktop.systemd1"_s);
+        QDBusConnection::disconnectFromBus(u"systemd"_s);
+        QDBusConnection::disconnectFromBus(u"game"_s);
+    }
+
+    void thisGameLsfgRows()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}});
+        const QStringList files{FakeMicroSetd::shipped()};
+        auto model = std::make_unique<SettingsModel>();
+        model->setFixture(FakeMicroSetd::describe(files), {}, {});
+        model->setProtonFixture({{u"292120"_s, FakeMicroSetd::effective(files, {}, FakeMicroSetd::Profiles, u"292120"_s)}});
+        const QVariantMap ok{{u"appid"_s, u"292120"_s}, {u"unit"_s, u"app-steam-app292120-100.scope"_s}, {u"hook"_s, u"ok"_s},
+                             {u"tool"_s, u"Proton 11.0 (ARM64)"_s}, {u"proton"_s, true}, {u"steamFex"_s, false},
+                             {u"lsfg"_s, u"on"_s}, {u"lsfgHeld"_s, true}, {u"lsfgYoung"_s, false}};
+        const auto shown = [&](const QVariantMap &change) {
+            QVariantMap game = ok;
+            game.insert(change);
+            model->setGame(game);
+            return model->groups(0);
+        };
+        QVERIFY(!keysOf(shown({})).contains(u"game-lsfg"_s));
+        model->lsfg()->setFixture(QJsonObject{{u"owned"_s, u"yes"_s}, {u"install"_s, u"installed"_s}}, true, u"steam"_s);
+        QVariantList rows = shown({});
+        QCOMPARE(keysOf(rows).mid(0, 5), (QStringList{u"label-this game"_s, u"game-292120"_s, u"game-profile"_s,
+                                                      u"game-lsfg"_s, u"label-microset"_s}));
+        QCOMPARE(rowOf(rows, u"game-lsfg"_s).value(u"kind"_s).toString(), u"info"_s);
+        QCOMPARE(rowOf(rows, u"game-lsfg"_s).value(u"title"_s).toString(), u"Frame generation"_s);
+        const auto text = [&](const QVariantMap &change) { return rowOf(shown(change), u"game-lsfg"_s).value(u"value"_s).toString(); };
+        QCOMPARE(text({}), u"on"_s);
+        QCOMPARE(text({{u"lsfg"_s, u"off"_s}}), u"off"_s);
+        QCOMPARE(text({{u"lsfg"_s, u"no-dll"_s}}), u"Lossless.dll not found"_s);
+        QCOMPARE(text({{u"lsfg"_s, u"disabled-by-env"_s}}), u"off by launch option"_s);
+        QCOMPARE(text({{u"lsfg"_s, u"check-failed"_s}}), u"check failed"_s);
+        QCOMPARE(text({{u"lsfg"_s, u"cap-overridden"_s}}), u"on, cap by launch option"_s);
+        QCOMPARE(text({{u"lsfgHeld"_s, false}, {u"lsfgYoung"_s, true}}), u"not running yet"_s);
+        QCOMPARE(text({{u"lsfgHeld"_s, false}}), u"failed to start"_s);
+        QCOMPARE(text({{u"lsfg"_s, u"cap-overridden"_s}, {u"lsfgHeld"_s, false}}), u"failed to start"_s);
+        QCOMPARE(text({{u"lsfgYoung"_s, true}}), u"on"_s);
+        QCOMPARE(text({{u"lsfg"_s, u"cap-overridden"_s}, {u"lsfgYoung"_s, true}}), u"on, cap by launch option"_s);
+        QCOMPARE(text({{u"lsfg"_s, u"<b>new</b>"_s}}), u"<b>new</b>"_s);
+        QVERIFY(!keysOf(shown({{u"gone"_s, true}})).contains(u"game-lsfg"_s));
+        QVERIFY(!keysOf(shown({{u"lsfg"_s, QString()}})).contains(u"game-lsfg"_s));
+        rows = shown({{u"hook"_s, u"no-fex-profiles"_s}, {u"yielded"_s, u"FEX_TSOENABLED"_s}});
+        QCOMPARE(keysOf(rows).mid(2, 4),
+                 (QStringList{u"game-state"_s, u"game-profile"_s, u"game-yield"_s, u"game-lsfg"_s}));
+
+        const auto warned = [&](const QVariantMap &change) { return keysOf(shown(change)).contains(u"game-lsfg-limit"_s); };
+        QVERIFY(!warned({}));
+        QVERIFY(!warned({{u"fpsLimit"_s, 0}}));
+        QVERIFY(!warned({{u"fpsLimit"_s, 60}}));
+        QVERIFY(!warned({{u"fpsLimit"_s, 90}}));
+        QVERIFY(warned({{u"fpsLimit"_s, 30}}));
+        QVERIFY(warned({{u"fpsLimit"_s, 30}, {u"lsfg"_s, u"cap-overridden"_s}}));
+        QVERIFY(!warned({{u"fpsLimit"_s, 30}, {u"lsfgHeld"_s, false}}));
+        rows = shown({{u"fpsLimit"_s, 30}});
+        QCOMPARE(keysOf(rows).at(keysOf(rows).indexOf(u"game-lsfg"_s) + 1), u"game-lsfg-limit"_s);
+        QCOMPARE(rowOf(rows, u"game-lsfg-limit"_s).value(u"title"_s).toString(), u"Steam frame limit"_s);
+        QCOMPARE(rowOf(rows, u"game-lsfg-limit"_s).value(u"value"_s).toString(), u"on: counts generated frames"_s);
+        model->lsfg()->setFixture({}, false, QString());
+        QVERIFY(!keysOf(shown({{u"fpsLimit"_s, 30}})).contains(u"game-lsfg"_s));
+        qunsetenv("MICROSET_STEAM_DIR");
     }
 
     void thisGameRows()

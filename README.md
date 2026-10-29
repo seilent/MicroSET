@@ -26,7 +26,10 @@ read, change and watch them over D-Bus.
   is gone), `hook missing in` the tool dir when no process carries `MICROOS_PROTON_HOOK` and the first
   `STEAM_COMPAT_TOOL_PATHS` entry is a dir holding a regular file `proton`, `MicroOS profile` `on` or `off`
   (`profile not for this Proton` on `MICROOS_PROTON_PROFILE=other-tool`) and `profile gives way to Steam` with
-  `MICROOS_PROTON_YIELDED`, both while the hook ran and the scope runs. Any other game (native or on a Steam Linux
+  `MICROOS_PROTON_YIELDED`, both while the hook ran and the scope runs, and `Frame generation` from `MICROOS_LSFG`:
+  `on` while lsfg-vk holds the lock `~/.cache/lsfg-vk/active/<SteamGameId>-<pid>` (`SteamGameId` from that environ, else
+  the scope's appid), `not running yet` for the first 10 s of the scope, then `failed to start`; `Steam frame limit`
+  while Steam's limit (`GAMESCOPE_FPS_LIMIT`) is under 60. Any other game (native or on a Steam Linux
   Runtime) gets the game row only. Scopes of the apps the game list leaves out are skipped. A scope that is removed or
   leaves the active state turns the state row `unknown`. While `STEAM_COMPAT_FEX_CONFIG` is non empty, the running
   game's page ends with `Set in Steam` (TSO, Multiblock). Row values are plain text.

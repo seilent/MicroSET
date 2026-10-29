@@ -5,6 +5,7 @@
 #include <QDBusObjectPath>
 #include <QList>
 #include <QObject>
+#include <QTimer>
 #include <QVariantMap>
 
 struct SystemdUnit
@@ -43,15 +44,20 @@ public:
     static constexpr int MaxUnits = 16;
     static constexpr int MaxProcesses = 256;
     static constexpr qint64 MaxEnviron = 256 * 1024;
+    static constexpr int MaxSignals = 256;
+    static constexpr qint64 StartWindowUs = 10 * 1000 * 1000;
     static inline const QString Slice = QStringLiteral("game.slice");
 
     RunningGame(const QDBusConnection &bus, const QString &procRoot, QObject *parent = nullptr);
 
     static void registerTypes();
     static QVariantMap readEnviron(const QString &procRoot, const QList<uint> &pids);
+    static bool signalHeld(const QString &dir, const QString &id);
+    static QString signalDir();
 
     QVariantMap info() const;
     void skip(const QStringList &appids);
+    void setSignalDir(const QString &dir);
     void refresh();
 
 signals:
@@ -63,7 +69,7 @@ private slots:
 
 private:
     void choose(const QList<SystemdUnit> &units, quint64 generation);
-    void inspect(const QString &unit, const QString &appid, const QString &path, quint64 generation);
+    void inspect(const QString &unit, const QString &appid, const QString &path, qulonglong since, quint64 generation);
     void watch(const QString &path);
     void markGone();
     void setInfo(const QVariantMap &info);
@@ -71,6 +77,8 @@ private:
     QDBusConnection m_bus;
     QString m_proc;
     QStringList m_skip;
+    QString m_signals = signalDir();
+    QTimer m_later;
     QString m_path;
     QVariantMap m_info;
     quint64 m_generation = 0;

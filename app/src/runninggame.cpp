@@ -4,6 +4,7 @@
 #include <QDBusMetaType>
 #include <QDBusPendingCallWatcher>
 #include <QDBusVariant>
+#include <QDir>
 #include <QFile>
 #include <QMap>
 #include <QRegularExpression>
@@ -11,7 +12,13 @@
 #include <functional>
 #include <memory>
 
+#include <cerrno>
+#include <dirent.h>
+#include <fcntl.h>
+#include <sys/file.h>
 #include <sys/stat.h>
+#include <time.h>
+#include <unistd.h>
 
 using namespace Qt::StringLiterals;
 
@@ -22,12 +29,20 @@ const QString Path = u"/org/freedesktop/systemd1"_s;
 const QString Manager = u"org.freedesktop.systemd1.Manager"_s;
 const QString Properties = u"org.freedesktop.DBus.Properties"_s;
 const QRegularExpression Scope(u"^app-steam-app([1-9][0-9]{0,9})-[0-9]+\\.scope$"_s);
+const QRegularExpression GameId(u"^[0-9]{1,20}$"_s);
 
 bool protonDir(const QString &dir)
 {
     struct stat st;
     return dir.startsWith(u'/') && ::lstat(QFile::encodeName(dir).constData(), &st) == 0 && S_ISDIR(st.st_mode)
         && ::lstat(QFile::encodeName(dir + u"/proton"_s).constData(), &st) == 0 && S_ISREG(st.st_mode);
+}
+
+qulonglong monotonicUs()
+{
+    timespec now{};
+    ::clock_gettime(CLOCK_MONOTONIC, &now);
+    return qulonglong(now.tv_sec) * 1000000ULL + qulonglong(now.tv_nsec) / 1000ULL;
 }
 
 struct Pick
@@ -82,6 +97,8 @@ RunningGame::RunningGame(const QDBusConnection &bus, const QString &procRoot, QO
     , m_proc(procRoot)
 {
     registerTypes();
+    m_later.setSingleShot(true);
+    connect(&m_later, &QTimer::timeout, this, &RunningGame::refresh);
 }
 
 void RunningGame::registerTypes()
@@ -95,8 +112,10 @@ void RunningGame::registerTypes()
 QVariantMap RunningGame::readEnviron(const QString &procRoot, const QList<uint> &pids)
 {
     QVariantMap out{{u"hook"_s, QString()}, {u"profile"_s, QString()}, {u"yielded"_s, QString()}, {u"tool"_s, QString()},
-                    {u"proton"_s, false}, {u"steamFex"_s, false}};
+                    {u"proton"_s, false}, {u"steamFex"_s, false}, {u"lsfg"_s, QString()},
+                    {u"steamGameId"_s, QString()}};
     bool hooked = false;
+    bool framed = false;
     for (const uint pid : pids.mid(0, MaxProcesses)) {
         QFile file(procRoot + u'/' + QString::number(pid) + u"/environ"_s);
         if (!file.open(QIODevice::ReadOnly))
@@ -116,6 +135,13 @@ QVariantMap RunningGame::readEnviron(const QString &procRoot, const QList<uint> 
             out.insert(u"profile"_s, QString::fromUtf8(env.value("MICROOS_PROTON_PROFILE")));
             out.insert(u"yielded"_s, QString::fromUtf8(env.value("MICROOS_PROTON_YIELDED")));
         }
+        if (!framed && env.contains("MICROOS_LSFG")) {
+            framed = true;
+            out.insert(u"lsfg"_s, QString::fromUtf8(env.value("MICROOS_LSFG")));
+            const QString id = QString::fromUtf8(env.value("SteamGameId"));
+            if (GameId.match(id).hasMatch())
+                out.insert(u"steamGameId"_s, id);
+        }
         const QString tool = QString::fromUtf8(env.value("STEAM_COMPAT_TOOL_PATHS")).section(u':', 0, 0);
         if (!out.value(u"proton"_s).toBool() && protonDir(tool)) {
             out.insert(u"proton"_s, true);
@@ -125,6 +151,52 @@ QVariantMap RunningGame::readEnviron(const QString &procRoot, const QList<uint> 
             out.insert(u"steamFex"_s, true);
     }
     return out;
+}
+
+bool RunningGame::signalHeld(const QString &dir, const QString &id)
+{
+    const int dirFd = ::open(QFile::encodeName(dir).constData(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (dirFd < 0)
+        return false;
+    DIR *entries = ::fdopendir(dirFd);
+    if (!entries) {
+        ::close(dirFd);
+        return false;
+    }
+    const QRegularExpression name(u"^"_s + QRegularExpression::escape(id) + u"-[0-9]+$"_s);
+    bool held = false;
+    int seen = 0;
+    while (!held && seen < MaxSignals) {
+        const dirent *entry = ::readdir(entries);
+        if (!entry)
+            break;
+        if (!name.match(QString::fromUtf8(entry->d_name)).hasMatch())
+            continue;
+        ++seen;
+        const int fd = ::openat(::dirfd(entries), entry->d_name, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+        if (fd < 0)
+            continue;
+        struct stat st;
+        if (::fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {
+            if (::flock(fd, LOCK_SH | LOCK_NB) == 0)
+                ::flock(fd, LOCK_UN);
+            else
+                held = errno == EWOULDBLOCK;
+        }
+        ::close(fd);
+    }
+    ::closedir(entries);
+    return held;
+}
+
+QString RunningGame::signalDir()
+{
+    return QDir::homePath() + u"/.cache/lsfg-vk/active"_s;
+}
+
+void RunningGame::setSignalDir(const QString &dir)
+{
+    m_signals = dir;
 }
 
 QVariantMap RunningGame::info() const
@@ -198,7 +270,7 @@ void RunningGame::choose(const QList<SystemdUnit> &units, quint64 generation)
             if (--pick->waiting > 0 || generation != m_generation)
                 return;
             if (pick->found) {
-                inspect(pick->unit, pick->appid, pick->path, generation);
+                inspect(pick->unit, pick->appid, pick->path, pick->since, generation);
                 return;
             }
             watch({});
@@ -220,12 +292,13 @@ void RunningGame::choose(const QList<SystemdUnit> &units, quint64 generation)
     setInfo({});
 }
 
-void RunningGame::inspect(const QString &unit, const QString &appid, const QString &path, quint64 generation)
+void RunningGame::inspect(const QString &unit, const QString &appid, const QString &path, qulonglong since,
+                          quint64 generation)
 {
     QDBusMessage call = QDBusMessage::createMethodCall(Service, Path, Manager, u"GetUnitProcesses"_s);
     call << unit;
     auto *watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(call), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, unit, appid, path, generation] {
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, unit, appid, path, since, generation] {
         watcher->deleteLater();
         if (generation != m_generation)
             return;
@@ -237,6 +310,16 @@ void RunningGame::inspect(const QString &unit, const QString &appid, const QStri
         QVariantMap info = readEnviron(m_proc, pids);
         info.insert(u"appid"_s, appid);
         info.insert(u"unit"_s, unit);
+        const QString lsfg = info.value(u"lsfg"_s).toString();
+        if (lsfg == "on"_L1 || lsfg == "cap-overridden"_L1) {
+            const qulonglong now = monotonicUs();
+            const bool young = since > 0 && now >= since && now - since < qulonglong(StartWindowUs);
+            const QString id = info.value(u"steamGameId"_s).toString();
+            const bool held = signalHeld(m_signals, id.isEmpty() ? appid : id);
+            info.insert({{u"lsfgHeld"_s, held}, {u"lsfgYoung"_s, young}});
+            if (young && !held)
+                m_later.start(int((qulonglong(StartWindowUs) - (now - since)) / 1000) + 1);
+        }
         watch(path);
         setInfo(info);
     });

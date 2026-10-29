@@ -86,7 +86,7 @@ Window {
                 page.handleAction("down", false)
                 page.handleAction("a", false)
             })
-        } else if (root.shotState === "game-page") {
+        } else if (root.shotState === "game-page" || root.shotState === "game-lsfg-page") {
             view.open("app.292120")
             const page = view.stack.currentItem
             Qt.callLater(() => {

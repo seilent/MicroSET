@@ -114,22 +114,30 @@ int main(int argc, char *argv[])
 
     RunningGame game(session, u"/proc"_s);
     game.skip(SteamLibrary::excluded());
-    QObject::connect(&overlay, &Overlay::shownChanged, &game, [&overlay, &game] {
-        if (overlay.shown())
-            game.refresh();
-    });
-
     std::unique_ptr<SettingsModel> model;
     std::unique_ptr<QQmlApplicationEngine> engine;
+    const auto pushGame = [&model, &game] {
+        if (!model)
+            return;
+        QVariantMap info = game.info();
+        const int limit = microset::fpsLimit();
+        if (!info.isEmpty() && limit >= 0)
+            info.insert(u"fpsLimit"_s, limit);
+        model->setGame(info);
+    };
+    QObject::connect(&overlay, &Overlay::shownChanged, &game, [&overlay, &game, pushGame] {
+        if (!overlay.shown())
+            return;
+        game.refresh();
+        pushGame();
+    });
     overlay.setUi([&] {
         if (engine)
             return;
         model = std::make_unique<SettingsModel>(system);
         model->load();
-        model->setGame(game.info());
-        QObject::connect(&game, &RunningGame::changed, model.get(), [&game, target = model.get()] {
-            target->setGame(game.info());
-        });
+        pushGame();
+        QObject::connect(&game, &RunningGame::changed, model.get(), pushGame);
         engine = std::make_unique<QQmlApplicationEngine>();
         QObject::connect(engine.get(), &QQmlApplicationEngine::warnings, engine.get(),
                          [](const QList<QQmlError> &list) {
