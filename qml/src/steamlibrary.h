@@ -2,6 +2,7 @@
 
 #include <QByteArray>
 #include <QList>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
@@ -29,7 +30,7 @@ public:
     static std::optional<QVariantMap> parseBinary(const QByteArray &data);
 
     QStringList libraries() const;
-    QList<Game> games() const;
+    QList<Game> games(QSet<QString> *dropped = nullptr) const;
     QString name(const QString &appid) const;
     QByteArray stamp() const;
 

@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QtEndian>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -33,6 +34,19 @@ class LibraryTest : public QObject
     {
         return "\"AppState\"\n{\n\t\"appid\"\t\t\"" + appid + "\"\n\t\"name\"\t\t\"" + name + "\"\n\t\"installdir\"\t\t\""
             + (dir.isEmpty() ? appid : dir) + "\"\n}\n";
+    }
+
+    static QByteArray contents(const QString &path)
+    {
+        QFile file(path);
+        return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+    }
+
+    static QByteArray entry(char type, quint32 index)
+    {
+        QByteArray out(5, type);
+        qToLittleEndian(index, out.data() + 1);
+        return out;
     }
 
     static QStringList ids(const QList<SteamLibrary::Game> &games)
@@ -131,6 +145,150 @@ private slots:
         QVERIFY(QDir().mkpath(userdata + u"/43"_s));
         pin(userdata);
         QVERIFY(library.stamp() != secondRewritten);
+    }
+
+    void appTypes()
+    {
+        const QString apps = root() + u"/steamapps/"_s;
+        const QList<QPair<QByteArray, QByteArray>> manifests{
+            {"292120", "FINAL FANTASY XIII"}, {"2161700", "Persona 3 Reload"}, {"2238900", "STAR OCEAN THE SECOND STORY R"},
+            {"1009850", "OVR Advanced Settings"}, {"5", "a demo"}, {"6", "a playtest"}, {"7", "no type"}, {"8", "a tool"},
+            {"9", "a dlc"}, {"10", "a config"}, {"11", "a video"}, {"12", "a widget"}};
+        for (const auto &[appid, name] : manifests)
+            write(apps + u"appmanifest_"_s + QString::fromLatin1(appid) + u".acf"_s, manifest(appid, name));
+        write(apps + u"appmanifest_2399050.acf"_s, manifest("2399050", "Pocket Mirror ~ GoldenerTraum Official Soundtrack",
+                                                           "Pocket Mirror - Goldenertraum - OST"));
+        const SteamLibrary library(root());
+        const QStringList all{u"10 a config"_s,
+                              u"5 a demo"_s,
+                              u"9 a dlc"_s,
+                              u"6 a playtest"_s,
+                              u"8 a tool"_s,
+                              u"11 a video"_s,
+                              u"12 a widget"_s,
+                              u"292120 FINAL FANTASY XIII"_s,
+                              u"7 no type"_s,
+                              u"1009850 OVR Advanced Settings"_s,
+                              u"2161700 Persona 3 Reload"_s,
+                              u"2399050 Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s,
+                              u"2238900 STAR OCEAN THE SECOND STORY R"_s};
+        const auto without = [&all](const QSet<QString> &appids) {
+            QStringList out;
+            for (const QString &game : all)
+                if (!appids.contains(game.section(u' ', 0, 0)))
+                    out << game;
+            return out;
+        };
+        QSet<QString> dropped{u"stale"_s};
+        QCOMPARE(ids(library.games(&dropped)), all);
+        QVERIFY(dropped.isEmpty());
+        const QByteArray before = library.stamp();
+        FakeMicroSetd::writeAppInfo(root(), {{292120, "Game"},
+                                             {2161700, "game"},
+                                             {2399050, "Music"},
+                                             {1009850, "Application"},
+                                             {5, "Demo"},
+                                             {6, "Beta"},
+                                             {7, {}},
+                                             {8, "Tool"},
+                                             {9, "dlc"},
+                                             {10, "CONFIG"},
+                                             {11, "Video"},
+                                             {12, "Widget"}});
+        QVERIFY(library.stamp() != before);
+        const QSet<QString> nonGames{u"2399050"_s, u"8"_s, u"9"_s, u"10"_s, u"11"_s};
+        QCOMPARE(ids(library.games(&dropped)), without(nonGames));
+        QCOMPARE(dropped, nonGames);
+        QCOMPARE(ids(library.games()), without(nonGames));
+        QCOMPARE(library.name(u"2399050"_s), u"Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s);
+
+        const QString path = root() + u"/appcache/appinfo.vdf"_s;
+        const QByteArray good = contents(path);
+        QByteArray magic = good;
+        magic[0] = '\x28';
+        QByteArray table = good;
+        qToLittleEndian(qint64(good.size()), table.data() + 8);
+        for (const QByteArray &bad : {magic, table, good.left(good.size() - 3), good.left(40)}) {
+            write(path, bad);
+            QCOMPARE(ids(library.games(&dropped)), all);
+            QVERIFY(dropped.isEmpty());
+        }
+        FakeMicroSetd::writeAppInfo(root(), {{2399050, "Music"}, {8, "Tool"}});
+        QByteArray broken = contents(path);
+        qToLittleEndian(quint32(99), broken.data() + 16 + 8 + 60 + 1);
+        write(path, broken);
+        QCOMPARE(ids(library.games()), without({u"8"_s}));
+    }
+
+    void appInfoReader()
+    {
+        const QString apps = root() + u"/steamapps/"_s;
+        write(apps + u"appmanifest_292120.acf"_s, manifest("292120", "FINAL FANTASY XIII"));
+        write(apps + u"appmanifest_2399050.acf"_s, manifest("2399050", "Pocket Mirror ~ GoldenerTraum Official Soundtrack"));
+        write(apps + u"appmanifest_8.acf"_s, manifest("8", "a tool"));
+        const SteamLibrary library(root());
+        const QString ff13 = u"292120 FINAL FANTASY XIII"_s;
+        const QString music = u"2399050 Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s;
+        const auto listed = [&](const QByteArray &extra) {
+            FakeMicroSetd::writeAppInfo(root(), {{292120, "Game"}, {2399050, "Music"}, {8, "Tool"}}, {{2399050, extra}});
+            return ids(library.games());
+        };
+        const auto deep = [](int levels) {
+            QByteArray out;
+            for (int i = 0; i < levels; ++i)
+                out += entry('\x00', 4);
+            return out + QByteArray(levels, '\x08');
+        };
+        const QByteArray four(4, '\x7f');
+        QCOMPARE(listed({}), QStringList{ff13});
+        QCOMPARE(listed(entry('\x04', 4) + four + entry('\x06', 4) + four), QStringList{ff13});
+        QCOMPARE(listed(entry('\x00', 4) + entry('\x01', 4) + "x" + '\0' + '\x0b'), QStringList{ff13});
+        QCOMPARE(listed(deep(61)), QStringList{ff13});
+        QCOMPARE(listed(deep(62)), (QStringList{ff13, music}));
+        QCOMPARE(listed(entry('\x00', 4)), (QStringList{ff13, music}));
+        QCOMPARE(listed(entry('\x01', 3) + "Music" + '\0' + "\x08\x08\x08"), (QStringList{ff13, music}));
+
+        const QString path = root() + u"/appcache/appinfo.vdf"_s;
+        listed({});
+        QByteArray small = contents(path);
+        qToLittleEndian(quint32(59), small.data() + 16 + 4);
+        write(path, small);
+        QCOMPARE(ids(library.games()), (QStringList{u"8 a tool"_s, ff13, music}));
+    }
+
+    void appInfoCaps()
+    {
+        const QString apps = root() + u"/steamapps/"_s;
+        write(apps + u"appmanifest_292120.acf"_s, manifest("292120", "FINAL FANTASY XIII"));
+        write(apps + u"appmanifest_2399050.acf"_s, manifest("2399050", "Pocket Mirror ~ GoldenerTraum Official Soundtrack"));
+        const QString path = root() + u"/appcache/appinfo.vdf"_s;
+        FakeMicroSetd::writeAppInfo(root(), {{292120, "Game"}, {2399050, "Music"}});
+        const QByteArray good = contents(path);
+        const qint64 table = qFromLittleEndian<qint64>(good.constData() + 8);
+        const SteamLibrary library(root());
+        const QStringList ff13{u"292120 FINAL FANTASY XIII"_s};
+        const QStringList both{ff13.first(), u"2399050 Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s};
+        QCOMPARE(ids(library.games()), ff13);
+
+        const auto sized = [&](qint64 size) {
+            QByteArray out = good.left(table) + QByteArray(size - good.size(), '\0') + good.mid(table);
+            qToLittleEndian(qint64(table + size - good.size()), out.data() + 8);
+            return out;
+        };
+        write(path, sized(qint64(64) << 20));
+        QCOMPARE(ids(library.games()), ff13);
+        write(path, sized((qint64(64) << 20) + 1));
+        QCOMPARE(ids(library.games()), both);
+
+        const auto names = [&](quint32 count) {
+            QByteArray out = good + QByteArray(count - 5, '\0');
+            qToLittleEndian(count, out.data() + table);
+            return out;
+        };
+        write(path, names(1 << 20));
+        QCOMPARE(ids(library.games()), ff13);
+        write(path, names((1 << 20) + 1));
+        QCOMPARE(ids(library.games()), both);
     }
 
     void noLibraryFile()

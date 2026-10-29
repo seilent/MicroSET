@@ -775,7 +775,7 @@ QVariantList SettingsModel::gameRows() const
     QVariantList out;
     if (m_templates.isEmpty() || !m_libraryRead)
         return out;
-    QSet<QString> listed;
+    QSet<QString> listed = m_libraryDropped;
     for (const SteamLibrary::Game &game : m_library) {
         listed.insert(game.appid);
         out << gameRow(game.appid, game.name);
@@ -903,7 +903,7 @@ QVariantList SettingsModel::lsfgGames() const
         return options.value(LsfgStateOption).toObject().value("value"_L1).toString();
     };
     QVariantList subs;
-    QSet<QString> listed;
+    QSet<QString> listed = m_libraryDropped;
     int count = 0;
     for (const SteamLibrary::Game &game : m_library) {
         listed.insert(game.appid);
@@ -1439,7 +1439,7 @@ void SettingsModel::readLibrary()
     const SteamLibrary library(SteamLibrary::defaultRoot());
     const QByteArray stamp = library.stamp();
     if (!m_libraryRead || stamp != m_libraryStamp) {
-        m_library = library.games();
+        m_library = library.games(&m_libraryDropped);
         m_libraryStamp = stamp;
         m_libraryRead = true;
     }

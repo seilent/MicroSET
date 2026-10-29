@@ -209,6 +209,7 @@ private:
     QMap<QString, QString> m_names;
     QVariantMap m_game;
     QList<SteamLibrary::Game> m_library;
+    QSet<QString> m_libraryDropped;
     bool m_libraryRead = false;
     QByteArray m_libraryStamp;
     QMap<QString, QJsonObject> m_effective;
