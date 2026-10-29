@@ -205,7 +205,7 @@ private slots:
         fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
         fake->setValues({{u"app.77.fex.tso"_s, u"on"_s}});
         model->load();
-        QTRY_VERIFY(model->available());
+        QTRY_COMPARE(model->value(u"app.77.fex.tso"_s, model->revision()).toString(), u"on"_s);
         focus(u"group-games"_s);
         key(Qt::Key_Return);
         QCOMPARE(page()->property("group").toString(), u"games"_s);
