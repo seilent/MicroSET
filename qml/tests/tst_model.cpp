@@ -691,14 +691,17 @@ private slots:
 
     void lsfgSentWindowEnds()
     {
-        writeLsfg(sent(LsfgState::bootId(), LsfgState::monotonic() - LsfgState::SendGap + 2));
+        double now = Now;
+        writeLsfg(sent(Boot, Now - LsfgState::SendGap + 0.25));
         LsfgState state;
+        state.setClock(Boot, [&now] { return now; });
         QSignalSpy changed(&state, &LsfgState::changed);
         state.watch();
         QCOMPARE(state.status(), u"install sent"_s);
         QCOMPARE(changed.count(), 1);
-        QTRY_VERIFY_WITH_TIMEOUT(changed.count() >= 2 && state.status() == "not installed"_L1, 8000);
-        writeLsfg(sent(LsfgState::bootId(), LsfgState::monotonic()));
+        now = Now + 0.25;
+        QTRY_VERIFY(changed.count() >= 2 && state.status() == "not installed"_L1);
+        writeLsfg(sent(Boot, now));
         QTRY_COMPARE(state.status(), u"install sent"_s);
     }
 

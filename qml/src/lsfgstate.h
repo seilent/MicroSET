@@ -6,6 +6,8 @@
 #include <QString>
 #include <QTimer>
 
+#include <functional>
+
 class QProcess;
 
 class LsfgState : public QObject
@@ -26,6 +28,7 @@ public:
 
     void watch();
     void setFixture(const QJsonObject &state, bool known, const QString &session);
+    void setClock(const QString &boot, std::function<double()> now);
     void install();
 
     QJsonObject state() const;
@@ -44,6 +47,8 @@ private:
     QJsonObject m_state;
     bool m_known = false;
     QString m_session;
+    QString m_boot = bootId();
+    std::function<double()> m_now = monotonic;
     QFileSystemWatcher m_watch;
     QTimer m_sent;
     QProcess *m_install = nullptr;
