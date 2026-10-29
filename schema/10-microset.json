@@ -526,7 +526,7 @@
     },
     "lsfg.flow_scale": {
       "type": "u",
-      "default": 50,
+      "default": 25,
       "min": 25,
       "max": 100,
       "applier": null,

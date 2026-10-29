@@ -815,7 +815,7 @@ private slots:
         QTRY_VERIFY(!keysOf(m->groups(0)).contains(group));
         fake->emitChanged(u"lsfg.flow_scale"_s, 75u);
         QTRY_VERIFY(keysOf(m->groups(0)).contains(group));
-        fake->emitChanged(u"lsfg.flow_scale"_s, 50u);
+        fake->emitChanged(u"lsfg.flow_scale"_s, 25u);
         QTRY_VERIFY(!keysOf(m->groups(0)).contains(group));
         fake->emitChanged(u"app.5.lsfg.state"_s, u"off"_s);
         QTRY_VERIFY(keysOf(m->groups(0)).contains(group));
@@ -866,7 +866,7 @@ private slots:
         QVERIFY(rowOf(rows, u"lsfg-games"_s).value(u"expand"_s).toBool());
         QCOMPARE(texts(u"lsfg.multiplier"_s), u"Multiplier | 2x"_s);
         QCOMPARE(texts(u"lsfg.fps_cap"_s), u"Real frame cap | auto (30)"_s);
-        QCOMPARE(texts(u"lsfg.flow_scale"_s), u"Flow scale | 50 %"_s);
+        QCOMPARE(texts(u"lsfg.flow_scale"_s), u"Flow scale | 25 %"_s);
         QCOMPARE(texts(u"lsfg-limit"_s), u"Steam frame limit | set it off for these games"_s);
         QCOMPARE(rowOf(rows, u"lsfg-limit"_s).value(u"kind"_s).toString(), u"info"_s);
         QCOMPARE(words(m->sheet(u"lsfg.mode"_s)), (QStringList{u"whitelist (picked games)"_s, u"blacklist (all but picked)"_s}));
