@@ -432,13 +432,16 @@ private slots:
         qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
         FakeMicroSetd::writeSteam(steam.path(),
                                   {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s},
-                                   {u"993090"_s, u"Lossless Scaling"_s}, {u"5"_s, u"<b>bold</b>"_s}},
+                                   {u"993090"_s, u"Lossless Scaling"_s}, {u"5"_s, u"<b>bold</b>"_s},
+                                   {u"2399050"_s, u"Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s}},
                                   {{2763258687u, u"Octopath Traveler"_s}});
+        FakeMicroSetd::writeAppInfo(steam.path(), {{292120, "Game"}, {2238900, "Game"}, {2399050, "Music"}});
         const QStringList files{FakeMicroSetd::shipped()};
         fake->setSchema(FakeMicroSetd::describe(files));
         fake->setProton(files, FakeMicroSetd::Profiles);
         const QVariantMap stored{{u"app.2238900.fex.preset"_s, u"performance"_s}, {u"app.77.fex.tso"_s, u"on"_s},
-                                 {u"app.78.fex.tso"_s, u"auto"_s}, {u"app.993090.fex.tso"_s, u"on"_s}};
+                                 {u"app.78.fex.tso"_s, u"auto"_s}, {u"app.993090.fex.tso"_s, u"on"_s},
+                                 {u"app.2399050.fex.tso"_s, u"on"_s}};
         const QString apps = steam.path() + u"/steamapps"_s;
         const QString acf = apps + u"/appmanifest_292120.acf"_s;
         const auto pin = [](const QString &path, long nsec = 0) {
@@ -909,13 +912,16 @@ private slots:
         qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
         FakeMicroSetd::writeSteam(steam.path(),
                                   {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s},
-                                   {u"993090"_s, u"Lossless Scaling"_s}},
+                                   {u"993090"_s, u"Lossless Scaling"_s},
+                                   {u"2399050"_s, u"Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s}},
                                   {{2763258687u, u"Octopath Traveler"_s}});
+        FakeMicroSetd::writeAppInfo(steam.path(), {{292120, "Game"}, {2238900, "Game"}, {2399050, "Music"}});
         writeLsfg(R"({"owned": "yes", "install": "installed"})");
         const QStringList files{FakeMicroSetd::shipped()};
         fake->setSchema(FakeMicroSetd::describe(files));
         fake->setProton(files, FakeMicroSetd::Profiles);
-        const QVariantMap stored{{u"app.77.lsfg.state"_s, u"on"_s}, {u"app.78.fex.tso"_s, u"on"_s}};
+        const QVariantMap stored{{u"app.77.lsfg.state"_s, u"on"_s}, {u"app.78.fex.tso"_s, u"on"_s},
+                                 {u"app.2399050.lsfg.state"_s, u"on"_s}};
         fake->setValues(stored);
         fake->setStored(stored);
         const auto m = model();
@@ -939,6 +945,7 @@ private slots:
         for (const QString &key : {u"lsfg-game-292120"_s, u"lsfg-game-2763258687"_s, u"lsfg-game-2238900"_s})
             QTRY_COMPARE(shown(key), u"off"_s);
         QVERIFY(!keysOf(rows()).contains(u"lsfg-game-993090"_s));
+        QVERIFY(!keysOf(rows()).contains(u"lsfg-game-2399050"_s));
 
         m->toggle(u"lsfg-game-2238900"_s);
         QTRY_COMPARE(shown(u"lsfg-game-2238900"_s), u"on"_s);

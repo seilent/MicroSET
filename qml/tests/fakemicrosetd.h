@@ -27,6 +27,8 @@ public:
     static QString shipped();
     static void writeSteam(const QString &root, const QList<QPair<QString, QString>> &games,
                            const QList<QPair<quint32, QString>> &shortcuts = {});
+    static void writeAppInfo(const QString &root, const QList<QPair<quint32, QByteArray>> &types,
+                             const QMap<quint32, QByteArray> &extra = {});
 
     explicit FakeMicroSetd(const QString &address);
     ~FakeMicroSetd();

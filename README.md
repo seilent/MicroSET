@@ -30,7 +30,7 @@ read, change and watch them over D-Bus.
   `on` while lsfg-vk holds the lock `~/.cache/lsfg-vk/active/<SteamGameId>-<pid>` (`SteamGameId` from that environ, else
   the scope's appid), `not running yet` for the first 10 s of the scope, then `failed to start`; `Steam frame limit`
   while Steam's limit (`GAMESCOPE_FPS_LIMIT`) is under 60. Any other game (native or on a Steam Linux
-  Runtime) gets the game row only. Scopes of the apps the game list leaves out are skipped. A scope that is removed or
+  Runtime) gets the game row only. Scopes of the runtimes and Lossless Scaling are skipped. A scope that is removed or
   leaves the active state turns the state row `unknown`. While `STEAM_COMPAT_FEX_CONFIG` is non empty, the running
   game's page ends with `Set in Steam` (TSO, Multiblock). Row values are plain text.
 - `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and `microset-settings`. The
@@ -40,11 +40,15 @@ read, change and watch them over D-Bus.
   name, with the game's preset from `Effective`. Games come from `steamapps/libraryfolders.vdf`, the
   `appmanifest_<appid>.acf` files of each library and `userdata/<id>/config/shortcuts.vdf` (keyed by the 32 bit
   shortcut id) under `MICROSET_STEAM_DIR` (`~/.local/share/Steam`), read when the page opens, again only once
-  `libraryfolders.vdf`, a library's `steamapps` dir, one of its manifests, a `toolmanifest.vdf` in one of its
-  `steamapps/common` dirs, `userdata` or a `shortcuts.vdf` changed (inode, size or mtime): regular files of at most
-  1 MiB, names of at most 128 characters, at most 2000 manifests read. Apps without a plain `installdir` or with a
-  `toolmanifest.vdf` in their install dir, the Steamworks, EAC and BattlEye runtimes and Lossless Scaling are left out.
-  A game with stored values and no manifest shows as `not installed`; the runtimes and Lossless Scaling never do. Game
+  `libraryfolders.vdf`, `appcache/appinfo.vdf`, a library's `steamapps` dir, one of its manifests, a
+  `toolmanifest.vdf` in one of its `steamapps/common` dirs, `userdata` or a `shortcuts.vdf` changed (inode, size or
+  mtime): regular files of at most 1 MiB (`appinfo.vdf` 64 MiB), names of at most 128 characters, at most 2000
+  manifests read. Apps without a plain `installdir` or with a `toolmanifest.vdf` in their install dir, apps whose
+  `common.type` in `appinfo.vdf` is `Music`, `Tool`, `Config`, `DLC` or `Video` (soundtracks are `Music`), the
+  Steamworks, EAC and BattlEye runtimes and Lossless Scaling are left out. The type match ignores case. Any other type
+  is listed, and so is an app without an `appinfo.vdf` entry or type. An `appinfo.vdf` that does not parse keeps every
+  app, a section that does not parse keeps its app. A game with stored values and no manifest shows as
+  `not installed`; the runtimes, Lossless Scaling and the apps left out by type never do. Game
   names in the rows and in the header of the game's page are plain text. A game row opens the game's page, titled by its
   name: `MicroOS profile` (only for a game with an image profile; while the profile is in force its entries are listed
   and marked `overridden` when a value above the profile wins), `Preset`, one row per FEX option and `Wine sync`, all

@@ -132,6 +132,31 @@ void FakeMicroSetd::writeSteam(const QString &root, const QList<QPair<QString, Q
     write(root + u"/userdata/1145555777/config/shortcuts.vdf"_s, QByteArray(1, '\0') + "shortcuts" + '\0' + body + "\x08\x08");
 }
 
+void FakeMicroSetd::writeAppInfo(const QString &root, const QList<QPair<quint32, QByteArray>> &types,
+                                 const QMap<quint32, QByteArray> &extra)
+{
+    const auto number = [](quint32 value) {
+        QByteArray out(4, '\0');
+        qToLittleEndian(value, out.data());
+        return out;
+    };
+    const auto key = [&number](char type, quint32 index) { return QByteArray(1, type) + number(index); };
+    QByteArray apps;
+    for (const auto &[appid, type] : types) {
+        QByteArray common = key('\x01', 4) + "app " + QByteArray::number(appid) + '\0' + extra.value(appid);
+        if (!type.isEmpty())
+            common += key('\x01', 3) + type + '\0';
+        const QByteArray section = QByteArray(60, '\0') + key('\x00', 0) + key('\x02', 1) + number(appid) + key('\x00', 2)
+            + common + "\x08\x08\x08";
+        apps += number(appid) + number(quint32(section.size())) + section;
+    }
+    apps += number(0);
+    QByteArray head = number(0x07564429) + number(1) + QByteArray(8, '\0');
+    qToLittleEndian(qint64(head.size() + apps.size()), head.data() + 8);
+    write(root + u"/appcache/appinfo.vdf"_s,
+          head + apps + number(5) + QByteArray("appinfo\0appid\0common\0type\0name\0", 31));
+}
+
 QString FakeMicroSetd::fixture(const QString &name)
 {
     return QStringLiteral(MICROSET_PAGE_FIXTURES) + u'/' + name;

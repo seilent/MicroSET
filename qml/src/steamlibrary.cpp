@@ -1,8 +1,10 @@
 #include "steamlibrary.h"
 
+#include <QByteArrayList>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QRegularExpression>
 #include <QSet>
 #include <QtEndian>
@@ -19,18 +21,25 @@ using namespace Qt::StringLiterals;
 namespace {
 
 constexpr int MaxDepth = 8;
+constexpr int AppInfoDepth = 63;
+constexpr quint32 AppInfoMagic = 0x07564429;
+constexpr qint64 MaxAppInfo = qint64(64) << 20;
+constexpr quint32 MaxNames = 1 << 20;
+constexpr qsizetype AppInfoHead = 16;
+constexpr qsizetype AppHeader = 60;
 const QStringList Excluded = {u"228980"_s, u"1826330"_s, u"1161040"_s, u"993090"_s};
+const QStringList NonGames = {u"Music"_s, u"Tool"_s, u"Config"_s, u"DLC"_s, u"Video"_s};
 const QRegularExpression AppId(u"^[1-9][0-9]{0,9}$"_s);
 const QRegularExpression User(u"^[0-9]{1,10}$"_s);
 const QRegularExpression Manifest(u"^appmanifest_([1-9][0-9]{0,9})\\.acf$"_s);
 
-std::optional<QByteArray> readFile(const QString &path)
+std::optional<QByteArray> readFile(const QString &path, qint64 limit = SteamLibrary::MaxFile)
 {
     const int fd = ::open(QFile::encodeName(path).constData(), O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0)
         return std::nullopt;
     struct stat st;
-    bool ok = ::fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && st.st_size <= SteamLibrary::MaxFile;
+    bool ok = ::fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && st.st_size <= limit;
     QByteArray data;
     while (ok) {
         char buffer[65536];
@@ -42,7 +51,7 @@ std::optional<QByteArray> readFile(const QString &path)
             break;
         }
         data.append(buffer, n);
-        ok = data.size() <= SteamLibrary::MaxFile;
+        ok = data.size() <= limit;
     }
     ::close(fd);
     return ok ? std::optional<QByteArray>(data) : std::nullopt;
@@ -137,10 +146,14 @@ private:
 class BinaryReader
 {
 public:
-    explicit BinaryReader(const QByteArray &data)
+    explicit BinaryReader(const QByteArray &data, const QByteArrayList *names = nullptr, int maxDepth = MaxDepth)
         : m_data(data)
+        , m_names(names)
+        , m_maxDepth(maxDepth)
     {
     }
+
+    qsizetype pos() const { return m_pos; }
 
     std::optional<QVariantMap> node(int depth)
     {
@@ -149,15 +162,15 @@ public:
             if (m_pos >= m_data.size())
                 return std::nullopt;
             const char type = m_data.at(m_pos++);
-            if (type == 0x08)
+            if (type == 0x08 || type == 0x0b)
                 return out;
-            const std::optional<QByteArray> key = text();
+            const std::optional<QByteArray> key = m_names ? indexed() : text();
             if (!key)
                 return std::nullopt;
             const QString name = QString::fromUtf8(*key).toLower();
             switch (type) {
             case 0x00: {
-                if (depth + 1 > MaxDepth)
+                if (depth + 1 > m_maxDepth)
                     return std::nullopt;
                 const std::optional<QVariantMap> child = node(depth + 1);
                 if (!child)
@@ -179,6 +192,8 @@ public:
                 m_pos += 4;
                 break;
             case 0x03:
+            case 0x04:
+            case 0x06:
                 if (m_pos + 4 > m_data.size())
                     return std::nullopt;
                 m_pos += 4;
@@ -206,13 +221,74 @@ private:
         return out;
     }
 
+    std::optional<QByteArray> indexed()
+    {
+        if (m_pos + 4 > m_data.size())
+            return std::nullopt;
+        const quint32 index = qFromLittleEndian<quint32>(m_data.constData() + m_pos);
+        m_pos += 4;
+        if (index >= quint32(m_names->size()))
+            return std::nullopt;
+        return m_names->at(index);
+    }
+
     const QByteArray &m_data;
+    const QByteArrayList *m_names;
+    int m_maxDepth;
     qsizetype m_pos = 0;
 };
 
 bool validName(const QString &name)
 {
     return !name.isEmpty() && name.size() <= SteamLibrary::MaxName;
+}
+
+QHash<QString, QString> appTypes(const QString &path, const QSet<QString> &appids)
+{
+    const std::optional<QByteArray> file = appids.isEmpty() ? std::nullopt : readFile(path, MaxAppInfo);
+    if (!file || file->size() < AppInfoHead || qFromLittleEndian<quint32>(file->constData()) != AppInfoMagic)
+        return {};
+    const QByteArray &data = *file;
+    const qint64 table = qFromLittleEndian<qint64>(data.constData() + 8);
+    if (table < AppInfoHead || table > data.size() - 4)
+        return {};
+    const quint32 count = qFromLittleEndian<quint32>(data.constData() + table);
+    if (count > MaxNames || count > data.size() - table)
+        return {};
+    QByteArrayList names;
+    for (qsizetype at = table + 4; names.size() < qsizetype(count);) {
+        const qsizetype end = data.indexOf('\0', at);
+        if (end < 0)
+            return {};
+        names << data.mid(at, end - at);
+        at = end + 1;
+    }
+    QHash<QString, QString> out;
+    for (qsizetype at = AppInfoHead;;) {
+        if (at + 4 > table)
+            return {};
+        const quint32 appid = qFromLittleEndian<quint32>(data.constData() + at);
+        if (appid == 0)
+            return out;
+        if (at + 8 > table)
+            return {};
+        const quint32 size = qFromLittleEndian<quint32>(data.constData() + at + 4);
+        const qsizetype start = at + 8;
+        if (size < AppHeader || qint64(size) > table - start)
+            return {};
+        at = start + size;
+        const QString id = QString::number(appid);
+        if (!appids.contains(id))
+            continue;
+        const QByteArray section = QByteArray::fromRawData(data.constData() + start + AppHeader, size - AppHeader);
+        BinaryReader reader(section, &names, AppInfoDepth);
+        const std::optional<QVariantMap> root = reader.node(0);
+        if (!root || reader.pos() != section.size())
+            continue;
+        const QVariant type = root->value(u"appinfo"_s).toMap().value(u"common"_s).toMap().value(u"type"_s);
+        if (type.typeId() == QMetaType::QString)
+            out.insert(id, type.toString());
+    }
 }
 
 }
@@ -311,7 +387,7 @@ QList<SteamLibrary::Game> SteamLibrary::shortcuts() const
     return out;
 }
 
-QList<SteamLibrary::Game> SteamLibrary::games() const
+QList<SteamLibrary::Game> SteamLibrary::games(QSet<QString> *dropped) const
 {
     QList<Game> out;
     QSet<QString> seen;
@@ -333,6 +409,16 @@ QList<SteamLibrary::Game> SteamLibrary::games() const
             }
         }
     }
+    if (dropped)
+        dropped->clear();
+    const QHash<QString, QString> types = appTypes(m_root + u"/appcache/appinfo.vdf"_s, seen);
+    out.removeIf([&types, dropped](const Game &game) {
+        if (!NonGames.contains(types.value(game.appid), Qt::CaseInsensitive))
+            return false;
+        if (dropped)
+            dropped->insert(game.appid);
+        return true;
+    });
     for (const Game &game : shortcuts()) {
         if (seen.contains(game.appid) || seen.size() >= MaxApps)
             continue;
@@ -373,6 +459,7 @@ QByteArray SteamLibrary::stamp() const
         out += '\0';
     };
     add(m_root + u"/steamapps/libraryfolders.vdf"_s);
+    add(m_root + u"/appcache/appinfo.vdf"_s);
     int manifests = 0;
     int dirs = 0;
     for (const QString &library : libraries()) {
