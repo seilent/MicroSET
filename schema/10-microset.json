@@ -487,6 +487,63 @@
       "label": "Game profiles",
       "ui": {"order": 2, "apply": "confirm"}
     },
+    "lsfg.enabled": {
+      "type": "b",
+      "default": true,
+      "applier": null,
+      "group": null,
+      "label": "Frame generation"
+    },
+    "lsfg.mode": {
+      "type": "s",
+      "default": "whitelist",
+      "enum": ["whitelist", "blacklist"],
+      "applier": null,
+      "group": null,
+      "label": "Mode"
+    },
+    "lsfg.multiplier": {
+      "type": "u",
+      "default": 2,
+      "min": 2,
+      "max": 3,
+      "applier": null,
+      "group": null,
+      "label": "Multiplier"
+    },
+    "lsfg.fps_cap": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "20", "30", "off"],
+      "applier": null,
+      "group": null,
+      "label": "Real frame cap"
+    },
+    "lsfg.flow_scale": {
+      "type": "u",
+      "default": 50,
+      "min": 25,
+      "max": 100,
+      "applier": null,
+      "group": null,
+      "label": "Flow scale"
+    },
+    "lsfg.performance_mode": {
+      "type": "b",
+      "default": true,
+      "applier": null,
+      "group": null,
+      "label": "Performance mode"
+    },
+    "lsfg.present_wait_offset": {
+      "type": "u",
+      "default": 2,
+      "min": 0,
+      "max": 8,
+      "applier": null,
+      "group": null,
+      "label": "Present wait offset"
+    },
     "app.profile": {
       "type": "s",
       "default": "on",
@@ -610,6 +667,33 @@
       "group": null,
       "label": "Wine sync",
       "ui": {"order": 12, "apply": "confirm"}
+    },
+    "app.lsfg.state": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "on", "off"],
+      "per_app": true,
+      "group": null,
+      "label": "Frame generation",
+      "ui": {"widget": "none"}
+    },
+    "app.lsfg.multiplier": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "2", "3"],
+      "per_app": true,
+      "group": null,
+      "label": "Multiplier",
+      "ui": {"widget": "none"}
+    },
+    "app.lsfg.fps_cap": {
+      "type": "s",
+      "default": "auto",
+      "enum": ["auto", "20", "30", "off"],
+      "per_app": true,
+      "group": null,
+      "label": "Real frame cap",
+      "ui": {"widget": "none"}
     }
   },
   "presets": {

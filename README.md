@@ -72,11 +72,14 @@ refused ones with a reason; stored keys are left as they are. `Set`, `Import`, `
 Per game keys are `app.<appid>.<key>` (appid of 1 to 10 digits, no leading zero) from the `app.*` templates in
 `10-microset.json` (`"per_app": true`): `profile` (`on` or `off`), `fex.preset`, `fex.tso`, `fex.half_barrier`,
 `fex.vector_tso`, `fex.memcpy_tso`, `fex.multiblock`, `fex.max_inst`, `fex.x87_reduced`, `fex.smc`,
-`fex.volatile_metadata`, `fex.mono_hacks` and `wine.sync`, all `auto` by default. `Schema("app.")` lists the
+`fex.volatile_metadata`, `fex.mono_hacks`, `wine.sync`, `lsfg.state`, `lsfg.multiplier` and `lsfg.fps_cap`, all
+`auto` by default. `Schema("app.")` lists the
 templates, `Schema("app.<appid>")` the keys of one game, `List` and `Stored` the stored ones. A `Set` back to the
 default removes the key, at most 512 games hold values (`Failed`, "too many games"), and they take no `Override` or
 `Subscribe`. The global keys are `fex.preset` (`default` or `compatibility`), `wine.sync` (`fsync` or `ntsync`) and
-`proton.profiles` (`on` or `off`); the FEX presets are under `presets` in `10-microset.json`.
+`proton.profiles` (`on` or `off`); the FEX presets are under `presets` in `10-microset.json`. Frame generation keys:
+`lsfg.enabled`, `lsfg.mode` (`whitelist` or `blacklist`), `lsfg.multiplier` (2 or 3), `lsfg.fps_cap` (`auto`, `20`,
+`30` or `off`), `lsfg.flow_scale` (25 to 100 %), `lsfg.performance_mode` and `lsfg.present_wait_offset` (0 to 8).
 
 Proton profiles come from `/usr/share/microos/proton/profiles.json` (`MICROSET_PROTON_PROFILES`):
 `{"version": 1, "profiles": {"<appid>": {"tool": "<Proton version prefix>", "set": {"<per game key>": "<value>"}}}}`.

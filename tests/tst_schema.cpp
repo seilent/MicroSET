@@ -50,6 +50,8 @@ private slots:
                                                u"audio.max_volume"_s, u"audio.output"_s, u"audio.power_on_volume"_s,
                                                u"audio.speaker_gain"_s, u"audio.volume_step"_s, u"display.auto_rotate"_s, u"display.brightness"_s,
                                                u"display.orientation"_s, u"display.rotation"_s, u"fex.preset"_s,
+                                               u"lsfg.enabled"_s, u"lsfg.flow_scale"_s, u"lsfg.fps_cap"_s, u"lsfg.mode"_s,
+                                               u"lsfg.multiplier"_s, u"lsfg.performance_mode"_s, u"lsfg.present_wait_offset"_s,
                                                u"meta.gpu_undervolt_serial"_s, u"meta.imported_power"_s,
                                                u"meta.moved_bt_codec"_s,
                                                u"power.game_floor"_s, u"power.governor"_s, u"power.gpu_clock"_s,
@@ -381,7 +383,8 @@ private slots:
         const QStringList fex = {u"fex.half_barrier"_s, u"fex.max_inst"_s, u"fex.memcpy_tso"_s, u"fex.mono_hacks"_s,
                                  u"fex.multiblock"_s, u"fex.preset"_s, u"fex.smc"_s, u"fex.tso"_s, u"fex.vector_tso"_s,
                                  u"fex.volatile_metadata"_s, u"fex.x87_reduced"_s};
-        QCOMPARE(schema.options(), (fex + QStringList{u"profile"_s, u"wine.sync"_s}));
+        QCOMPARE(schema.options(), (fex + QStringList{u"lsfg.fps_cap"_s, u"lsfg.multiplier"_s, u"lsfg.state"_s,
+                                                      u"profile"_s, u"wine.sync"_s}));
         for (const QString &option : schema.options()) {
             QVERIFY(schema.perApp(option));
             const Key &key = *schema.perApp(option);
@@ -402,6 +405,9 @@ private slots:
                  (QVariantList{u"auto"_s, u"500"_s, u"1000"_s, u"2000"_s, u"5000"_s}));
         QCOMPARE(schema.perApp(u"fex.smc"_s)->enumValues, (QVariantList{u"auto"_s, u"none"_s, u"mtrack"_s, u"full"_s}));
         QCOMPARE(schema.perApp(u"wine.sync"_s)->enumValues, (QVariantList{u"auto"_s, u"fsync"_s, u"ntsync"_s}));
+        QCOMPARE(schema.perApp(u"lsfg.state"_s)->enumValues, (QVariantList{u"auto"_s, u"on"_s, u"off"_s}));
+        QCOMPARE(schema.perApp(u"lsfg.multiplier"_s)->enumValues, (QVariantList{u"auto"_s, u"2"_s, u"3"_s}));
+        QCOMPARE(schema.perApp(u"lsfg.fps_cap"_s)->enumValues, (QVariantList{u"auto"_s, u"20"_s, u"30"_s, u"off"_s}));
         QCOMPARE(schema.key(u"fex.preset"_s)->defaultValue, QVariant(u"default"_s));
         QCOMPARE(schema.key(u"fex.preset"_s)->enumValues, (QVariantList{u"default"_s, u"compatibility"_s}));
         QVERIFY(!schema.accepts(*schema.key(u"fex.preset"_s), u"performance"_s));
@@ -413,6 +419,26 @@ private slots:
             QVERIFY(!schema.key(key)->perApp);
             QCOMPARE(schema.key(key)->group, u"games"_s);
         }
+        const QMap<QString, QVariant> lsfg{{u"lsfg.enabled"_s, true},
+                                           {u"lsfg.mode"_s, u"whitelist"_s},
+                                           {u"lsfg.multiplier"_s, 2u},
+                                           {u"lsfg.fps_cap"_s, u"auto"_s},
+                                           {u"lsfg.flow_scale"_s, 50u},
+                                           {u"lsfg.performance_mode"_s, true},
+                                           {u"lsfg.present_wait_offset"_s, 2u}};
+        QCOMPARE(schema.keys(u"lsfg"_s), QStringList(lsfg.keyBegin(), lsfg.keyEnd()));
+        for (auto it = lsfg.cbegin(); it != lsfg.cend(); ++it) {
+            const Key &key = *schema.key(it.key());
+            QCOMPARE(key.defaultValue, it.value());
+            QVERIFY(key.applier.isEmpty());
+            QVERIFY(!key.perApp);
+        }
+        QCOMPARE(schema.key(u"lsfg.mode"_s)->enumValues, (QVariantList{u"whitelist"_s, u"blacklist"_s}));
+        QCOMPARE(schema.key(u"lsfg.fps_cap"_s)->enumValues, (QVariantList{u"auto"_s, u"20"_s, u"30"_s, u"off"_s}));
+        QVERIFY(!schema.accepts(*schema.key(u"lsfg.multiplier"_s), 4u));
+        QVERIFY(!schema.accepts(*schema.key(u"lsfg.present_wait_offset"_s), 9u));
+        QVERIFY(schema.key(u"lsfg.performance_mode"_s)->group.isEmpty());
+        QVERIFY(schema.key(u"lsfg.present_wait_offset"_s)->group.isEmpty());
         QVERIFY(schema.preset(u"default"_s) && schema.preset(u"compatibility"_s) && schema.preset(u"performance"_s));
         QCOMPARE(*schema.preset(u"default"_s), Schema::Preset());
         QCOMPARE(*schema.preset(u"compatibility"_s),
@@ -860,7 +886,7 @@ private slots:
         QCOMPARE(clock.value("type"_L1).toString(), u"u"_s);
         QCOMPARE(schema.describe(u"power.tdp"_s).size(), 1);
         QCOMPARE(schema.describe(u"powe"_s).size(), 0);
-        QCOMPARE(schema.describe({}).size(), 66);
+        QCOMPARE(schema.describe({}).size(), 76);
         QCOMPARE(schema.describe(u"audio"_s).size(), 27);
         QVERIFY(schema.describe(u"meta"_s).value("meta.imported_power"_L1).toObject().value("group"_L1).isNull());
     }
