@@ -245,6 +245,7 @@ void RgbApplier::writeNext()
     }
     m_tries = 0;
     m_warned = false;
+    emit frameWritten();
     m_repeat.start();
     if (--m_left == 0)
         finish();

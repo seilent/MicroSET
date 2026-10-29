@@ -30,6 +30,9 @@ public:
     QByteArray wanted() const;
     bool watchingPower() const;
 
+signals:
+    void frameWritten();
+
 private:
     void onPrepareForSleep(bool start);
     void schedule();

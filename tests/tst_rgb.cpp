@@ -43,12 +43,6 @@ QByteArray bytesOf(std::initializer_list<int> values)
 
 const QByteArray Off = bytesOf({0xf7, 0x01, 0, 0, 0, 0, 0, 0, 0, 0x01, 0xed});
 
-struct Chunk
-{
-    qint64 at = 0;
-    QByteArray bytes;
-};
-
 }
 
 class RgbTest : public QObject
@@ -69,7 +63,8 @@ private:
         int slave = -1;
         QString device;
         QElapsedTimer clock;
-        QList<Chunk> chunks;
+        QByteArray input;
+        QList<qint64> writes;
         std::unique_ptr<QSocketNotifier> notifier;
 
         Fixture()
@@ -100,7 +95,7 @@ private:
             char buf[256];
             ssize_t got = 0;
             while ((got = ::read(master, buf, sizeof(buf))) > 0)
-                chunks << Chunk{clock.elapsed(), QByteArray(buf, got)};
+                input.append(buf, got);
         }
 
         ~Fixture()
@@ -119,6 +114,7 @@ private:
             QTRY_VERIFY(sleep->held());
             applier = std::make_unique<RgbApplier>(settings, sleep.get(), path.isEmpty() ? device : path,
                                                    backlight.isEmpty() ? h.path(u"backlight"_s) : backlight);
+            QObject::connect(applier.get(), &RgbApplier::frameWritten, applier.get(), [this] { writes << clock.elapsed(); });
             applier->start();
         }
 
@@ -135,25 +131,13 @@ private:
 
         QByteArray received() const
         {
-            QByteArray out;
-            for (const Chunk &chunk : chunks)
-                out += chunk.bytes;
-            return out;
+            return input;
         }
 
         void expect(const QByteArray &frame, int from = 0)
         {
             QTRY_COMPARE(received().size(), from + 3 * frame.size());
             QCOMPARE(received().mid(from), frame + frame + frame);
-        }
-
-        QList<qint64> times() const
-        {
-            QList<qint64> out;
-            for (const Chunk &chunk : chunks)
-                for (qsizetype i = 0; i < chunk.bytes.size(); i += 11)
-                    out << chunk.at;
-            return out;
         }
     };
 
@@ -209,7 +193,7 @@ private slots:
         Fixture f;
         f.start();
         f.expect(Off);
-        const QList<qint64> at = f.times();
+        const QList<qint64> at = f.writes;
         QCOMPARE(at.size(), 3);
         QVERIFY2(at.at(1) - at.at(0) >= 35, qPrintable(QString::number(at.at(1) - at.at(0))));
         QVERIFY2(at.at(2) - at.at(1) >= 35, qPrintable(QString::number(at.at(2) - at.at(1))));
@@ -342,7 +326,8 @@ private slots:
         QCOMPARE(all.size() % 11, 0);
         QVERIFY(all.startsWith(Off));
         QVERIFY(all.endsWith(red + red + red));
-        const QList<qint64> at = f.times();
+        const QList<qint64> at = f.writes;
+        QCOMPARE(at.size() * 11, all.size());
         for (qsizetype i = 1; i < at.size(); ++i)
             QVERIFY2(at.at(i) - at.at(i - 1) >= 35, qPrintable(QString::number(at.at(i) - at.at(i - 1))));
     }
