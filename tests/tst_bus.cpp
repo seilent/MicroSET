@@ -653,7 +653,7 @@ private slots:
         h->writeState(R"({"future.key": 1, "power.gpu_clock": 9999, "session.default": "gone"})");
         QVERIFY(up());
         const QVariantMap all = qdbus_cast<QVariantMap>(h->call(u"List"_s, {QString()}).arguments().value(0));
-        QCOMPARE(all.size(), 53);
+        QCOMPARE(all.size(), 60);
         QVERIFY(!all.contains(u"future.key"_s));
         QCOMPARE(all.value(u"power.gpu_clock"_s), QVariant(587u));
         QCOMPARE(all.value(u"session.default"_s), QVariant(u"steam"_s));
@@ -974,21 +974,21 @@ private slots:
     {
         QVERIFY(up());
         QVariantMap values;
-        for (int i = 0; i < 54; ++i)
+        for (int i = 0; i < 61; ++i)
             values.insert(u"nope.k%1"_s.arg(i), true);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         values.remove(u"nope.k0"_s);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), QString());
-        QVERIFY(h->daemonLog().contains("import by uid 0 refused 53 unknown keys\n"_L1));
+        QVERIFY(h->daemonLog().contains("import by uid 0 refused 60 unknown keys\n"_L1));
         QVariantMap games;
-        for (int i = 1; i <= 512 * 13 + 1; ++i)
+        for (int i = 1; i <= 512 * 16 + 1; ++i)
             games.insert(u"app.%1.fex.tso"_s.arg(i), u"off"_s);
         QCOMPARE(errorOf(h->call(u"Import"_s, {games})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         games.remove(u"app.1.fex.tso"_s);
         games.insert(u"nope.k0"_s, true);
         QCOMPARE(errorOf(h->call(u"Import"_s, {games})), QString());
         const QString log = h->daemonLog();
-        QVERIFY(log.contains("import by uid 0 refused 6144 keys: too many games\n"_L1));
+        QVERIFY(log.contains("import by uid 0 refused 7680 keys: too many games\n"_L1));
         QVERIFY(log.contains("import by uid 0 refused 1 unknown keys\n"_L1));
         QVERIFY(!log.contains("fex.tso by uid 0 refused: too many games"_L1));
     }
@@ -1072,7 +1072,7 @@ private slots:
         const QStringList sources = {u"set"_s, u"preset"_s, u"global"_s, u"profile"_s, u"default"_s};
         for (const QJsonObject &view : std::as_const(views)) {
             const QJsonObject options = view.value("options"_L1).toObject();
-            QCOMPARE(options.size(), 12);
+            QCOMPARE(options.size(), 15);
             for (const QJsonValue &entry : options) {
                 QCOMPARE(entry.toObject().keys(), (QStringList{u"source"_s, u"value"_s}));
                 QVERIFY(sources.contains(entry.toObject().value("source"_L1).toString()));
@@ -1116,13 +1116,13 @@ private slots:
         QVERIFY(up());
         const QJsonObject templates =
             QJsonDocument::fromJson(h->call(u"Schema"_s, {u"app."_s}).arguments().value(0).toString().toUtf8()).object();
-        QCOMPARE(templates.size(), 13);
+        QCOMPARE(templates.size(), 16);
         QVariantMap values;
         for (int game = 1; game <= 512; ++game)
             for (auto it = templates.begin(); it != templates.end(); ++it)
                 values.insert(u"app.%1.%2"_s.arg(game).arg(it.key().mid(4)),
                               it.value().toObject().value("enum"_L1).toArray().at(1).toString());
-        QCOMPARE(values.size(), 512 * 13);
+        QCOMPARE(values.size(), 512 * 16);
         QDBusMessage message = QDBusMessage::createMethodCall(u"net.seilent.MicroSet"_s, u"/net/seilent/MicroSet"_s,
                                                               u"net.seilent.MicroSet1"_s, u"Import"_s);
         message.setArguments({values});
@@ -1131,10 +1131,10 @@ private slots:
         const QDBusMessage reply = h->client().call(message, QDBus::BlockWithGui, 120000);
         const qint64 spent = timer.elapsed();
         QCOMPARE(errorOf(reply), QString());
-        QCOMPARE(reply.arguments().value(0).toStringList().size(), 512 * 13);
+        QCOMPARE(reply.arguments().value(0).toStringList().size(), 512 * 16);
         QVERIFY2(spent < 20000, qPrintable(u"import of 512 games took %1 ms"_s.arg(spent)));
         QCOMPARE(QDir(h->path(u"run/proton"_s)).entryList({u"*.json"_s}, QDir::Files).size(), 513);
-        QCOMPARE(stored(u"app.512."_s).size(), 13);
+        QCOMPARE(stored(u"app.512."_s).size(), 16);
     }
 
     void perGameCap()

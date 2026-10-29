@@ -527,6 +527,97 @@
                 "version": 2
             },
             "set": {
+                "app.5.lsfg.fps_cap": "20"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                ],
+                "features": {
+                },
+                "version": 2
+            },
+            "set": {
+                "app.5.lsfg.fps_cap": "30"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                ],
+                "features": {
+                },
+                "version": 2
+            },
+            "set": {
+                "app.5.lsfg.fps_cap": "off"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                ],
+                "features": {
+                },
+                "version": 2
+            },
+            "set": {
+                "app.5.lsfg.multiplier": "2"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                ],
+                "features": {
+                },
+                "version": 2
+            },
+            "set": {
+                "app.5.lsfg.multiplier": "3"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                ],
+                "features": {
+                },
+                "version": 2
+            },
+            "set": {
+                "app.5.lsfg.state": "on"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                ],
+                "features": {
+                },
+                "version": 2
+            },
+            "set": {
+                "app.5.lsfg.state": "off"
+            }
+        },
+        {
+            "appid": "5",
+            "file": {
+                "below_local": [
+                ],
+                "features": {
+                },
+                "version": 2
+            },
+            "set": {
                 "app.5.profile": "off"
             }
         },
@@ -1573,6 +1664,279 @@
             },
             "set": {
                 "app.292120.fex.x87_reduced": "off"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "FEX_TSOENABLED",
+                    "PROTON_NO_NTSYNC"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "app.292120.lsfg.fps_cap": "20"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "FEX_TSOENABLED",
+                    "PROTON_NO_NTSYNC"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "app.292120.lsfg.fps_cap": "30"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "FEX_TSOENABLED",
+                    "PROTON_NO_NTSYNC"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "app.292120.lsfg.fps_cap": "off"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "FEX_TSOENABLED",
+                    "PROTON_NO_NTSYNC"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "app.292120.lsfg.multiplier": "2"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "FEX_TSOENABLED",
+                    "PROTON_NO_NTSYNC"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "app.292120.lsfg.multiplier": "3"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "FEX_TSOENABLED",
+                    "PROTON_NO_NTSYNC"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "app.292120.lsfg.state": "on"
+            }
+        },
+        {
+            "appid": "292120",
+            "file": {
+                "below_local": [
+                    "FEX_TSOENABLED",
+                    "PROTON_NO_NTSYNC"
+                ],
+                "features": {
+                    "fex": {
+                        "env": {
+                            "FEX_TSOENABLED": "0"
+                        },
+                        "fallback": {
+                        }
+                    },
+                    "wine": {
+                        "env": {
+                            "PROTON_NO_NTSYNC": "1"
+                        },
+                        "fallback": {
+                        }
+                    }
+                },
+                "profile": {
+                    "names": [
+                        "FEX_TSOENABLED",
+                        "PROTON_NO_NTSYNC"
+                    ],
+                    "tool": "proton-11.0-",
+                    "yield": [
+                        "FEX_TSOENABLED"
+                    ]
+                },
+                "version": 2
+            },
+            "set": {
+                "app.292120.lsfg.state": "off"
             }
         },
         {

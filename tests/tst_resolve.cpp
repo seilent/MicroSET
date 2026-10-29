@@ -208,7 +208,7 @@ private slots:
         const QJsonObject view = f.resolver->effective(u"292120"_s);
         QCOMPARE(view.value("appid"_L1).toString(), u"292120"_s);
         const QJsonObject options = view.value("options"_L1).toObject();
-        QCOMPARE(options.keys().size(), 12);
+        QCOMPARE(options.keys().size(), 15);
         QVERIFY(!options.contains("profile"_L1));
         const auto row = [&](const char *option) {
             const QJsonObject entry = options.value(QLatin1StringView(option)).toObject();
