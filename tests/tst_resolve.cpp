@@ -253,7 +253,7 @@ private slots:
         const QMap<QString, QString> off{{u"DISABLE_LSFGVK"_s, u"1"_s}};
         const QMap<QString, QString> defaults{{u"LSFGVK_ENV"_s, u"1"_s},
                                               {u"LSFGVK_MULTIPLIER"_s, u"2"_s},
-                                              {u"LSFGVK_FLOW_SCALE"_s, u"0.5"_s},
+                                              {u"LSFGVK_FLOW_SCALE"_s, u"0.25"_s},
                                               {u"LSFGVK_PERFORMANCE_MODE"_s, u"1"_s},
                                               {u"LSFGVK_PRESENT_WAIT_OFFSET"_s, u"2"_s},
                                               {u"VKD3D_FRAME_RATE"_s, u"30"_s}};

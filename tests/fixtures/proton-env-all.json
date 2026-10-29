@@ -833,7 +833,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -2390,7 +2390,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -2851,7 +2851,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -2891,7 +2891,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -2940,7 +2940,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -3080,7 +3080,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -3121,7 +3121,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -3171,7 +3171,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -3229,7 +3229,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -3270,7 +3270,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -3320,7 +3320,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -3371,7 +3371,7 @@
                     "lsfg": {
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2"
@@ -3404,7 +3404,7 @@
                     "lsfg": {
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2"
@@ -3446,7 +3446,7 @@
                     "lsfg": {
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2"
@@ -3503,7 +3503,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "3",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -3544,7 +3544,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "3",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -3594,7 +3594,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "3",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -3652,7 +3652,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.25",
+                            "LSFGVK_FLOW_SCALE": "0.5",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -3667,7 +3667,7 @@
                 "version": 2
             },
             "set": {
-                "lsfg.flow_scale": 25,
+                "lsfg.flow_scale": 50,
                 "lsfg.mode": "blacklist"
             }
         },
@@ -3693,7 +3693,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.25",
+                            "LSFGVK_FLOW_SCALE": "0.5",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -3708,7 +3708,7 @@
                 "version": 2
             },
             "set": {
-                "lsfg.flow_scale": 25,
+                "lsfg.flow_scale": 50,
                 "lsfg.mode": "blacklist"
             }
         },
@@ -3743,7 +3743,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.25",
+                            "LSFGVK_FLOW_SCALE": "0.5",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -3775,7 +3775,7 @@
                 "version": 2
             },
             "set": {
-                "lsfg.flow_scale": 25,
+                "lsfg.flow_scale": 50,
                 "lsfg.mode": "blacklist"
             }
         },
@@ -4099,7 +4099,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "0",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -4140,7 +4140,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "0",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -4190,7 +4190,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "0",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -4248,7 +4248,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "0",
@@ -4289,7 +4289,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "0",
@@ -4339,7 +4339,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "0",
@@ -4397,7 +4397,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "8",
@@ -4438,7 +4438,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "8",
@@ -4488,7 +4488,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "8",
@@ -4586,7 +4586,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -4626,7 +4626,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "3",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -4664,7 +4664,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "3",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",
@@ -4696,7 +4696,7 @@
                     "lsfg": {
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2"
@@ -4740,7 +4740,7 @@
                         ],
                         "env": {
                             "LSFGVK_ENV": "1",
-                            "LSFGVK_FLOW_SCALE": "0.5",
+                            "LSFGVK_FLOW_SCALE": "0.25",
                             "LSFGVK_MULTIPLIER": "2",
                             "LSFGVK_PERFORMANCE_MODE": "1",
                             "LSFGVK_PRESENT_WAIT_OFFSET": "2",

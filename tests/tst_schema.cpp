@@ -423,7 +423,7 @@ private slots:
                                            {u"lsfg.mode"_s, u"whitelist"_s},
                                            {u"lsfg.multiplier"_s, 2u},
                                            {u"lsfg.fps_cap"_s, u"auto"_s},
-                                           {u"lsfg.flow_scale"_s, 50u},
+                                           {u"lsfg.flow_scale"_s, 25u},
                                            {u"lsfg.performance_mode"_s, true},
                                            {u"lsfg.present_wait_offset"_s, 2u}};
         QCOMPARE(schema.keys(u"lsfg"_s), QStringList(lsfg.keyBegin(), lsfg.keyEnd()));

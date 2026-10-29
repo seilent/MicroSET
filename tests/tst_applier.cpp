@@ -339,7 +339,7 @@ private slots:
         each(u"lsfg.enabled"_s, {false}, all);
         const QList<QPair<QString, QVariantList>> blacklisted{{u"lsfg.fps_cap"_s, {u"20"_s, u"30"_s, u"off"_s}},
                                                               {u"lsfg.multiplier"_s, {3u}},
-                                                              {u"lsfg.flow_scale"_s, {25u, 75u, 100u}},
+                                                              {u"lsfg.flow_scale"_s, {50u, 75u, 100u}},
                                                               {u"lsfg.performance_mode"_s, {false}},
                                                               {u"lsfg.present_wait_offset"_s, {0u, 8u}}};
         for (const auto &[name, values] : blacklisted)
@@ -398,7 +398,7 @@ private slots:
         QCOMPARE(f.applier->document({}), whitelist);
         QCOMPARE(f.applier->document(u"2238900"_s), whitelist);
 
-        const QJsonObject on = json(R"({"env": {"LSFGVK_ENV": "1", "LSFGVK_FLOW_SCALE": "0.5", "LSFGVK_MULTIPLIER": "2",
+        const QJsonObject on = json(R"({"env": {"LSFGVK_ENV": "1", "LSFGVK_FLOW_SCALE": "0.25", "LSFGVK_MULTIPLIER": "2",
                                                 "LSFGVK_PERFORMANCE_MODE": "1", "LSFGVK_PRESENT_WAIT_OFFSET": "2",
                                                 "VKD3D_FRAME_RATE": "30"},
                                         "dxvk": ["dxgi.maxFrameRate = 30", "d3d9.maxFrameRate = 30"],
