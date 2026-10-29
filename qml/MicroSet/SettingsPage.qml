@@ -35,8 +35,10 @@ Page {
     property alias focusBar: focusBar
     property alias repeater: repeater
     property alias sheet: sheet
+    property alias confirm: confirm
 
     signal opened(string group)
+    signal acted(string key)
     signal entrance(real shift, int stagger, int cap, int duration, bool stripCurve, int from)
     signal settle()
 
@@ -290,8 +292,22 @@ Page {
         const open = page.valueOpen || page.editing
         page.endValue()
         page.confirmEdit()
+        if (confirm.shown)
+            confirm.close()
         if (open && page.model !== null)
             page.model.endPreviews()
+    }
+
+    function act(r: var): void {
+        if (r.ask === undefined || r.ask === "") {
+            page.acted(r.action)
+            return
+        }
+        confirm.action = r.action
+        confirm.title = r.ask
+        confirm.items = [r.accept, "cancel"]
+        confirm.open()
+        confirm.focusIndex = confirm.cancelIndex
     }
 
     function flip(r: var): void {
@@ -336,6 +352,10 @@ Page {
             return false
         if (r.group !== undefined) {
             page.opened(r.group)
+            return true
+        }
+        if (r.action !== undefined && r.action !== "") {
+            page.act(r)
             return true
         }
         if (r.kind === "info" || r.readOnly)
@@ -409,6 +429,8 @@ Page {
     }
 
     function handleAction(name: string, repeat: bool): bool {
+        if (confirm.shown)
+            return confirm.handleAction(name, repeat)
         if (sheet.shown && page.valueOpen && sheet.animating)
             return page.holdRise(name, repeat)
         if (sheet.shown)
@@ -449,6 +471,8 @@ Page {
             if (at < 0 || page.rows[at].readOnly)
                 page.cancelLater()
         }
+        if (confirm.shown && !page.rows.some((r) => r.action === confirm.action))
+            confirm.close()
     }
 
     onValueItemsChanged: {
@@ -603,7 +627,7 @@ Page {
         visible: page.focusedRow !== null
         rowY: flick.y + page.focusY
         rowHeight: page.focusHeight
-        opacity: page.focusOpacity
+        opacity: page.focusOpacity * (1 - confirm.scrim.opacity)
         animated: page.live
     }
 
@@ -650,6 +674,23 @@ Page {
                 if (sheet.shown && page.valueOpen)
                     sheet.handleAction(kept, false)
             })
+        }
+    }
+
+    Dialog {
+        id: confirm
+
+        readonly property int acceptIndex: 0
+        readonly property int cancelIndex: 1
+        property string action: ""
+
+        anchors.fill: parent
+        screenOff: page.screenOff
+        onAccepted: (index) => {
+            const action = confirm.action
+            confirm.close()
+            if (index === confirm.acceptIndex)
+                page.acted(action)
         }
     }
 }
