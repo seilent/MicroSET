@@ -382,6 +382,65 @@ private slots:
         QVERIFY(focusable);
     }
 
+    void actionRowsAskFirst()
+    {
+        open(u"display"_s);
+        const QVariantMap base{{u"kind"_s, u"row"_s}, {u"value"_s, QString()}, {u"readOnly"_s, true},
+                               {u"widget"_s, QString()}, {u"swatch"_s, QString()}, {u"hue"_s, -1},
+                               {u"confirm"_s, false}, {u"pick"_s, QString()}, {u"bounded"_s, false}};
+        QVariantMap ask = base;
+        ask.insert({{u"key"_s, u"test-ask"_s}, {u"title"_s, u"Ask first"_s}, {u"action"_s, u"test-ask"_s},
+                    {u"ask"_s, u"ask first"_s}, {u"accept"_s, u"go"_s}});
+        QVariantMap now = base;
+        now.insert({{u"key"_s, u"test-now"_s}, {u"title"_s, u"Right away"_s}, {u"action"_s, u"test-now"_s}});
+        const QVariantList rows = page()->property("modelRows").toList();
+        page()->setProperty("modelRows", QVariantList(rows) << ask << now);
+        auto *dialog = qvariant_cast<QObject *>(page()->property("confirm"));
+        QVERIFY(dialog);
+        QSignalSpy acted(page(), SIGNAL(acted(QString)));
+        focus(u"test-ask"_s);
+        key(Qt::Key_Return);
+        QVERIFY(dialog->property("shown").toBool());
+        QCOMPARE(dialog->property("title").toString(), u"ask first"_s);
+        QCOMPARE(dialog->property("items").toStringList(), (QStringList{u"go"_s, u"cancel"_s}));
+        QCOMPARE(dialog->property("focusIndex").toInt(), 1);
+        key(Qt::Key_Down);
+        QCOMPARE(dialog->property("focusIndex").toInt(), 1);
+        key(Qt::Key_Return);
+        QVERIFY(!dialog->property("shown").toBool());
+        QCOMPARE(acted.count(), 0);
+        key(Qt::Key_Return);
+        QCOMPARE(dialog->property("focusIndex").toInt(), 1);
+        key(Qt::Key_Escape);
+        QVERIFY(!dialog->property("shown").toBool());
+        QCOMPARE(page()->property("group").toString(), u"display"_s);
+        QCOMPARE(acted.count(), 0);
+        key(Qt::Key_Return);
+        key(Qt::Key_Up);
+        QCOMPARE(dialog->property("focusIndex").toInt(), 0);
+        key(Qt::Key_Return);
+        QVERIFY(!dialog->property("shown").toBool());
+        QCOMPARE(acted.count(), 1);
+        QCOMPARE(acted.takeFirst().value(0).toString(), u"test-ask"_s);
+        QVERIFY(fake->calls().isEmpty());
+        key(Qt::Key_Return);
+        QVERIFY(dialog->property("shown").toBool());
+        page()->setProperty("modelRows", QVariantList(rows) << now);
+        QVERIFY(!dialog->property("shown").toBool());
+        focus(u"test-now"_s);
+        key(Qt::Key_Return);
+        QVERIFY(!dialog->property("shown").toBool());
+        QCOMPARE(acted.count(), 1);
+        QCOMPARE(acted.takeFirst().value(0).toString(), u"test-now"_s);
+        page()->setProperty("modelRows", QVariantList(rows) << ask);
+        focus(u"test-ask"_s);
+        key(Qt::Key_Return);
+        QVERIFY(dialog->property("shown").toBool());
+        page()->setProperty("screenOff", true);
+        QVERIFY(!dialog->property("shown").toBool());
+        QCOMPARE(acted.count(), 0);
+    }
+
     void toastStaysWhileSticky()
     {
         QObject *t = toast();
