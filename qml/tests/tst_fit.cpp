@@ -183,7 +183,7 @@ private slots:
         QMap<QString, QJsonObject> effective;
         for (const QString &appid : {u"292120"_s, u"2238900"_s, u"77"_s})
             effective.insert(appid, FakeMicroSetd::effective(files, stored, FakeMicroSetd::Profiles, appid));
-        model.setProtonFixture(effective);
+        model.setProtonFixture(effective, FakeMicroSetd::profiles(files, FakeMicroSetd::Profiles));
         model.lsfg()->setFixture(QJsonDocument::fromJson(R"({"owned": "yes", "install": "none"})").object(), true, u"steam"_s);
         QQmlApplicationEngine engine;
         QObject *view = viewOf(engine, model);
@@ -200,7 +200,7 @@ private slots:
               u"not installed"_s, u"on microSD"_s, u"ownership unknown"_s, u"old layer in home"_s,
               u"switch to the lsfg-vk beta"_s}},
             {u"lsfg-games"_s, {u"99 on"_s, u"off"_s}},
-            {u"lsfg-game-292120"_s, {u"on"_s, u"off"_s, u"not installed"_s}},
+            {u"lsfg-game-2238900"_s, {u"on"_s, u"off"_s, u"not installed"_s}},
             {u"lsfg.enabled"_s, {u"on"_s, u"off"_s}},
         };
         checkRows(view, model, lsfg, count, extra);
@@ -328,7 +328,7 @@ private slots:
         QMap<QString, QJsonObject> effective;
         for (const QString &appid : games)
             effective.insert(appid, FakeMicroSetd::effective(files, stored, FakeMicroSetd::Profiles, appid));
-        model.setProtonFixture(effective);
+        model.setProtonFixture(effective, FakeMicroSetd::profiles(files, FakeMicroSetd::Profiles));
         QQmlApplicationEngine engine;
         QObject *view = viewOf(engine, model);
         QVERIFY(view);

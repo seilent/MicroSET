@@ -52,6 +52,7 @@ class ModelTest : public QObject
     std::unique_ptr<Harness> h;
     std::unique_ptr<FakeMicroSetd> fake;
     QByteArray m_path;
+    QTemporaryDir m_empty;
 
     static QStringList keysOf(const QVariantList &rows)
     {
@@ -460,14 +461,18 @@ private slots:
         qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
         FakeMicroSetd::writeSteam(steam.path(),
                                   {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s},
-                                   {u"993090"_s, u"Lossless Scaling"_s}, {u"5"_s, u"<b>bold</b>"_s},
-                                   {u"2399050"_s, u"Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s}},
+                                   {u"2161700"_s, u"Persona 3 Reload"_s}, {u"993090"_s, u"Lossless Scaling"_s},
+                                   {u"5"_s, u"<b>bold</b>"_s},
+                                   {u"2399050"_s, u"Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s},
+                                   {u"1086940"_s, u"Baldur’s Gate 3 Soundtrack"_s}},
                                   {{2763258687u, u"Octopath Traveler"_s}});
-        FakeMicroSetd::writeAppInfo(steam.path(), {{292120, "Game"}, {2238900, "Game"}, {2399050, "Music"}});
+        FakeMicroSetd::writeAppInfo(steam.path(), {{292120, "Game"}, {2238900, "Game"}, {2161700, "Game"},
+                                                   {2399050, "Music"}, {1086940, "Music"}});
         const QStringList files{FakeMicroSetd::shipped()};
         fake->setSchema(FakeMicroSetd::describe(files));
         fake->setProton(files, FakeMicroSetd::Profiles);
-        const QVariantMap stored{{u"app.2238900.fex.preset"_s, u"performance"_s}, {u"app.77.fex.tso"_s, u"on"_s},
+        const QVariantMap stored{{u"app.2238900.fex.preset"_s, u"performance"_s}, {u"app.2161700.lsfg.multiplier"_s, u"3"_s},
+                                 {u"app.5.profile"_s, u"off"_s}, {u"app.77.fex.tso"_s, u"on"_s},
                                  {u"app.78.fex.tso"_s, u"auto"_s}, {u"app.993090.fex.tso"_s, u"on"_s},
                                  {u"app.2399050.fex.tso"_s, u"on"_s}};
         const QString apps = steam.path() + u"/steamapps"_s;
@@ -483,12 +488,20 @@ private slots:
         const auto m = model();
         const QStringList globals{u"label-microset"_s, u"fex.preset"_s, u"wine.sync"_s, u"proton.profiles"_s};
         QCOMPARE(keysOf(m->rows(u"games"_s, 0)), globals);
+        m->beginVisit(u"games"_s);
         m->enter(u"games"_s);
-        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-2238900"_s), u"performance"_s);
-        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"default"_s);
+        const QStringList games{u"label-games"_s, u"game-5"_s, u"game-292120"_s, u"game-2161700"_s, u"game-2399050"_s,
+                                u"game-2238900"_s, u"game-77"_s, u"games-add"_s};
+        QTRY_COMPARE(keysOf(m->rows(u"games"_s, 0)), globals + games);
+        QCOMPARE(fake->effectives().size(), 5);
+        QCOMPARE(QSet<QString>(fake->effectives().cbegin(), fake->effectives().cend()),
+                 (QSet<QString>{u"5"_s, u"292120"_s, u"2161700"_s, u"2399050"_s, u"2238900"_s}));
         const QVariantList rows = m->rows(u"games"_s, 0);
-        QCOMPARE(keysOf(rows), (globals + QStringList{u"label-games"_s, u"game-5"_s, u"game-292120"_s, u"game-2763258687"_s,
-                                                      u"game-2238900"_s, u"game-77"_s}));
+        QCOMPARE(value(rows, u"game-5"_s), u"MicroOS profile off"_s);
+        QCOMPARE(value(rows, u"game-292120"_s), u"TSO off, fsync"_s);
+        QCOMPARE(value(rows, u"game-2161700"_s), u"Multiplier 3x"_s);
+        QCOMPARE(value(rows, u"game-2399050"_s), u"TSO on"_s);
+        QCOMPARE(value(rows, u"game-2238900"_s), u"Preset performance"_s);
         QCOMPARE(rowOf(rows, u"label-games"_s).value(u"kind"_s).toString(), u"label"_s);
         QCOMPARE(rowOf(rows, u"label-games"_s).value(u"title"_s).toString(), u"games"_s);
         const QVariantMap ff13 = rowOf(rows, u"game-292120"_s);
@@ -497,24 +510,34 @@ private slots:
         QCOMPARE(ff13.value(u"title"_s).toString(), u"FINAL FANTASY XIII"_s);
         QVERIFY(ff13.value(u"readOnly"_s).toBool());
         QCOMPARE(rowOf(rows, u"game-5"_s).value(u"title"_s).toString(), u"<b>bold</b>"_s);
+        QCOMPARE(rowOf(rows, u"game-2399050"_s).value(u"title"_s).toString(),
+                 u"Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s);
         const QVariantMap gone = rowOf(rows, u"game-77"_s);
-        QCOMPARE(gone.value(u"kind"_s).toString(), u"info"_s);
+        QCOMPARE(gone.value(u"kind"_s).toString(), u"row"_s);
         QCOMPARE(gone.value(u"title"_s).toString(), u"77"_s);
         QCOMPARE(gone.value(u"value"_s).toString(), u"not installed"_s);
-        QVERIFY(!gone.contains(u"group"_s));
+        QCOMPARE(gone.value(u"group"_s).toString(), u"app.77"_s);
+        const QVariantMap add = rowOf(rows, u"games-add"_s);
+        QCOMPARE(add.value(u"title"_s).toString(), u"Add game"_s);
+        QCOMPARE(add.value(u"kind"_s).toString(), u"row"_s);
+        QCOMPARE(add.value(u"picker"_s).toString(), u"games"_s);
+        QVERIFY(!add.contains(u"group"_s));
+        const QVariantList picks = m->pickable(u"games"_s);
+        QCOMPARE(picks, (QVariantList{QVariantMap{{u"appid"_s, u"2763258687"_s}, {u"title"_s, u"Octopath Traveler"_s}}}));
+        QCOMPARE(m->pickable(u"lsfg"_s).size(), 4);
+        QVERIFY(m->pickable(u"other"_s).isEmpty());
         QCOMPARE(m->pageTitle(u"app.292120"_s, 0), u"FINAL FANTASY XIII"_s);
         QCOMPARE(m->pageTitle(u"app.2763258687"_s, 0), u"Octopath Traveler"_s);
+        QCOMPARE(m->pageTitle(u"app.2399050"_s, 0), u"Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s);
         QCOMPARE(m->pageTitle(u"app.6"_s, 0), u"6"_s);
         QCOMPARE(m->pageTitle(u"audio"_s, 0), u"audio"_s);
         QVERIFY(m->set(u"fex.preset"_s, u"compatibility"_s));
-        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"compatibility"_s);
-        QCOMPARE(value(m->rows(u"games"_s, 0), u"game-2238900"_s), u"performance"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"fsync"_s);
+        QCOMPARE(value(m->rows(u"games"_s, 0), u"game-2238900"_s), u"Preset performance"_s);
         fake->emitChanged(u"app.78.fex.tso"_s, u"off"_s);
-        QTRY_COMPARE(keysOf(m->rows(u"games"_s, 0)).last(), u"game-78"_s);
-        fake->setValues(stored);
-        fake->setStored({{u"app.2238900.fex.preset"_s, u"compatibility"_s}, {u"fex.preset"_s, u"compatibility"_s}});
-        m->load();
-        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-2238900"_s), u"compatibility"_s);
+        QTRY_VERIFY(keysOf(m->rows(u"games"_s, 0)).contains(u"game-78"_s));
+        QCOMPARE(keysOf(m->rows(u"games"_s, 0)).mid(keysOf(m->rows(u"games"_s, 0)).indexOf(u"game-77"_s)),
+                 (QStringList{u"game-77"_s, u"game-78"_s, u"games-add"_s}));
         QFile renamed(acf);
         QVERIFY(renamed.open(QIODevice::ReadWrite));
         const QByteArray same = renamed.readAll().replace("FINAL FANTASY XIII", "FF XIII same bytes");
@@ -527,9 +550,169 @@ private slots:
         pin(acf, 1);
         m->enter(u"games"_s);
         QCOMPARE(rowOf(m->rows(u"games"_s, 0), u"game-292120"_s).value(u"title"_s).toString(), u"FF XIII same bytes"_s);
-        FakeMicroSetd::writeSteam(steam.path(), {{u"2161700"_s, u"Persona 3 Reload"_s}});
+        FakeMicroSetd::writeSteam(steam.path(), {{u"1245620"_s, u"ELDEN RING"_s}});
         m->enter(u"games"_s);
-        QVERIFY(keysOf(m->rows(u"games"_s, 0)).contains(u"game-2161700"_s));
+        QVERIFY(!keysOf(m->rows(u"games"_s, 0)).contains(u"game-1245620"_s));
+        QCOMPARE(m->pickable(u"games"_s).first().toMap().value(u"appid"_s).toString(), u"1245620"_s);
+        m->endVisit(u"games"_s);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void gameListMembers()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(),
+                                  {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2161700"_s, u"Persona 3 Reload"_s}});
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const auto m = model();
+        const auto listed = [&] { return keysOf(m->rows(u"games"_s, 0)); };
+        const auto revisit = [&] {
+            m->endVisit(u"games"_s);
+            m->beginVisit(u"games"_s);
+            m->enter(u"games"_s);
+        };
+        m->beginVisit(u"games"_s);
+        m->enter(u"games"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"TSO off, fsync"_s);
+        QVERIFY(!listed().contains(u"game-2161700"_s));
+        fake->setStored({{u"proton.profiles"_s, u"off"_s}});
+        fake->emitChanged(u"proton.profiles"_s, u"off"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"default"_s);
+        revisit();
+        QVERIFY(!listed().contains(u"game-292120"_s));
+        QVERIFY(listed().contains(u"games-add"_s));
+        fake->setStored({});
+        fake->emitChanged(u"proton.profiles"_s, u"on"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"TSO off, fsync"_s);
+        fake->setStored({{u"app.2161700.lsfg.multiplier"_s, u"3"_s}});
+        fake->emitChanged(u"app.2161700.lsfg.multiplier"_s, u"3"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-2161700"_s), u"Multiplier 3x"_s);
+        QVERIFY(!listed().contains(u"games-add"_s));
+        fake->setStored({});
+        fake->emitChanged(u"app.2161700.lsfg.multiplier"_s, u"auto"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-2161700"_s), u"default"_s);
+        revisit();
+        QVERIFY(!listed().contains(u"game-2161700"_s));
+        m->endVisit(u"games"_s);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void gameWords()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s},
+                                                 {u"2161700"_s, u"Persona 3 Reload"_s}});
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const QVariantMap stored{{u"app.292120.fex.tso"_s, u"on"_s},
+                                 {u"app.2238900.fex.preset"_s, u"performance"_s},
+                                 {u"app.2238900.wine.sync"_s, u"fsync"_s},
+                                 {u"app.2238900.lsfg.state"_s, u"on"_s},
+                                 {u"app.2238900.lsfg.fps_cap"_s, u"20"_s},
+                                 {u"app.2161700.profile"_s, u"off"_s},
+                                 {u"app.2161700.fex.smc"_s, u"full"_s}};
+        fake->setValues(stored);
+        fake->setStored(stored);
+        const auto m = model();
+        m->beginVisit(u"games"_s);
+        m->enter(u"games"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"TSO on, fsync"_s);
+        QCOMPARE(value(m->rows(u"games"_s, 0), u"game-2238900"_s),
+                 u"Preset performance, fsync, Frame generation on, Real frame cap 20"_s);
+        QCOMPARE(value(m->rows(u"games"_s, 0), u"game-2161700"_s), u"MicroOS profile off, SMC detection full"_s);
+        m->enter(u"app.2161700"_s);
+        QVERIFY(m->set(u"app.2161700.profile"_s, u"on"_s));
+        QVERIFY(m->set(u"app.2161700.fex.smc"_s, u"auto"_s));
+        m->enter(u"app.292120"_s);
+        QVERIFY(m->set(u"app.292120.profile"_s, u"off"_s));
+        m->enter(u"games"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-2161700"_s), u"default"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"MicroOS profile off, TSO on"_s);
+        m->endVisit(u"games"_s);
+        QVERIFY(!keysOf(m->rows(u"games"_s, 0)).contains(u"game-2161700"_s));
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void joinFetchesEffective()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s},
+                                                 {u"2161700"_s, u"Persona 3 Reload"_s}, {u"1245620"_s, u"ELDEN RING"_s}});
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const auto m = model();
+        m->beginVisit(u"games"_s);
+        m->enter(u"games"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"TSO off, fsync"_s);
+        QCOMPARE(fake->effectives(), QStringList{u"292120"_s});
+        QVariantMap stored{{u"app.2238900.fex.tso"_s, u"off"_s}};
+        fake->setStored(stored);
+        fake->emitChanged(u"app.2238900.fex.tso"_s, u"off"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-2238900"_s), u"TSO off"_s);
+        const qsizetype asked = fake->effectives().count(u"2238900"_s);
+        stored.insert(u"app.2238900.fex.multiblock"_s, u"off"_s);
+        fake->setStored(stored);
+        fake->emitChanged(u"app.2238900.fex.multiblock"_s, u"off"_s);
+        QTRY_COMPARE(m->value(u"app.2238900.fex.multiblock"_s, 0).toString(), u"off"_s);
+        h->call(u"Get"_s, {u"audio.volume_step"_s});
+        QCOMPARE(fake->effectives().count(u"2238900"_s), asked + 1);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-2238900"_s), u"TSO off, Multiblock off"_s);
+        stored.insert({{u"app.2161700.fex.multiblock"_s, u"off"_s}, {u"app.2161700.wine.sync"_s, u"fsync"_s}});
+        fake->setStored(stored);
+        for (const QString &key : {u"app.2161700.fex.multiblock"_s, u"app.2161700.wine.sync"_s})
+            fake->emitChanged(key, stored.value(key));
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-2161700"_s), u"Multiblock off, fsync"_s);
+        m->leave(u"games"_s);
+        m->enter(u"app.1245620"_s);
+        QTRY_VERIFY(!m->rows(u"app.1245620"_s, 0).isEmpty());
+        QVERIFY(m->set(u"app.1245620.fex.smc"_s, u"full"_s));
+        m->leave(u"app.1245620"_s);
+        m->enter(u"games"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-1245620"_s), u"SMC detection full"_s);
+        QCOMPARE(keysOf(m->rows(u"games"_s, 0)).last(), u"game-2238900"_s);
+        m->endVisit(u"games"_s);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void profilesOnMidVisit()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s}});
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const QVariantMap off{{u"proton.profiles"_s, u"off"_s}};
+        fake->setValues(off);
+        fake->setStored(off);
+        for (const bool late : {false, true}) {
+            fake->holdCalls(u"Profiles"_s, late);
+            const qsizetype before = fake->effectives().count(u"292120"_s);
+            const auto m = model();
+            m->beginVisit(u"games"_s);
+            m->enter(u"games"_s);
+            QTRY_VERIFY(keysOf(m->rows(u"games"_s, 0)).contains(u"games-add"_s));
+            QVERIFY(!keysOf(m->rows(u"games"_s, 0)).contains(u"game-292120"_s));
+            fake->setStored({});
+            fake->emitChanged(u"proton.profiles"_s, u"on"_s);
+            if (late) {
+                QTRY_COMPARE(m->value(u"proton.profiles"_s, 0).toString(), u"on"_s);
+                QVERIFY(!keysOf(m->rows(u"games"_s, 0)).contains(u"game-292120"_s));
+                QCOMPARE(fake->effectives().count(u"292120"_s), before);
+                fake->holdCalls(u"Profiles"_s, false);
+            }
+            QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"TSO off, fsync"_s);
+            QCOMPARE(fake->effectives().count(u"292120"_s), before + 1);
+            fake->setStored(off);
+            m->endVisit(u"games"_s);
+        }
         qunsetenv("MICROSET_STEAM_DIR");
     }
 
@@ -877,6 +1060,7 @@ private slots:
                      (QStringList{u"label-microset"_s, u"lsfg-status"_s, u"lsfg-install"_s, u"lsfg.enabled"_s, u"lsfg.mode"_s,
                                   u"lsfg-games"_s, u"lsfg.multiplier"_s, u"lsfg.fps_cap"_s, u"lsfg.flow_scale"_s,
                                   u"lsfg-limit"_s}));
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"0 on"_s);
         QVariantList rows = m->rows(Lsfg, 0);
         const auto texts = [&](const QString &key) {
             const QVariantMap row = rowOf(rows, key);
@@ -941,86 +1125,487 @@ private slots:
         qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
         FakeMicroSetd::writeSteam(steam.path(),
                                   {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s},
-                                   {u"993090"_s, u"Lossless Scaling"_s},
+                                   {u"2161700"_s, u"Persona 3 Reload"_s}, {u"993090"_s, u"Lossless Scaling"_s},
                                    {u"2399050"_s, u"Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s}},
                                   {{2763258687u, u"Octopath Traveler"_s}});
-        FakeMicroSetd::writeAppInfo(steam.path(), {{292120, "Game"}, {2238900, "Game"}, {2399050, "Music"}});
+        FakeMicroSetd::writeAppInfo(steam.path(),
+                                    {{292120, "Game"}, {2238900, "Game"}, {2161700, "Game"}, {2399050, "Music"}});
         writeLsfg(R"({"owned": "yes", "install": "installed"})");
         const QStringList files{FakeMicroSetd::shipped()};
+        const QByteArray table = R"({"version": 1, "profiles": {
+            "292120": {"tool": "proton-11.0-", "set": {"fex.tso": "off", "wine.sync": "fsync"}},
+            "2161700": {"set": {"lsfg.state": "on"}}}})";
         fake->setSchema(FakeMicroSetd::describe(files));
-        fake->setProton(files, FakeMicroSetd::Profiles);
-        const QVariantMap stored{{u"app.77.lsfg.state"_s, u"on"_s}, {u"app.78.fex.tso"_s, u"on"_s},
-                                 {u"app.2399050.lsfg.state"_s, u"on"_s}};
+        fake->setProton(files, table);
+        QVariantMap stored{{u"app.77.lsfg.state"_s, u"on"_s}, {u"app.78.fex.tso"_s, u"on"_s},
+                           {u"app.2399050.lsfg.state"_s, u"on"_s}, {u"app.2238900.lsfg.state"_s, u"off"_s}};
         fake->setValues(stored);
         fake->setStored(stored);
         const auto m = model();
+        m->beginVisit(Lsfg);
         m->enter(Lsfg);
         const auto rows = [&] { return m->rows(Lsfg, 0); };
         const auto shown = [&](const QString &key) { return value(rows(), key); };
-        QTRY_COMPARE(shown(u"lsfg-games"_s), u"0 on"_s);
+        const QStringList library{u"292120"_s, u"2763258687"_s, u"2161700"_s, u"2399050"_s, u"2238900"_s};
+        const auto expected = [&](const QString &appid) {
+            const QJsonObject view = FakeMicroSetd::effective(files, stored, table, appid);
+            return view.value("options"_L1).toObject().value("lsfg.state"_L1).toObject().value("value"_L1).toString();
+        };
+        const auto count = [&] {
+            const qsizetype on = std::count_if(library.cbegin(), library.cend(),
+                                               [&](const QString &appid) { return expected(appid) == "on"_L1; });
+            return u"%1 on"_s.arg(on);
+        };
+        QTRY_COMPARE(shown(u"lsfg-games"_s), count());
+        QCOMPARE(shown(u"lsfg-games"_s), u"2 on"_s);
+        QCOMPARE(fake->resolves().size(), 1);
+        QCOMPARE(QSet<QString>(fake->resolves().first().cbegin(), fake->resolves().first().cend()),
+                 QSet<QString>(library.cbegin(), library.cend()));
         QVERIFY(!keysOf(rows()).contains(u"lsfg-proton"_s));
         m->toggle(u"lsfg-games"_s);
-        const QStringList subs{u"lsfg-game-292120"_s, u"lsfg-game-2763258687"_s, u"lsfg-game-2238900"_s, u"lsfg-game-77"_s};
+        const QStringList subs{u"lsfg-proton"_s, u"lsfg-game-2161700"_s, u"lsfg-game-2399050"_s, u"lsfg-game-2238900"_s,
+                               u"lsfg-game-77"_s, u"lsfg-add"_s};
         QStringList keys = keysOf(rows());
-        QCOMPARE(keys.mid(keys.indexOf(u"lsfg-games"_s) + 1, 5), QStringList{u"lsfg-proton"_s} + subs);
-        QCOMPARE(keys.at(keys.indexOf(u"lsfg-game-77"_s) + 1), u"lsfg.multiplier"_s);
-        QCOMPARE(rowOf(rows(), u"lsfg-proton"_s).value(u"kind"_s).toString(), u"info"_s);
-        QCOMPARE(rowOf(rows(), u"lsfg-proton"_s).value(u"title"_s).toString(), u"Proton games only"_s);
+        QCOMPARE(keys.mid(keys.indexOf(u"lsfg-games"_s) + 1, subs.size()), subs);
+        QCOMPARE(keys.at(keys.indexOf(u"lsfg-add"_s) + 1), u"lsfg.multiplier"_s);
+        for (const QString &appid : {u"2161700"_s, u"2399050"_s, u"2238900"_s})
+            QCOMPARE(shown(u"lsfg-game-"_s + appid), expected(appid));
+        QCOMPARE(shown(u"lsfg-game-2161700"_s), u"on"_s);
+        QCOMPARE(rowOf(rows(), u"lsfg-game-2399050"_s).value(u"title"_s).toString(),
+                 u"Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s);
         QCOMPARE(rowOf(rows(), u"lsfg-game-2238900"_s).value(u"kind"_s).toString(), u"sub"_s);
-        QCOMPARE(rowOf(rows(), u"lsfg-game-2238900"_s).value(u"title"_s).toString(), u"STAR OCEAN THE SECOND STORY R"_s);
-        QCOMPARE(rowOf(rows(), u"lsfg-game-2763258687"_s).value(u"title"_s).toString(), u"Octopath Traveler"_s);
         QCOMPARE(rowOf(rows(), u"lsfg-game-77"_s).value(u"title"_s).toString(), u"77"_s);
         QCOMPARE(shown(u"lsfg-game-77"_s), u"not installed"_s);
-        for (const QString &key : {u"lsfg-game-292120"_s, u"lsfg-game-2763258687"_s, u"lsfg-game-2238900"_s})
-            QTRY_COMPARE(shown(key), u"off"_s);
-        QVERIFY(!keysOf(rows()).contains(u"lsfg-game-993090"_s));
-        QVERIFY(!keysOf(rows()).contains(u"lsfg-game-2399050"_s));
+        const QVariantMap add = rowOf(rows(), u"lsfg-add"_s);
+        QCOMPARE(add.value(u"kind"_s).toString(), u"sub"_s);
+        QCOMPARE(add.value(u"title"_s).toString(), u"Add game"_s);
+        QCOMPARE(add.value(u"picker"_s).toString(), u"lsfg"_s);
+        QCOMPARE(m->pickable(u"lsfg"_s),
+                 (QVariantList{QVariantMap{{u"appid"_s, u"292120"_s}, {u"title"_s, u"FINAL FANTASY XIII"_s}},
+                               QVariantMap{{u"appid"_s, u"2763258687"_s}, {u"title"_s, u"Octopath Traveler"_s}}}));
+        QVERIFY(fake->effectives().isEmpty());
 
-        m->toggle(u"lsfg-game-2238900"_s);
+        stored.insert(u"app.2238900.lsfg.state"_s, u"on"_s);
+        fake->setStored(stored);
+        fake->emitChanged(u"app.2238900.lsfg.state"_s, u"on"_s);
         QTRY_COMPARE(shown(u"lsfg-game-2238900"_s), u"on"_s);
-        QCOMPARE(fake->calls(), QStringList{u"Set app.2238900.lsfg.state on"_s});
-        QCOMPARE(shown(u"lsfg-games"_s), u"1 on"_s);
-        m->toggle(u"lsfg-game-2238900"_s);
-        QTRY_COMPARE(shown(u"lsfg-game-2238900"_s), u"off"_s);
-        QCOMPARE(fake->calls().last(), u"Set app.2238900.lsfg.state auto"_s);
-        QCOMPARE(shown(u"lsfg-games"_s), u"0 on"_s);
-        m->toggle(u"lsfg-game-77"_s);
-        QTRY_VERIFY(!keysOf(rows()).contains(u"lsfg-game-77"_s));
-        QCOMPARE(fake->calls().last(), u"Set app.77.lsfg.state auto"_s);
-
-        QVERIFY(m->set(u"lsfg.mode"_s, u"blacklist"_s));
-        QTRY_COMPARE(shown(u"lsfg-games"_s), u"3 on"_s);
-        QCOMPARE(value(rows(), u"lsfg.mode"_s), u"blacklist (all but picked)"_s);
-        m->toggle(u"lsfg-game-292120"_s);
-        QTRY_COMPARE(shown(u"lsfg-game-292120"_s), u"off"_s);
-        QCOMPARE(fake->calls().last(), u"Set app.292120.lsfg.state off"_s);
-        QCOMPARE(shown(u"lsfg-games"_s), u"2 on"_s);
-        QVERIFY(m->set(u"lsfg.mode"_s, u"whitelist"_s));
-        QTRY_COMPARE(shown(u"lsfg-games"_s), u"0 on"_s);
-        QCOMPARE(shown(u"lsfg-game-292120"_s), u"off"_s);
-        m->toggle(u"lsfg-game-292120"_s);
-        QTRY_COMPARE(shown(u"lsfg-game-292120"_s), u"on"_s);
-        QCOMPARE(fake->calls().last(), u"Set app.292120.lsfg.state on"_s);
-        const int sets = fake->calls().size();
-        QCOMPARE(fake->calls().count(u"Set app.292120.lsfg.state on"_s), 1);
+        QCOMPARE(shown(u"lsfg-games"_s), u"3 on"_s);
+        stored.insert(u"lsfg.mode"_s, u"blacklist"_s);
+        fake->setStored(stored);
+        fake->emitChanged(u"lsfg.mode"_s, u"blacklist"_s);
+        QTRY_COMPARE(shown(u"lsfg-games"_s), count());
+        QCOMPARE(shown(u"lsfg-games"_s), u"5 on"_s);
+        QCOMPARE(shown(u"lsfg-game-2238900"_s), u"on"_s);
+        stored.insert(u"lsfg.mode"_s, u"whitelist"_s);
+        fake->setStored(stored);
+        fake->emitChanged(u"lsfg.mode"_s, u"whitelist"_s);
+        QTRY_COMPARE(shown(u"lsfg-games"_s), count());
+        QCOMPARE(shown(u"lsfg-games"_s), u"3 on"_s);
+        QCOMPARE(shown(u"lsfg-game-2238900"_s), u"on"_s);
+        QCOMPARE(fake->resolves().size(), 4);
 
         m->leave(Lsfg);
-        QVERIFY(!keysOf(rows()).contains(u"lsfg-proton"_s));
+        m->enter(u"app.2238900"_s);
+        m->leave(u"app.2238900"_s);
+        QTRY_VERIFY(!m->rows(u"app.2238900"_s, 0).isEmpty());
         m->enter(Lsfg);
-        QVERIFY(!keysOf(rows()).contains(u"lsfg-proton"_s));
-        QVERIFY(m->set(u"lsfg.enabled"_s, false));
+        QTRY_COMPARE(fake->resolves().size(), 5);
+        QCOMPARE(fake->effectives(), QStringList{u"2238900"_s});
+        QVERIFY(keysOf(rows()).contains(u"lsfg-proton"_s));
+
+        stored.insert(u"lsfg.enabled"_s, false);
+        fake->setStored(stored);
+        fake->emitChanged(u"lsfg.enabled"_s, false);
         QTRY_COMPARE(shown(u"lsfg-games"_s), u"off"_s);
-        QTRY_COMPARE(fake->calls().size(), sets + 1);
         QVERIFY(!rowOf(rows(), u"lsfg-games"_s).contains(u"expand"_s));
         keys = keysOf(rows());
         QCOMPARE(keys.at(keys.indexOf(u"lsfg-games"_s) + 1), u"lsfg-off"_s);
         QCOMPARE(rowOf(rows(), u"lsfg-off"_s).value(u"title"_s).toString(), u"Frame generation is off"_s);
         QCOMPARE(rowOf(rows(), u"lsfg-off"_s).value(u"kind"_s).toString(), u"info"_s);
-        m->toggle(u"lsfg-games"_s);
-        QVERIFY(!keysOf(rows()).contains(u"lsfg-proton"_s));
+        const int sets = fake->calls().size();
         m->toggle(u"lsfg-game-2238900"_s);
-        QTest::qWait(100);
-        QCOMPARE(fake->calls().size(), sets + 1);
+        QVERIFY(!m->busy(u"app.2238900.lsfg.state"_s));
+        QCOMPARE(fake->calls().size(), sets);
+        m->endVisit(Lsfg);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void subRowJoins()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(),
+                                  {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2161700"_s, u"Persona 3 Reload"_s}});
+        writeLsfg(R"({"owned": "yes", "install": "installed"})");
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const auto m = model();
+        m->beginVisit(Lsfg);
+        m->enter(Lsfg);
+        m->toggle(u"lsfg-games"_s);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"0 on"_s);
+        QVERIFY(!keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-game-2161700"_s));
+        fake->holdCalls(u"Resolve"_s, true);
+        fake->setStored({{u"app.2161700.lsfg.state"_s, u"on"_s}});
+        fake->emitChanged(u"app.2161700.lsfg.state"_s, u"on"_s);
+        QTRY_COMPARE(fake->resolves().size(), 2);
+        QVERIFY(!keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-game-2161700"_s));
+        fake->holdCalls(u"Resolve"_s, false);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-2161700"_s), u"on"_s);
+        QCOMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"1 on"_s);
+        m->toggle(u"lsfg-game-2161700"_s);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set app.2161700.lsfg.state auto"_s});
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-2161700"_s), u"off"_s);
+        QCOMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"0 on"_s);
+        QVERIFY(fake->effectives().isEmpty());
+        m->endVisit(Lsfg);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void flipUsesAuto_data()
+    {
+        QTest::addColumn<QVariantMap>("stored");
+        QTest::addColumn<QString>("appid");
+        QTest::addColumn<QString>("before");
+        QTest::addColumn<QString>("written");
+        QTest::newRow("whitelist own on") << QVariantMap{{u"app.2238900.lsfg.state"_s, u"on"_s}} << u"2238900"_s << u"on"_s
+                                          << u"auto"_s;
+        QTest::newRow("whitelist own off") << QVariantMap{{u"app.2238900.lsfg.state"_s, u"off"_s}} << u"2238900"_s
+                                           << u"off"_s << u"on"_s;
+        QTest::newRow("blacklist own off")
+            << QVariantMap{{u"lsfg.mode"_s, u"blacklist"_s}, {u"app.2238900.lsfg.state"_s, u"off"_s}} << u"2238900"_s
+            << u"off"_s << u"auto"_s;
+        QTest::newRow("profile on") << QVariantMap{} << u"2161700"_s << u"on"_s << u"off"_s;
+        QTest::newRow("profile on, own off") << QVariantMap{{u"app.2161700.lsfg.state"_s, u"off"_s}} << u"2161700"_s
+                                             << u"off"_s << u"auto"_s;
+        QTest::newRow("profile on, own off, blacklist")
+            << QVariantMap{{u"lsfg.mode"_s, u"blacklist"_s}, {u"app.2161700.lsfg.state"_s, u"off"_s}} << u"2161700"_s
+            << u"off"_s << u"auto"_s;
+        QTest::newRow("profile off, own on")
+            << QVariantMap{{u"app.2161700.profile"_s, u"off"_s}, {u"app.2161700.lsfg.state"_s, u"on"_s}} << u"2161700"_s
+            << u"on"_s << u"auto"_s;
+    }
+
+    void flipUsesAuto()
+    {
+        QFETCH(QVariantMap, stored);
+        QFETCH(QString, appid);
+        QFETCH(QString, before);
+        QFETCH(QString, written);
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"2238900"_s, u"SO2R"_s}, {u"2161700"_s, u"Persona 3 Reload"_s}});
+        writeLsfg(R"({"owned": "yes", "install": "installed"})");
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, R"({"version": 1, "profiles": {"2161700": {"set": {"lsfg.state": "on"}}}})");
+        fake->setValues(stored);
+        fake->setStored(stored);
+        const auto m = model();
+        m->beginVisit(Lsfg);
+        m->enter(Lsfg);
+        m->toggle(u"lsfg-games"_s);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-"_s + appid), before);
+        m->toggle(u"lsfg-game-"_s + appid);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set app.%1.lsfg.state %2"_s.arg(appid, written)});
+        QTRY_VERIFY(value(m->rows(Lsfg, 0), u"lsfg-game-"_s + appid) != before);
+        m->endVisit(Lsfg);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void resolveAfterLibraryMove()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}});
+        writeLsfg(R"({"owned": "yes", "install": "installed"})");
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const auto m = model();
+        m->beginVisit(Lsfg);
+        m->enter(Lsfg);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"0 on"_s);
+        QCOMPARE(m->pickable(u"lsfg"_s).size(), 1);
+        QCOMPARE(fake->resolves().size(), 1);
+        FakeMicroSetd::writeSteam(steam.path(), {{u"1245620"_s, u"ELDEN RING"_s}});
+        const QVariantList picks = m->pickable(u"lsfg"_s);
+        QCOMPARE(picks.size(), 2);
+        QCOMPARE(picks.first().toMap().value(u"appid"_s).toString(), u"1245620"_s);
+        QTRY_COMPARE(fake->resolves().size(), 2);
+        QCOMPARE(fake->resolves().last(), (QStringList{u"1245620"_s, u"292120"_s}));
+        QCOMPARE(m->pickable(u"lsfg"_s).size(), 2);
+        m->endVisit(Lsfg);
+        FakeMicroSetd::writeSteam(steam.path(), {{u"2161700"_s, u"Persona 3 Reload"_s}});
+        QCOMPARE(m->pickable(u"lsfg"_s).size(), 3);
+        m->enter(u"app.292120"_s);
+        QTRY_VERIFY(!m->rows(u"app.292120"_s, 0).isEmpty());
+        QCOMPARE(fake->resolves().size(), 2);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void resolveFailed()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s}});
+        writeLsfg(R"({"owned": "yes", "install": "installed"})");
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        QVariantMap stored{{u"app.2238900.lsfg.state"_s, u"on"_s}};
+        fake->setValues(stored);
+        fake->setStored(stored);
+        const auto m = model();
+        QSignalSpy refused(m.get(), &SettingsModel::refused);
+        m->beginVisit(Lsfg);
+        m->enter(Lsfg);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"1 on"_s);
+        fake->failCalls(u"Resolve"_s, u"org.freedesktop.DBus.Error.Failed"_s);
+        stored.insert(u"lsfg.mode"_s, u"blacklist"_s);
+        fake->setStored(stored);
+        fake->emitChanged(u"lsfg.mode"_s, u"blacklist"_s);
+        QTRY_COMPARE(fake->resolves().size(), 2);
+        m->enter(u"app.292120"_s);
+        QTRY_VERIFY(!m->rows(u"app.292120"_s, 0).isEmpty());
+        QCOMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"1 on"_s);
+        m->addLsfg(u"292120"_s);
+        QCOMPARE(refused.count(), 1);
+        QCOMPARE(refused.first(), (QVariantList{u"FINAL FANTASY XIII"_s, u"not available"_s}));
+        QVERIFY(!m->busy(u"app.292120.lsfg.state"_s));
+        fake->failCalls(u"Resolve"_s, QString());
+        stored.insert(u"lsfg.flow_scale"_s, 50u);
+        fake->setStored(stored);
+        fake->emitChanged(u"lsfg.flow_scale"_s, 50u);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"2 on"_s);
+        QCOMPARE(fake->resolves().size(), 3);
+        m->addLsfg(u"292120"_s);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set app.292120.lsfg.state off"_s});
+        QCOMPARE(refused.count(), 1);
+        m->endVisit(Lsfg);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void visitKeepsRows()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s}});
+        writeLsfg(R"({"owned": "yes", "install": "installed"})");
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const QVariantMap stored{{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.77.lsfg.state"_s, u"on"_s}};
+        fake->setValues(stored);
+        fake->setStored(stored);
+        const auto m = model();
+        m->beginVisit(Lsfg);
+        m->enter(Lsfg);
+        m->toggle(u"lsfg-games"_s);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-2238900"_s), u"on"_s);
+        m->toggle(u"lsfg-game-2238900"_s);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-2238900"_s), u"off"_s);
+        m->toggle(u"lsfg-game-77"_s);
+        QTRY_COMPARE(fake->calls(), (QStringList{u"Set app.2238900.lsfg.state auto"_s, u"Set app.77.lsfg.state auto"_s}));
+        QTRY_COMPARE(m->value(u"app.77.lsfg.state"_s, 0).toString(), u"auto"_s);
+        QCOMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-77"_s), u"not installed"_s);
+        m->leave(Lsfg);
+        m->enter(u"app.292120"_s);
+        m->leave(u"app.292120"_s);
+        m->enter(Lsfg);
+        QStringList keys = keysOf(m->rows(Lsfg, 0));
+        for (const QString &key : {u"lsfg-game-2238900"_s, u"lsfg-game-77"_s, u"lsfg-proton"_s})
+            QVERIFY2(keys.contains(key), qPrintable(key));
+        m->endVisit(Lsfg);
+        QVERIFY(!keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-proton"_s));
+        m->beginVisit(Lsfg);
+        m->toggle(u"lsfg-games"_s);
+        keys = keysOf(m->rows(Lsfg, 0));
+        QVERIFY(!keys.contains(u"lsfg-game-2238900"_s) && !keys.contains(u"lsfg-game-77"_s));
+        m->endVisit(Lsfg);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void gameCap()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s},
+                                                 {u"2161700"_s, u"Persona 3 Reload"_s}});
+        writeLsfg(R"({"owned": "yes", "install": "installed"})");
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        QVariantMap stored{{u"app.993090.fex.tso"_s, u"on"_s}, {u"app.2238900.fex.tso"_s, u"on"_s}};
+        for (int game = 1; game <= 509; ++game)
+            stored.insert(u"app.%1.fex.tso"_s.arg(game), u"on"_s);
+        fake->setValues(stored);
+        fake->setStored(stored);
+        const auto m = model();
+        m->beginVisit(u"games"_s);
+        m->beginVisit(Lsfg);
+        m->enter(u"games"_s);
+        QTRY_VERIFY(keysOf(m->rows(u"games"_s, 0)).contains(u"game-2238900"_s));
+        QVERIFY(keysOf(m->rows(u"games"_s, 0)).contains(u"games-add"_s));
+        QCOMPARE(m->pickable(u"games"_s).size(), 1);
+        fake->emitChanged(u"app.510.wine.sync"_s, u"fsync"_s);
+        QTRY_VERIFY(!keysOf(m->rows(u"games"_s, 0)).contains(u"games-add"_s));
+        QVERIFY(m->pickable(u"games"_s).isEmpty());
+        m->enter(Lsfg);
+        m->toggle(u"lsfg-games"_s);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"0 on"_s);
+        QVERIFY(keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-add"_s));
+        QCOMPARE(m->pickable(u"lsfg"_s), (QVariantList{QVariantMap{{u"appid"_s, u"2238900"_s}, {u"title"_s, u"SO2R"_s}}}));
+        fake->emitChanged(u"app.2238900.lsfg.state"_s, u"on"_s);
+        QTRY_VERIFY(!keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-add"_s));
+        QVERIFY(m->pickable(u"lsfg"_s).isEmpty());
+        fake->emitChanged(u"app.509.fex.tso"_s, u"auto"_s);
+        QTRY_VERIFY(keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-add"_s));
+        QCOMPARE(m->pickable(u"lsfg"_s).size(), 2);
+        m->endVisit(Lsfg);
+        m->endVisit(u"games"_s);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void emptyPickerHides()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}});
+        writeLsfg(R"({"owned": "yes", "install": "installed"})");
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const auto m = model();
+        m->beginVisit(u"games"_s);
+        m->beginVisit(Lsfg);
+        m->enter(u"games"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"TSO off, fsync"_s);
+        QVERIFY(!keysOf(m->rows(u"games"_s, 0)).contains(u"games-add"_s));
+        m->enter(Lsfg);
+        m->toggle(u"lsfg-games"_s);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"0 on"_s);
+        QVERIFY(keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-add"_s));
+        fake->emitChanged(u"app.292120.lsfg.multiplier"_s, u"3"_s);
+        QTRY_VERIFY(!keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-add"_s));
+        FakeMicroSetd::writeSteam(m_empty.path(), {});
+        qputenv("MICROSET_STEAM_DIR", m_empty.path().toUtf8());
+        m->enter(u"games"_s);
+        QTRY_COMPARE(keysOf(m->rows(u"games"_s, 0)).mid(4), (QStringList{u"label-games"_s, u"game-292120"_s}));
+        m->endVisit(Lsfg);
+        m->endVisit(u"games"_s);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void addLsfg()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s},
+                                                 {u"2161700"_s, u"Persona 3 Reload"_s}});
+        writeLsfg(R"({"owned": "yes", "install": "installed"})");
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const auto m = model();
+        QSignalSpy refused(m.get(), &SettingsModel::refused);
+        m->beginVisit(Lsfg);
+        m->enter(Lsfg);
+        m->toggle(u"lsfg-games"_s);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"0 on"_s);
+        m->addLsfg(u"2238900"_s);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set app.2238900.lsfg.state on"_s});
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-2238900"_s), u"on"_s);
+        m->addLsfg(u"2238900"_s);
+        QVERIFY(!m->busy(u"app.2238900.lsfg.state"_s));
+        QCOMPARE(fake->calls().size(), 1);
+        fake->setStored({{u"lsfg.mode"_s, u"blacklist"_s}, {u"app.2238900.lsfg.state"_s, u"on"_s}});
+        fake->emitChanged(u"lsfg.mode"_s, u"blacklist"_s);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"3 on"_s);
+        m->addLsfg(u"2161700"_s);
+        QTRY_COMPARE(fake->calls().last(), u"Set app.2161700.lsfg.state off"_s);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-2161700"_s), u"off"_s);
+        fake->emitChanged(u"lsfg.enabled"_s, false);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"off"_s);
+        m->addLsfg(u"292120"_s);
+        QCOMPARE(refused.count(), 1);
+        QCOMPARE(refused.first(), (QVariantList{u"FINAL FANTASY XIII"_s, u"Frame generation is off"_s}));
+        QVERIFY(!m->busy(u"app.292120.lsfg.state"_s));
+        QCOMPARE(fake->calls().size(), 2);
+        m->endVisit(Lsfg);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void addWaitsForEntry()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}});
+        writeLsfg(R"({"owned": "yes", "install": "installed"})");
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const auto m = model();
+        m->beginVisit(Lsfg);
+        m->enter(Lsfg);
+        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"0 on"_s);
+        fake->holdCalls(u"Resolve"_s, true);
+        FakeMicroSetd::writeSteam(steam.path(), {{u"1245620"_s, u"ELDEN RING"_s}});
+        QCOMPARE(m->pickable(u"lsfg"_s).size(), 2);
+        m->addLsfg(u"1245620"_s);
+        QVERIFY(!m->busy(u"app.1245620.lsfg.state"_s));
+        QTRY_COMPARE(fake->resolves().size(), 2);
+        fake->holdCalls(u"Resolve"_s, false);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set app.1245620.lsfg.state on"_s});
+        fake->holdCalls(u"Resolve"_s, true);
+        FakeMicroSetd::writeSteam(steam.path(), {{u"2161700"_s, u"Persona 3 Reload"_s}});
+        QCOMPARE(m->pickable(u"lsfg"_s).size(), 2);
+        m->addLsfg(u"2161700"_s);
+        QTRY_COMPARE(fake->resolves().size(), 4);
+        m->endVisit(Lsfg);
+        fake->holdCalls(u"Resolve"_s, false);
+        m->enter(u"app.292120"_s);
+        QTRY_VERIFY(!m->rows(u"app.292120"_s, 0).isEmpty());
+        QVERIFY(!m->busy(u"app.2161700.lsfg.state"_s));
+        QCOMPARE(fake->calls().size(), 1);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void fixtureProfiles()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s}});
+        const QStringList files{FakeMicroSetd::shipped()};
+        const QVariantMap stored{{u"app.2238900.lsfg.state"_s, u"on"_s}};
+        SettingsModel fixture;
+        fixture.setFixture(FakeMicroSetd::describe(files), stored, {});
+        QMap<QString, QJsonObject> effective;
+        for (const QString &appid : {u"292120"_s, u"2238900"_s})
+            effective.insert(appid, FakeMicroSetd::effective(files, stored, FakeMicroSetd::Profiles, appid));
+        fixture.setProtonFixture(effective, FakeMicroSetd::profiles(files, FakeMicroSetd::Profiles));
+        fixture.lsfg()->setFixture(QJsonObject{{u"owned"_s, u"yes"_s}, {u"install"_s, u"installed"_s}}, true, u"steam"_s);
+        fixture.beginVisit(u"games"_s);
+        fixture.enter(u"games"_s);
+        const QVariantList games = fixture.rows(u"games"_s, 0);
+        QCOMPARE(keysOf(games).mid(4), (QStringList{u"label-games"_s, u"game-292120"_s, u"game-2238900"_s}));
+        QCOMPARE(value(games, u"game-292120"_s), u"TSO off, fsync"_s);
+        QCOMPARE(value(games, u"game-2238900"_s), u"Frame generation on"_s);
+        fixture.beginVisit(Lsfg);
+        fixture.enter(Lsfg);
+        fixture.toggle(u"lsfg-games"_s);
+        const QVariantList lsfg = fixture.rows(Lsfg, 0);
+        QCOMPARE(value(lsfg, u"lsfg-games"_s), u"1 on"_s);
+        QCOMPARE(value(lsfg, u"lsfg-game-2238900"_s), u"on"_s);
+        QVERIFY(!keysOf(lsfg).contains(u"lsfg-game-292120"_s));
+        QVERIFY(keysOf(lsfg).contains(u"lsfg-add"_s));
+        SettingsModel bare;
+        bare.setFixture(FakeMicroSetd::describe(files), {}, {});
+        bare.setProtonFixture(effective, {});
+        bare.beginVisit(u"games"_s);
+        bare.enter(u"games"_s);
+        QVERIFY(!keysOf(bare.rows(u"games"_s, 0)).contains(u"game-292120"_s));
         qunsetenv("MICROSET_STEAM_DIR");
     }
 
@@ -1039,23 +1624,32 @@ private slots:
         fake->setValues(stored);
         fake->setStored(stored);
         const auto m = model();
+        m->beginVisit(Lsfg);
         m->enter(Lsfg);
         const auto rows = [&] { return m->rows(Lsfg, 0); };
         m->toggle(u"lsfg-games"_s);
         for (const QString &key : {u"lsfg-game-77"_s, u"lsfg-game-78"_s, u"lsfg-game-79"_s})
             QTRY_COMPARE(value(rows(), key), u"not installed"_s);
+        QTRY_COMPARE(value(rows(), u"lsfg-games"_s), u"1 on"_s);
+        QVERIFY(!keysOf(rows()).contains(u"lsfg-game-292120"_s));
         m->toggle(u"lsfg-game-77"_s);
-        QTRY_VERIFY(!keysOf(rows()).contains(u"lsfg-game-77"_s));
+        QTRY_COMPARE(m->value(u"app.77.lsfg.state"_s, 0).toString(), u"auto"_s);
         m->toggle(u"lsfg-game-78"_s);
-        QTRY_VERIFY(!keysOf(rows()).contains(u"lsfg-game-78"_s));
+        QTRY_COMPARE(m->value(u"app.78.lsfg.fps_cap"_s, 0).toString(), u"auto"_s);
         m->toggle(u"lsfg-game-79"_s);
-        QTRY_VERIFY(!keysOf(rows()).contains(u"lsfg-game-79"_s));
+        QTRY_COMPARE(m->value(u"app.79.lsfg.multiplier"_s, 0).toString(), u"auto"_s);
         QCOMPARE(fake->calls(), (QStringList{u"Set app.77.lsfg.state auto"_s, u"Set app.78.lsfg.fps_cap auto"_s,
                                              u"Set app.78.lsfg.state auto"_s, u"Set app.79.lsfg.multiplier auto"_s}));
-        QTRY_COMPARE(value(rows(), u"lsfg-game-292120"_s), u"on"_s);
+        for (const QString &key : {u"lsfg-game-77"_s, u"lsfg-game-78"_s, u"lsfg-game-79"_s})
+            QCOMPARE(value(rows(), key), u"not installed"_s);
+        m->endVisit(Lsfg);
+        m->beginVisit(Lsfg);
+        m->toggle(u"lsfg-games"_s);
+        for (const QString &key : {u"lsfg-game-77"_s, u"lsfg-game-78"_s, u"lsfg-game-79"_s})
+            QVERIFY(!keysOf(rows()).contains(key));
+        m->endVisit(Lsfg);
         qunsetenv("MICROSET_STEAM_DIR");
     }
-
     void lsfgGamePage()
     {
         writeLsfg(Owned);

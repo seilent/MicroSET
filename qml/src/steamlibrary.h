@@ -16,6 +16,7 @@ public:
     {
         QString appid;
         QString name;
+        QString sortKey;
     };
 
     static constexpr int MaxApps = 2000;
@@ -25,12 +26,13 @@ public:
     explicit SteamLibrary(const QString &root);
 
     static QString defaultRoot();
+    static bool inOrder(const Game &a, const Game &b);
     static QStringList excluded();
     static std::optional<QVariantMap> parseText(const QByteArray &data);
     static std::optional<QVariantMap> parseBinary(const QByteArray &data);
 
     QStringList libraries() const;
-    QList<Game> games(QSet<QString> *dropped = nullptr) const;
+    QList<Game> games(QList<Game> *dropped = nullptr) const;
     QString name(const QString &appid) const;
     QByteArray stamp() const;
 

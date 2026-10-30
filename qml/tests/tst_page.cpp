@@ -206,14 +206,14 @@ private slots:
         qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
         FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"5"_s, u"<b>bold</b>"_s}});
         fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
-        fake->setValues({{u"app.77.fex.tso"_s, u"on"_s}});
+        fake->setValues({{u"app.77.fex.tso"_s, u"on"_s}, {u"app.5.fex.tso"_s, u"on"_s}});
         model->load();
         QTRY_COMPARE(model->value(u"app.77.fex.tso"_s, model->revision()).toString(), u"on"_s);
         focus(u"group-games"_s);
         key(Qt::Key_Return);
         QCOMPARE(page()->property("group").toString(), u"games"_s);
         QCOMPARE(page()->property("title").toString(), u"games"_s);
-        QTRY_VERIFY(!row(u"game-292120"_s).isEmpty());
+        QTRY_VERIFY(!row(u"game-292120"_s).isEmpty() && !row(u"game-5"_s).isEmpty());
         QCOMPARE(page()->property("focusIndex").toInt(), 1);
         for (int i = 0; i < 4; ++i)
             key(Qt::Key_Down);
@@ -235,9 +235,13 @@ private slots:
             key(Qt::Key_Down);
         reachable(u"game-77"_s);
         QCOMPARE(row(u"game-77"_s).value(u"value"_s).toString(), u"not installed"_s);
+        QVERIFY(row(u"games-add"_s).isEmpty());
         key(Qt::Key_Return);
-        QCOMPARE(page()->property("group").toString(), u"games"_s);
+        QCOMPARE(page()->property("group").toString(), u"app.77"_s);
+        QCOMPARE(page()->property("title").toString(), u"77"_s);
         QVERIFY(!sheetShown());
+        key(Qt::Key_Escape);
+        QCOMPARE(page()->property("group").toString(), u"games"_s);
         focus(u"game-292120"_s);
         key(Qt::Key_Return);
         QCOMPARE(page()->property("group").toString(), u"app.292120"_s);
@@ -265,6 +269,7 @@ private slots:
         qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
         FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}});
         fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
+        model->load();
         focus(u"group-games"_s);
         key(Qt::Key_Return);
         QTRY_VERIFY(!row(u"game-292120"_s).isEmpty());
@@ -520,6 +525,10 @@ private slots:
         qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
         FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s}});
         fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
+        fake->setValues({{u"app.292120.lsfg.state"_s, u"off"_s}});
+        fake->setStored({{u"app.292120.lsfg.state"_s, u"off"_s}});
+        model->load();
+        QTRY_COMPARE(model->value(u"app.292120.lsfg.state"_s, model->revision()).toString(), u"off"_s);
         writeLsfg(R"({"version": 1, "owned": "yes", "install": "installed"})");
         openLsfg();
         QTRY_COMPARE(value(u"lsfg-games"_s), u"0 on"_s);
@@ -544,6 +553,12 @@ private slots:
         key(Qt::Key_Return);
         QTRY_COMPARE(value(u"lsfg-game-292120"_s), u"off"_s);
         QCOMPARE(fake->calls(), (QStringList{u"Set app.292120.lsfg.state on"_s, u"Set app.292120.lsfg.state auto"_s}));
+        key(Qt::Key_Down);
+        reachable(u"lsfg-add"_s);
+        QCOMPARE(row(u"lsfg-add"_s).value(u"title"_s).toString(), u"Add game"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(page()->property("group").toString(), Lsfg);
+        QCOMPARE(fake->calls().size(), 2);
         focus(u"lsfg-games"_s);
         key(Qt::Key_Return);
         QTRY_VERIFY(row(u"lsfg-proton"_s).isEmpty());
@@ -565,6 +580,10 @@ private slots:
         qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
         FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s}});
         fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
+        fake->setValues({{u"app.292120.lsfg.state"_s, u"off"_s}});
+        fake->setStored({{u"app.292120.lsfg.state"_s, u"off"_s}});
+        model->load();
+        QTRY_COMPARE(model->value(u"app.292120.lsfg.state"_s, model->revision()).toString(), u"off"_s);
         writeLsfg(R"({"version": 1, "owned": "yes", "install": "installed"})");
         openLsfg();
         QTRY_COMPARE(value(u"lsfg-games"_s), u"0 on"_s);

@@ -1048,7 +1048,8 @@ private slots:
         const QStringList files{FakeMicroSetd::shipped()};
         auto model = std::make_unique<SettingsModel>();
         model->setFixture(FakeMicroSetd::describe(files), {}, {});
-        model->setProtonFixture({{u"292120"_s, FakeMicroSetd::effective(files, {}, FakeMicroSetd::Profiles, u"292120"_s)}});
+        model->setProtonFixture({{u"292120"_s, FakeMicroSetd::effective(files, {}, FakeMicroSetd::Profiles, u"292120"_s)}},
+                                FakeMicroSetd::profiles(files, FakeMicroSetd::Profiles));
         const QVariantMap ok{{u"appid"_s, u"292120"_s}, {u"unit"_s, u"app-steam-app292120-100.scope"_s}, {u"hook"_s, u"ok"_s},
                              {u"tool"_s, u"Proton 11.0 (ARM64)"_s}, {u"proton"_s, true}, {u"steamFex"_s, false},
                              {u"lsfg"_s, u"on"_s}, {u"lsfgHeld"_s, true}, {u"lsfgYoung"_s, false}};
@@ -1122,7 +1123,7 @@ private slots:
             QMap<QString, QJsonObject> effective;
             for (const QString &appid : {u"292120"_s, u"2238900"_s})
                 effective.insert(appid, FakeMicroSetd::effective(files, stored, FakeMicroSetd::Profiles, appid));
-            model->setProtonFixture(effective);
+            model->setProtonFixture(effective, FakeMicroSetd::profiles(files, FakeMicroSetd::Profiles));
             return model;
         };
         const auto model = made({});

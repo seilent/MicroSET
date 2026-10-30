@@ -2,6 +2,7 @@
 #include "steamlibrary.h"
 
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QTemporaryDir>
@@ -179,7 +180,7 @@ private slots:
                     out << game;
             return out;
         };
-        QSet<QString> dropped{u"stale"_s};
+        QList<SteamLibrary::Game> dropped{{u"1"_s, u"stale"_s, {}}};
         QCOMPARE(ids(library.games(&dropped)), all);
         QVERIFY(dropped.isEmpty());
         const QByteArray before = library.stamp();
@@ -198,7 +199,8 @@ private slots:
         QVERIFY(library.stamp() != before);
         const QSet<QString> nonGames{u"2399050"_s, u"8"_s, u"9"_s, u"10"_s, u"11"_s};
         QCOMPARE(ids(library.games(&dropped)), without(nonGames));
-        QCOMPARE(dropped, nonGames);
+        QCOMPARE(ids(dropped), (QStringList{u"10 a config"_s, u"9 a dlc"_s, u"8 a tool"_s, u"11 a video"_s,
+                                            u"2399050 Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s}));
         QCOMPARE(ids(library.games()), without(nonGames));
         QCOMPARE(library.name(u"2399050"_s), u"Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s);
 
@@ -218,6 +220,74 @@ private slots:
         qToLittleEndian(quint32(99), broken.data() + 16 + 8 + 60 + 1);
         write(path, broken);
         QCOMPARE(ids(library.games()), without({u"8"_s}));
+    }
+
+    void sectionOrder()
+    {
+        const QString apps = root() + u"/steamapps/"_s;
+        const QList<QPair<QByteArray, QByteArray>> manifests{
+            {"1245620", "ELDEN RING"},
+            {"10150", "[PROTOTYPE]"},
+            {"251570", "7 Days to Die"},
+            {"108710", "Alan Wake"},
+            {"2280", "DOOM"},
+            {"379720", "DOOM"},
+            {"700", "\xef\xbc\xa1\xef\xbc\xa2\xef\xbc\xa3 Arcade"},
+            {"2161700", "\xe3\x83\x9a\xe3\x83\xab\xe3\x82\xbd\xe3\x83\x8a\xef\xbc\x93 "
+                        "\xe3\x83\xaa\xe3\x83\xad\xe3\x83\xbc\xe3\x83\x89"},
+            {"613830", "\xe3\x82\xaf\xe3\x83\xad\xe3\x83\x8e\xe3\x83\xbb\xe3\x83\x88\xe3\x83\xaa\xe3\x82\xac\xe3\x83\xbc"},
+            {"701", "\xe3\x81\x82\xe3\x81\xa4\xe3\x81\xbe\xe3\x82\x8c"},
+            {"587620", "\xe5\xa4\xa7\xe7\xa5\x9e \xe7\xb5\xb6\xe6\x99\xaf\xe7\x89\x88"},
+            {"1817070", "Marvel\xe2\x80\x99s Spider-Man Remastered"},
+        };
+        for (const auto &[appid, name] : manifests)
+            write(apps + u"appmanifest_"_s + QString::fromLatin1(appid) + u".acf"_s, manifest(appid, name));
+        QStringList order;
+        for (const SteamLibrary::Game &game : SteamLibrary(root()).games())
+            order << game.appid;
+        QCOMPARE(order, (QStringList{u"251570"_s, u"10150"_s, u"700"_s, u"108710"_s, u"2280"_s, u"379720"_s, u"1245620"_s,
+                                     u"1817070"_s, u"701"_s, u"613830"_s, u"2161700"_s, u"587620"_s}));
+    }
+
+    void droppedNames()
+    {
+        const QString apps = root() + u"/steamapps/"_s;
+        write(apps + u"appmanifest_292120.acf"_s, manifest("292120", "FINAL FANTASY XIII"));
+        write(apps + u"appmanifest_2399050.acf"_s, manifest("2399050", "Pocket Mirror ~ GoldenerTraum Official Soundtrack"));
+        write(apps + u"appmanifest_1493710.acf"_s, manifest("1493710", "Proton Experimental"));
+        write(apps + u"appmanifest_1086940.acf"_s, manifest("1086940", "Baldur\xe2\x80\x99s Gate 3 Soundtrack"));
+        FakeMicroSetd::writeAppInfo(root(), {{292120, "Game"}, {2399050, "Music"}, {1493710, "Tool"}, {1086940, "music"}});
+        QList<SteamLibrary::Game> dropped;
+        QCOMPARE(ids(SteamLibrary(root()).games(&dropped)), QStringList{u"292120 FINAL FANTASY XIII"_s});
+        QCOMPARE(ids(dropped), (QStringList{u"1086940 Baldur\u2019s Gate 3 Soundtrack"_s,
+                                            u"2399050 Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s,
+                                            u"1493710 Proton Experimental"_s}));
+        for (const SteamLibrary::Game &game : std::as_const(dropped))
+            QVERIFY(!game.sortKey.isEmpty());
+    }
+
+    void thousandManifests()
+    {
+        const QString apps = root() + u"/steamapps/"_s;
+        QList<QPair<quint32, QByteArray>> types;
+        for (quint32 appid = 100000; appid < 101000; ++appid) {
+            write(apps + u"appmanifest_%1.acf"_s.arg(appid),
+                  manifest(QByteArray::number(appid), "Game " + QByteArray::number(appid)));
+            types << qMakePair(appid, appid % 10 == 0 ? QByteArray("Music") : QByteArray("Game"));
+        }
+        FakeMicroSetd::writeAppInfo(root(), types);
+        const SteamLibrary library(root());
+        QElapsedTimer timer;
+        timer.start();
+        const QByteArray stamp = library.stamp();
+        const qint64 stamped = timer.restart();
+        QList<SteamLibrary::Game> dropped;
+        const QList<SteamLibrary::Game> games = library.games(&dropped);
+        const qint64 read = timer.elapsed();
+        QCOMPARE(games.size(), 900);
+        QCOMPARE(dropped.size(), 100);
+        QVERIFY(!stamp.isEmpty());
+        qInfo("1000 manifests: stamp %lld ms, games %lld ms", stamped, read);
     }
 
     void appInfoReader()

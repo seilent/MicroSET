@@ -236,7 +236,8 @@ int main(int argc, char *argv[])
         FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s},
                                                  {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s}});
         model->setProtonFixture({{u"292120"_s, FakeMicroSetd::effective(files, {}, FakeMicroSetd::Profiles, u"292120"_s)},
-                                 {u"2238900"_s, FakeMicroSetd::effective(files, {}, FakeMicroSetd::Profiles, u"2238900"_s)}});
+                                 {u"2238900"_s, FakeMicroSetd::effective(files, {}, FakeMicroSetd::Profiles, u"2238900"_s)}},
+                                FakeMicroSetd::profiles(files, FakeMicroSetd::Profiles));
         if (state.startsWith("game-lsfg"_L1))
             model->lsfg()->setFixture(QJsonObject{{u"owned"_s, u"yes"_s}, {u"install"_s, u"installed"_s}}, true, u"steam"_s);
         model->setGame(gameOf(state));

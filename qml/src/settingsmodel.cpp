@@ -37,6 +37,10 @@ const QString LsfgStateOption = u"lsfg.state"_s;
 const QString LsfgGamesKey = u"lsfg-games"_s;
 const QString LsfgGamePrefix = u"lsfg-game-"_s;
 const QString LsfgInstallKey = u"lsfg-install"_s;
+const QString LsfgOffText = u"Frame generation is off"_s;
+const QString ProfilesKey = u"proton.profiles"_s;
+const QString ProfileOption = u"profile"_s;
+constexpr qsizetype MaxGames = 512;
 
 bool isNumeric(const QString &type)
 {
@@ -133,23 +137,36 @@ void SettingsModel::load()
         setAvailable(false);
         return true;
     };
-    call(u"Schema"_s, {QString()}, [this, failed](const QDBusMessage &reply) {
+    call(u"Schema"_s, {QString()}, [this, failed, generation](const QDBusMessage &reply) {
         const QJsonDocument document = QJsonDocument::fromJson(reply.arguments().value(0).toString().toUtf8());
         if (failed(errorOf(reply)) || (!document.isObject() && failed(u"bad schema"_s)))
             return;
         const QJsonObject schema = document.object();
-        call(u"List"_s, {QString()}, [this, failed, schema](const QDBusMessage &reply) {
+        call(u"List"_s, {QString()}, [this, failed, generation, schema](const QDBusMessage &reply) {
             if (failed(errorOf(reply)))
                 return;
             const QVariantMap values = qdbus_cast<QVariantMap>(reply.arguments().value(0));
-            call(u"Stored"_s, {QString()}, [this, failed, schema, values](const QDBusMessage &reply) {
+            call(u"Stored"_s, {QString()}, [this, failed, generation, schema, values](const QDBusMessage &reply) {
                 if (failed(errorOf(reply)))
                     return;
                 build(schema, values, qdbus_cast<QVariantMap>(reply.arguments().value(0)));
                 setAvailable(true);
+                keep();
+                joinGames();
+                queueResolve();
                 bump();
                 for (const QString &appid : m_effective.keys())
                     fetchEffective(appid);
+                call(u"Profiles"_s, {}, [this, generation](const QDBusMessage &reply) {
+                    const QByteArray json = reply.arguments().value(0).toString().toUtf8();
+                    const QJsonDocument document = QJsonDocument::fromJson(json);
+                    if (generation != m_generation || !errorOf(reply).isEmpty() || !document.isObject())
+                        return;
+                    m_profiles = document.object();
+                    keep();
+                    joinGames();
+                    bump();
+                });
             });
         });
     });
@@ -162,9 +179,11 @@ void SettingsModel::setFixture(const QJsonObject &schema, const QVariantMap &val
     bump();
 }
 
-void SettingsModel::setProtonFixture(const QMap<QString, QJsonObject> &effective)
+void SettingsModel::setProtonFixture(const QMap<QString, QJsonObject> &effective, const QJsonObject &profiles)
 {
     m_effectiveFixture = effective;
+    m_profiles = profiles;
+    keep();
     bump();
 }
 
@@ -427,6 +446,16 @@ void SettingsModel::onChanged(const QString &key, const QVariant &value)
 {
     m_values.insert(key, value);
     refreshEffective(key);
+    const QRegularExpressionMatch app = AppKey.match(key);
+    const QString option = app.captured(2);
+    if (key == ProfilesKey) {
+        keep();
+        joinGames();
+    } else if (app.hasMatch()) {
+        joinApp(app.captured(1), option, value);
+    }
+    if (key.startsWith("lsfg."_L1) || key == ProfilesKey || option.startsWith("lsfg."_L1) || option == ProfileOption)
+        queueResolve();
     const auto it = m_entries.find(key);
     if (it == m_entries.end()) {
         if (m_referenced.contains(key) || m_watching.contains(key) || key.startsWith(AppPrefix))
@@ -622,7 +651,11 @@ QString SettingsModel::profileText(const Entry &entry, const QVariant &value) co
 
 QString SettingsModel::entryText(const QString &option, const QString &value) const
 {
-    return option.startsWith("fex."_L1) ? m_templates.value(option).value("label"_L1).toString() + u' ' + value : value;
+    if (!option.startsWith("fex."_L1) && !option.startsWith("lsfg."_L1) && option != ProfileOption)
+        return value;
+    const QJsonObject shape = m_templates.value(option);
+    const QJsonValue label = shape.value("ui"_L1).toObject().value("values"_L1).toObject().value(value);
+    return shape.value("label"_L1).toString() + u' ' + (label.isString() ? label.toString() : value);
 }
 
 QString SettingsModel::leadOf(const Entry &entry, const QVariant &value) const
@@ -755,26 +788,130 @@ QVariantList SettingsModel::updateRows() const
     return out;
 }
 
-QStringList SettingsModel::storedApps() const
+QSet<QString> SettingsModel::heldApps(const QString &prefix) const
 {
     QSet<QString> found;
     for (auto it = m_values.cbegin(); it != m_values.cend(); ++it) {
         const QRegularExpressionMatch match = AppKey.match(it.key());
         const auto shape = m_templates.constFind(match.captured(2));
-        if (!match.hasMatch() || shape == m_templates.cend() || SteamLibrary::excluded().contains(match.captured(1)))
+        if (!match.hasMatch() || shape == m_templates.cend() || !match.captured(2).startsWith(prefix))
             continue;
         if (it.value() != shape->value("default"_L1).toVariant())
             found.insert(match.captured(1));
     }
-    QStringList out(found.cbegin(), found.cend());
+    return found;
+}
+
+QStringList SettingsModel::storedApps() const
+{
+    QStringList out;
+    for (const QString &appid : heldApps())
+        if (!SteamLibrary::excluded().contains(appid))
+            out << appid;
     std::sort(out.begin(), out.end(), [](const QString &a, const QString &b) { return a.toULongLong() < b.toULongLong(); });
     return out;
 }
 
+QString SettingsModel::listOf(const QString &group) const
+{
+    if (group == GamesGroup)
+        return GamesGroup;
+    return group == titleOf(LsfgGroup) ? LsfgGroup : QString();
+}
+
+QSet<QString> SettingsModel::listedNow(const QString &list) const
+{
+    const bool lsfg = list == LsfgGroup;
+    const QStringList own = lsfg ? lsfgApps() : storedApps();
+    QSet<QString> out(own.cbegin(), own.cend());
+    if (!profilesOn())
+        return out;
+    for (const SteamLibrary::Game &game : m_library) {
+        const QJsonObject entry = m_profiles.value(game.appid).toObject();
+        if (!entry.isEmpty() && (!lsfg || entry.value("set"_L1).toObject().contains(LsfgStateOption)))
+            out.insert(game.appid);
+    }
+    return out;
+}
+
+QSet<QString> SettingsModel::listed(const QString &list) const
+{
+    return listedNow(list) + m_kept.value(list);
+}
+
+QList<SteamLibrary::Game> SettingsModel::shownGames(const QSet<QString> &listed) const
+{
+    QList<SteamLibrary::Game> games;
+    for (const SteamLibrary::Game &game : m_library)
+        if (listed.contains(game.appid))
+            games << game;
+    QList<SteamLibrary::Game> dropped;
+    for (const SteamLibrary::Game &game : m_libraryDropped)
+        if (listed.contains(game.appid))
+            dropped << game;
+    QList<SteamLibrary::Game> out;
+    std::merge(games.cbegin(), games.cend(), dropped.cbegin(), dropped.cend(), std::back_inserter(out),
+               &SteamLibrary::inOrder);
+    return out;
+}
+
+QStringList SettingsModel::missingApps(const QSet<QString> &listed) const
+{
+    QStringList out;
+    for (const QString &appid : listed)
+        if (!installed(appid))
+            out << appid;
+    std::sort(out.begin(), out.end(), [](const QString &a, const QString &b) { return a.toULongLong() < b.toULongLong(); });
+    return out;
+}
+
+bool SettingsModel::installed(const QString &appid) const
+{
+    return m_present.contains(appid);
+}
+
+QVariantList SettingsModel::pickableNow(const QString &list) const
+{
+    const QSet<QString> shown = listed(list);
+    const QSet<QString> held = heldApps();
+    const bool full = held.size() >= MaxGames;
+    if (full && list == GamesGroup)
+        return {};
+    QVariantList out;
+    for (const SteamLibrary::Game &game : m_library)
+        if (!shown.contains(game.appid) && (!full || held.contains(game.appid)))
+            out << QVariantMap{{u"appid"_s, game.appid}, {u"title"_s, game.name}};
+    return out;
+}
+
+QVariantMap SettingsModel::addRow(const QString &list) const
+{
+    QVariantMap row = infoRow(list + u"-add"_s, u"Add game"_s, QString());
+    row.insert({{u"kind"_s, list == LsfgGroup ? u"sub"_s : u"row"_s}, {u"picker"_s, list}});
+    return row;
+}
+
+QString SettingsModel::gameText(const QString &appid) const
+{
+    const QJsonObject options = m_effective.value(appid).value("options"_L1).toObject();
+    QStringList parts;
+    for (const QString &option : templateOrder()) {
+        if (option == ProfileOption) {
+            if (m_values.value(AppPrefix + appid + u'.' + option).toString() == "off"_L1)
+                parts << entryText(option, u"off"_s);
+            continue;
+        }
+        const QJsonObject entry = options.value(option).toObject();
+        const QString source = entry.value("source"_L1).toString();
+        if (source == "set"_L1 || source == "profile"_L1)
+            parts << entryText(option, entry.value("value"_L1).toString());
+    }
+    return parts.isEmpty() ? u"default"_s : parts.join(u", "_s);
+}
+
 QVariantMap SettingsModel::gameRow(const QString &appid, const QString &title) const
 {
-    const QJsonObject preset = m_effective.value(appid).value("options"_L1).toObject().value("fex.preset"_L1).toObject();
-    QVariantMap row = infoRow(u"game-"_s + appid, title, preset.value("value"_L1).toString());
+    QVariantMap row = infoRow(u"game-"_s + appid, title, gameText(appid));
     row.insert({{u"kind"_s, u"row"_s}, {u"group"_s, AppPrefix + appid}});
     return row;
 }
@@ -784,14 +921,17 @@ QVariantList SettingsModel::gameRows() const
     QVariantList out;
     if (m_templates.isEmpty() || !m_libraryRead)
         return out;
-    QSet<QString> listed = m_libraryDropped;
-    for (const SteamLibrary::Game &game : m_library) {
-        listed.insert(game.appid);
-        out << gameRow(game.appid, game.name);
+    const QSet<QString> shown = listed(GamesGroup);
+    for (const SteamLibrary::Game &game : shownGames(shown))
+        if (m_effective.contains(game.appid))
+            out << gameRow(game.appid, game.name);
+    for (const QString &appid : missingApps(shown)) {
+        QVariantMap row = gameRow(appid, m_names.value(appid, appid));
+        row.insert(u"value"_s, u"not installed"_s);
+        out << row;
     }
-    for (const QString &appid : storedApps())
-        if (!listed.contains(appid))
-            out << infoRow(u"game-"_s + appid, appid, u"not installed"_s);
+    if (!pickableNow(GamesGroup).isEmpty())
+        out << addRow(GamesGroup);
     return out;
 }
 
@@ -845,6 +985,19 @@ QVariantList SettingsModel::thisGame() const
     return out;
 }
 
+bool SettingsModel::profilesOn() const
+{
+    const auto shape = m_entries.constFind(ProfilesKey);
+    const QVariant fallback = shape == m_entries.cend() ? QVariant(u"on"_s) : shape->defaultValue;
+    return m_values.value(ProfilesKey, fallback).toString() == "on"_L1;
+}
+
+bool SettingsModel::lsfgOn() const
+{
+    const auto enabled = m_entries.constFind(LsfgEnabledKey);
+    return enabled == m_entries.cend() || enabled->shown.toBool();
+}
+
 bool SettingsModel::lsfgShown() const
 {
     const QJsonObject state = m_lsfg.state();
@@ -866,19 +1019,10 @@ bool SettingsModel::installShown() const
 
 QStringList SettingsModel::lsfgApps() const
 {
-    QSet<QString> found;
-    for (auto it = m_values.cbegin(); it != m_values.cend(); ++it) {
-        if (!it.key().contains(".lsfg."_L1))
-            continue;
-        const QRegularExpressionMatch match = AppKey.match(it.key());
-        const auto shape = m_templates.constFind(match.captured(2));
-        if (!match.hasMatch() || !match.captured(2).startsWith("lsfg."_L1) || shape == m_templates.cend()
-            || SteamLibrary::excluded().contains(match.captured(1)))
-            continue;
-        if (it.value() != shape->value("default"_L1).toVariant())
-            found.insert(match.captured(1));
-    }
-    QStringList out(found.cbegin(), found.cend());
+    QStringList out;
+    for (const QString &appid : heldApps(u"lsfg."_s))
+        if (!SteamLibrary::excluded().contains(appid))
+            out << appid;
     std::sort(out.begin(), out.end(), [](const QString &a, const QString &b) { return a.toULongLong() < b.toULongLong(); });
     return out;
 }
@@ -907,59 +1051,52 @@ QVariantList SettingsModel::lsfgRows(const QVariantList &rows) const
 
 QVariantList SettingsModel::lsfgGames() const
 {
-    const auto enabled = m_entries.constFind(LsfgEnabledKey);
-    const bool on = enabled == m_entries.cend() || enabled->shown.toBool();
-    const auto stateOf = [this](const QString &appid) {
-        const QJsonObject options = m_effective.value(appid).value("options"_L1).toObject();
-        return options.value(LsfgStateOption).toObject().value("value"_L1).toString();
-    };
-    QVariantList subs;
-    QSet<QString> listed = m_libraryDropped;
+    const bool on = lsfgOn();
     int count = 0;
-    for (const SteamLibrary::Game &game : m_library) {
-        listed.insert(game.appid);
-        const QString state = stateOf(game.appid);
-        count += state == "on"_L1 ? 1 : 0;
-        QVariantMap sub = infoRow(LsfgGamePrefix + game.appid, game.name, state);
-        sub.insert(u"kind"_s, u"sub"_s);
-        subs << sub;
-    }
-    for (const QString &appid : lsfgApps()) {
-        if (listed.contains(appid))
-            continue;
-        QVariantMap sub = infoRow(LsfgGamePrefix + appid, m_names.value(appid, appid), u"not installed"_s);
-        sub.insert(u"kind"_s, u"sub"_s);
-        subs << sub;
-    }
-    QVariantMap games = infoRow(LsfgGamesKey, u"Games"_s, on ? u"%1 on"_s.arg(count) : u"off"_s);
-    games.insert(u"kind"_s, u"row"_s);
+    for (const QJsonValue &entries : m_resolved)
+        count += entries.toObject().value(LsfgStateOption).toObject().value("value"_L1).toString() == "on"_L1 ? 1 : 0;
+    const QString games = m_resolvedAny ? u"%1 on"_s.arg(count) : QString();
+    QVariantMap row = infoRow(LsfgGamesKey, u"Games"_s, on ? games : u"off"_s);
+    row.insert(u"kind"_s, u"row"_s);
     if (on)
-        games.insert(u"expand"_s, true);
-    QVariantList out{games};
+        row.insert(u"expand"_s, true);
+    QVariantList out{row};
     if (!on)
-        return out << infoRow(u"lsfg-off"_s, u"Frame generation is off"_s, QString());
+        return out << infoRow(u"lsfg-off"_s, LsfgOffText, QString());
     if (!m_lsfgOpen)
         return out;
     out << infoRow(u"lsfg-proton"_s, u"Proton games only"_s, QString());
-    return out << subs;
+    const QSet<QString> shown = listed(LsfgGroup);
+    const auto sub = [](const QString &appid, const QString &title, const QString &value) {
+        QVariantMap item = infoRow(LsfgGamePrefix + appid, title, value);
+        item.insert(u"kind"_s, u"sub"_s);
+        return item;
+    };
+    for (const SteamLibrary::Game &game : shownGames(shown)) {
+        const QJsonObject state = m_resolved.value(game.appid).toObject().value(LsfgStateOption).toObject();
+        if (!state.isEmpty() && !m_lsfgJoining.contains(game.appid))
+            out << sub(game.appid, game.name, state.value("value"_L1).toString());
+    }
+    for (const QString &appid : missingApps(shown))
+        out << sub(appid, m_names.value(appid, appid), u"not installed"_s);
+    if (!pickableNow(LsfgGroup).isEmpty())
+        out << addRow(LsfgGroup);
+    return out;
 }
 
 void SettingsModel::flipLsfg(const QString &appid)
 {
     const QString key = AppPrefix + appid + u'.' + LsfgStateOption;
-    const QJsonObject view = m_effective.value(appid);
-    const QJsonObject state = view.value("options"_L1).toObject().value(LsfgStateOption).toObject();
-    const auto enabled = m_entries.constFind(LsfgEnabledKey);
-    const bool installed = std::any_of(m_library.cbegin(), m_library.cend(),
-                                       [&appid](const SteamLibrary::Game &game) { return game.appid == appid; });
+    const QJsonObject state = m_resolved.value(appid).toObject().value(LsfgStateOption).toObject();
+    const bool present = installed(appid);
     if (!AppPage.match(AppPrefix + appid).hasMatch() || !m_templates.contains(LsfgStateOption)
-        || (installed && state.isEmpty()) || busy(key) || (enabled != m_entries.cend() && !enabled->shown.toBool()))
+        || (present && state.isEmpty()) || busy(key) || !lsfgOn())
         return;
     if (!m_apps.contains(appid)) {
         m_apps.insert(appid);
         instantiate(m_entries, appid);
     }
-    if (!installed) {
+    if (!present) {
         QStringList keys;
         for (auto it = m_templates.cbegin(); it != m_templates.cend(); ++it)
             if (it.key().startsWith("lsfg."_L1))
@@ -969,14 +1106,49 @@ void SettingsModel::flipLsfg(const QString &appid)
                 write(item, u"auto"_s);
         return;
     }
-    const QJsonObject profile = view.value("profile"_L1).toObject();
-    const QJsonObject set = profile.value("set"_L1).toObject();
-    const QString kept = profile.value("on"_L1).toBool() ? set.value(LsfgStateOption).toString() : QString();
-    const auto mode = m_entries.constFind(LsfgModeKey);
-    const bool blacklist = mode != m_entries.cend() && mode->shown.toString() == "blacklist"_L1;
-    const bool fallback = kept.isEmpty() ? blacklist : kept == "on"_L1;
+    const bool own = state.value("source"_L1).toString() == "set"_L1;
+    const QJsonObject given = own ? state.value("auto"_L1).toObject() : state;
+    const bool fallback = given.value("value"_L1).toString() == "on"_L1;
     const bool wanted = state.value("value"_L1).toString() != "on"_L1;
     write(key, wanted == fallback ? u"auto"_s : wanted ? u"on"_s : u"off"_s);
+}
+
+void SettingsModel::addLsfg(const QString &appid)
+{
+    if (!AppPage.match(AppPrefix + appid).hasMatch() || !m_templates.contains(LsfgStateOption)
+        || listed(LsfgGroup).contains(appid))
+        return;
+    const QString name = pageTitle(AppPrefix + appid, 0);
+    if (!lsfgOn()) {
+        emit refused(name, LsfgOffText);
+        return;
+    }
+    if (m_resolveFailed) {
+        emit refused(name, NotAvailable);
+        return;
+    }
+    if (!m_lsfgAdds.contains(appid))
+        m_lsfgAdds << appid;
+    applyAdds();
+}
+
+void SettingsModel::applyAdds()
+{
+    const QStringList adds = m_lsfgAdds;
+    for (const QString &appid : adds) {
+        const QJsonObject state = m_resolved.value(appid).toObject().value(LsfgStateOption).toObject();
+        if (state.isEmpty())
+            continue;
+        m_lsfgAdds.removeAll(appid);
+        if (listed(LsfgGroup).contains(appid) || !lsfgOn())
+            continue;
+        if (!m_apps.contains(appid)) {
+            m_apps.insert(appid);
+            instantiate(m_entries, appid);
+        }
+        const bool off = state.value("value"_L1).toString() == "off"_L1;
+        write(AppPrefix + appid + u'.' + LsfgStateOption, off ? u"on"_s : u"off"_s);
+    }
 }
 
 void SettingsModel::act(const QString &key)
@@ -1007,8 +1179,10 @@ void SettingsModel::fetchEffective(const QString &appid)
     if (!m_client)
         return;
     ++m_effectivePending;
+    m_effectiveWaiting.insert(appid);
     call(u"Effective"_s, {appid}, [this, appid](const QDBusMessage &reply) {
         --m_effectivePending;
+        m_effectiveWaiting.remove(appid);
         const QJsonDocument document = QJsonDocument::fromJson(reply.arguments().value(0).toString().toUtf8());
         if (errorOf(reply).isEmpty() && document.isObject() && m_effective.value(appid) != document.object()) {
             m_effective.insert(appid, document.object());
@@ -1043,9 +1217,10 @@ QString SettingsModel::pageTitle(const QString &group, int) const
     const QString appid = AppPage.match(group).captured(1);
     if (appid.isEmpty())
         return group;
-    for (const SteamLibrary::Game &game : m_library)
-        if (game.appid == appid)
-            return game.name;
+    for (const QList<SteamLibrary::Game> *games : {&m_library, &m_libraryDropped})
+        for (const SteamLibrary::Game &game : *games)
+            if (game.appid == appid)
+                return game.name;
     const QString name = m_names.value(appid);
     return name.isEmpty() ? appid : name;
 }
@@ -1433,35 +1608,174 @@ void SettingsModel::enter(const QString &group)
         bump();
         return;
     }
-    const bool lsfg = group == titleOf(LsfgGroup);
-    if ((group != GamesGroup && !lsfg) || m_templates.isEmpty())
+    const QString list = listOf(group);
+    if (list.isEmpty() || m_templates.isEmpty())
         return;
     readLibrary();
-    for (const SteamLibrary::Game &game : std::as_const(m_library))
-        fetchEffective(game.appid);
-    if (lsfg)
-        for (const QString &appid : lsfgApps())
-            fetchEffective(appid);
+    if (list == LsfgGroup) {
+        sendResolve();
+    } else {
+        for (const SteamLibrary::Game &game : shownGames(listed(GamesGroup)))
+            fetchEffective(game.appid);
+    }
     bump();
 }
 
-void SettingsModel::readLibrary()
+bool SettingsModel::readLibrary()
 {
     const SteamLibrary library(SteamLibrary::defaultRoot());
     const QByteArray stamp = library.stamp();
-    if (!m_libraryRead || stamp != m_libraryStamp) {
-        m_library = library.games(&m_libraryDropped);
-        m_libraryStamp = stamp;
-        m_libraryRead = true;
-    }
+    if (m_libraryRead && stamp == m_libraryStamp)
+        return false;
+    m_library = library.games(&m_libraryDropped);
+    m_libraryStamp = stamp;
+    m_libraryRead = true;
+    m_present.clear();
+    for (const QList<SteamLibrary::Game> *games : {&m_library, &m_libraryDropped})
+        for (const SteamLibrary::Game &game : *games)
+            m_present.insert(game.appid);
+    keep();
+    return true;
 }
 
 void SettingsModel::leave(const QString &group)
 {
     for (const QString &key : liveKeys(group))
         drop(key);
-    if (group == titleOf(LsfgGroup))
+}
+
+void SettingsModel::beginVisit(const QString &group)
+{
+    const QString list = listOf(group);
+    if (!list.isEmpty() && m_visits[list]++ == 0)
+        m_kept.insert(list, listedNow(list));
+}
+
+void SettingsModel::endVisit(const QString &group)
+{
+    const auto it = m_visits.find(listOf(group));
+    if (it == m_visits.end() || --*it > 0)
+        return;
+    const QString list = it.key();
+    m_visits.erase(it);
+    m_kept.remove(list);
+    if (list == LsfgGroup) {
         m_lsfgOpen = false;
+        m_lsfgAdds.clear();
+        m_lsfgJoining.clear();
+        m_resolveQueued = false;
+    }
+    bump();
+}
+
+QVariantList SettingsModel::pickable(const QString &caller)
+{
+    if ((caller != GamesGroup && caller != LsfgGroup) || m_templates.isEmpty())
+        return {};
+    if (readLibrary()) {
+        joinGames();
+        if (m_visits.value(LsfgGroup) > 0)
+            sendResolve();
+        bump();
+    }
+    return pickableNow(caller);
+}
+
+void SettingsModel::keep()
+{
+    for (auto it = m_kept.begin(); it != m_kept.end(); ++it)
+        it->unite(listedNow(it.key()));
+}
+
+void SettingsModel::joinGames()
+{
+    if (m_visits.value(GamesGroup) == 0 || !m_libraryRead || m_templates.isEmpty())
+        return;
+    for (const SteamLibrary::Game &game : shownGames(listed(GamesGroup)))
+        if (!m_effective.contains(game.appid) && !m_effectiveWaiting.contains(game.appid))
+            fetchEffective(game.appid);
+}
+
+void SettingsModel::joinApp(const QString &appid, const QString &option, const QVariant &value)
+{
+    const auto shape = m_templates.constFind(option);
+    if (shape == m_templates.cend() || value == shape->value("default"_L1).toVariant()
+        || SteamLibrary::excluded().contains(appid))
+        return;
+    const auto games = m_kept.find(GamesGroup);
+    if (games != m_kept.end())
+        games->insert(appid);
+    const auto lsfg = m_kept.find(LsfgGroup);
+    if (lsfg != m_kept.end() && option.startsWith("lsfg."_L1) && !lsfg->contains(appid)) {
+        lsfg->insert(appid);
+        m_lsfgJoining.insert(appid, m_resolveSerial + 1);
+    }
+    if (m_visits.value(GamesGroup) > 0 && installed(appid) && !m_effective.contains(appid)
+        && !m_effectiveWaiting.contains(appid))
+        fetchEffective(appid);
+}
+
+void SettingsModel::queueResolve()
+{
+    if (m_visits.value(LsfgGroup) == 0 || m_resolveQueued)
+        return;
+    m_resolveQueued = true;
+    QMetaObject::invokeMethod(
+        this,
+        [this] {
+            if (m_resolveQueued)
+                sendResolve();
+        },
+        Qt::QueuedConnection);
+}
+
+void SettingsModel::sendResolve()
+{
+    m_resolveQueued = false;
+    QStringList appids;
+    for (const SteamLibrary::Game &game : std::as_const(m_library))
+        appids << game.appid;
+    const QSet<QString> shown = listed(LsfgGroup);
+    for (const SteamLibrary::Game &game : std::as_const(m_libraryDropped))
+        if (shown.contains(game.appid))
+            appids << game.appid;
+    const int serial = ++m_resolveSerial;
+    if (m_fixture) {
+        QJsonObject out;
+        for (const QString &appid : std::as_const(appids)) {
+            const auto it = m_effectiveFixture.constFind(appid);
+            if (it == m_effectiveFixture.cend())
+                continue;
+            const QJsonValue state = it->value("options"_L1).toObject().value(LsfgStateOption);
+            if (state.isObject())
+                out.insert(appid, QJsonObject{{LsfgStateOption, state}});
+        }
+        takeResolved(out, serial);
+        return;
+    }
+    if (!m_client)
+        return;
+    call(u"Resolve"_s, {appids, QStringList{LsfgStateOption}}, [this, serial](const QDBusMessage &reply) {
+        if (serial < m_resolveSeen)
+            return;
+        m_resolveSeen = serial;
+        const QJsonDocument document = QJsonDocument::fromJson(reply.arguments().value(0).toString().toUtf8());
+        if (!errorOf(reply).isEmpty() || !document.isObject()) {
+            m_resolveFailed = true;
+            return;
+        }
+        takeResolved(document.object(), serial);
+    });
+}
+
+void SettingsModel::takeResolved(const QJsonObject &resolved, int serial)
+{
+    m_resolved = resolved;
+    m_resolvedAny = true;
+    m_resolveFailed = false;
+    m_lsfgJoining.removeIf([serial](const auto &joining) { return joining.value() <= serial; });
+    bump();
+    applyAdds();
 }
 
 QVariant SettingsModel::value(const QString &key, int) const

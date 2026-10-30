@@ -1,5 +1,7 @@
 #include "steamlibrary.h"
 
+#include "SectionKey.h"
+
 #include <QByteArrayList>
 #include <QDir>
 #include <QFile>
@@ -238,6 +240,13 @@ private:
     qsizetype m_pos = 0;
 };
 
+void order(QList<SteamLibrary::Game> &games)
+{
+    for (SteamLibrary::Game &game : games)
+        game.sortKey = microdap::sectionKey(game.name).sortKey;
+    std::stable_sort(games.begin(), games.end(), &SteamLibrary::inOrder);
+}
+
 bool validName(const QString &name)
 {
     return !name.isEmpty() && name.size() <= SteamLibrary::MaxName;
@@ -301,6 +310,11 @@ SteamLibrary::SteamLibrary(const QString &root)
 QStringList SteamLibrary::excluded()
 {
     return Excluded;
+}
+
+bool SteamLibrary::inOrder(const Game &a, const Game &b)
+{
+    return a.sortKey != b.sortKey ? a.sortKey < b.sortKey : a.appid.toULongLong() < b.appid.toULongLong();
 }
 
 QString SteamLibrary::defaultRoot()
@@ -387,7 +401,7 @@ QList<SteamLibrary::Game> SteamLibrary::shortcuts() const
     return out;
 }
 
-QList<SteamLibrary::Game> SteamLibrary::games(QSet<QString> *dropped) const
+QList<SteamLibrary::Game> SteamLibrary::games(QList<Game> *dropped) const
 {
     QList<Game> out;
     QSet<QString> seen;
@@ -409,14 +423,12 @@ QList<SteamLibrary::Game> SteamLibrary::games(QSet<QString> *dropped) const
             }
         }
     }
-    if (dropped)
-        dropped->clear();
     const QHash<QString, QString> types = appTypes(m_root + u"/appcache/appinfo.vdf"_s, seen);
-    out.removeIf([&types, dropped](const Game &game) {
+    QList<Game> left;
+    out.removeIf([&types, &left](const Game &game) {
         if (!NonGames.contains(types.value(game.appid), Qt::CaseInsensitive))
             return false;
-        if (dropped)
-            dropped->insert(game.appid);
+        left << game;
         return true;
     });
     for (const Game &game : shortcuts()) {
@@ -425,10 +437,11 @@ QList<SteamLibrary::Game> SteamLibrary::games(QSet<QString> *dropped) const
         seen.insert(game.appid);
         out << game;
     }
-    std::stable_sort(out.begin(), out.end(), [](const Game &a, const Game &b) {
-        const int order = a.name.compare(b.name, Qt::CaseInsensitive);
-        return order != 0 ? order < 0 : a.appid.toULongLong() < b.appid.toULongLong();
-    });
+    order(out);
+    if (dropped) {
+        order(left);
+        *dropped = left;
+    }
     return out;
 }
 

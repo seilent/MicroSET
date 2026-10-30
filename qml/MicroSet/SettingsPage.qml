@@ -531,9 +531,15 @@ Page {
 
     Component.onCompleted: {
         page.focusIndex = Math.max(0, page.nearestFocusable(0, 1))
+        if (page.model !== null)
+            page.model.beginVisit(page.group)
     }
 
-    Component.onDestruction: repeater.model = []
+    Component.onDestruction: {
+        repeater.model = []
+        if (page.model !== null)
+            page.model.endVisit(page.group)
+    }
 
     Connections {
         target: Ui

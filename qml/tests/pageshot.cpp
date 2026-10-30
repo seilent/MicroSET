@@ -112,8 +112,10 @@ Games gamesOf(const QString &state)
         out.shortcuts = {{2763258687u, u"Octopath Traveler"_s}, {2342494927u, u"Trails in the Sky 1st Chapter"_s}};
         out.stored = {{u"app.2238900.fex.preset"_s, u"performance"_s}, {u"app.1145360.fex.tso"_s, u"on"_s}};
     } else if (state == "games-many"_L1) {
-        for (int i = 1; i <= 40; ++i)
+        for (int i = 1; i <= 40; ++i) {
             out.library << qMakePair(QString::number(1000 + i), u"Game %1"_s.arg(i, 2, 10, QChar(u'0')));
+            out.stored.insert(u"app.%1.fex.tso"_s.arg(1000 + i), u"on"_s);
+        }
     } else if (state == "games-long"_L1 || state.startsWith("game-"_L1) || state.startsWith("sheet-"_L1)) {
         out.library = {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s},
                        {u"251150"_s, u"The Legend of Heroes: Trails in the Sky the 1st Chapter Deluxe Edition with Every Bonus"_s}};
@@ -124,6 +126,7 @@ Games gamesOf(const QString &state)
         {u"game-preset"_s, {{u"app.2238900.fex.preset"_s, u"performance"_s}}},
         {u"sheet-preset"_s, {{u"app.2238900.fex.preset"_s, u"performance"_s}}},
         {u"game-global"_s, {{u"fex.preset"_s, u"compatibility"_s}, {u"wine.sync"_s, u"fsync"_s}}},
+        {u"games-long"_s, {{u"app.251150.fex.preset"_s, u"performance"_s}}},
     };
     if (stored.contains(state))
         out.stored = stored.value(state);
@@ -204,7 +207,7 @@ int main(int argc, char *argv[])
     model.updates()->setFixture(u"testing-38784f1"_s, u"none"_s, {});
     model.setFixture(FakeMicroSetd::describe(files), values,
                      {{u"rgb.enabled"_s, state != "rgb-off"_L1}, {u"rgb.hue"_s, 200u}, {u"rgb.saturation"_s, 60u}});
-    model.setProtonFixture(effective);
+    model.setProtonFixture(effective, FakeMicroSetd::profiles(files, FakeMicroSetd::Profiles));
     if (lsfgState(state)) {
         const QStringList none{u"lsfg"_s, u"lsfg-dialog"_s, u"top-lsfg"_s, u"lsfg-install-focus"_s, u"lsfg-dialog-motion"_s,
                                u"lsfg-sent"_s, u"lsfg-no-client"_s, u"lsfg-game-running"_s};
@@ -283,11 +286,27 @@ int main(int argc, char *argv[])
         swapped = true;
         idle->start();
     });
-    QObject::connect(idle, &QTimer::timeout, window, [window, out, &warned] {
+    const QMap<QString, QStringList> checks{
+        {u"games"_s, {u"games"_s, u"game-292120"_s, u"TSO off, fsync"_s}},
+        {u"lsfg-open"_s, {u"Frame generation"_s, u"lsfg-games"_s, u"2 on"_s}},
+    };
+    const QStringList check = checks.value(state);
+    QObject::connect(idle, &QTimer::timeout, window, [window, out, check, &model, &warned] {
         if (warned) {
             fail(u"QML warnings during the render"_s);
             QCoreApplication::exit(1);
             return;
+        }
+        if (!check.isEmpty()) {
+            QString shown = u"no row"_s;
+            for (const QVariant &row : model.rows(check.at(0), model.revision()))
+                if (row.toMap().value(u"key"_s) == check.at(1))
+                    shown = row.toMap().value(u"value"_s).toString();
+            if (shown != check.at(2)) {
+                fail(u"%1 reads %2, not %3"_s.arg(check.at(1), shown, check.at(2)));
+                QCoreApplication::exit(1);
+                return;
+            }
         }
         if (QFontInfo(QFont(u"Selawik"_s)).family() != u"Selawik"_s)
             fail(u"warning: Selawik not loaded, set MICROSET_FONT_DIR"_s);
