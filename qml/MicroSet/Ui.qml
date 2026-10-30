@@ -119,6 +119,18 @@ QtObject {
         ui.dialogTitle, ui.dialogItem, ui.watermark
     ]
 
+    function widestDigit(f: font, ready: bool): real {
+        let w = 0
+        for (const d of "0123456789")
+            w = Math.max(w, ui.countMetrics.advanceWidth(d))
+        return w
+    }
+
+    function songTextX(digits: int): real {
+        const indent = ui.px(ui.songIndent)
+        return Math.max(indent, digits * ui.digitPx + indent - ui.songIndentDigits * ui.digitPx)
+    }
+
     function letterSpacing(role) {
         return role.tracking * ui.u
     }
@@ -265,6 +277,9 @@ QtObject {
     readonly property real rowTextInset: 4
     readonly property real rowRing: 20
     readonly property real songIndent: 24
+    readonly property int songIndentDigits: 4
+    readonly property FontMetrics countMetrics: FontMetrics { font: ui.font(ui.listCount) }
+    readonly property real digitPx: ui.widestDigit(ui.countMetrics.font, ui.fontsReady)
     readonly property real playingDot: 4
     readonly property real playingDotOffset: 6
     readonly property real detailRow: 124
@@ -411,6 +426,13 @@ QtObject {
     readonly property real qpHintPitch: 11
     readonly property real qpHintW: 140
     readonly property real qpTilePad: 5
+    readonly property real kbFieldH: 37
+    readonly property real kbFieldPad: 10
+    readonly property real kbFieldBorder: 1
+    readonly property real kbCursorW: 2
+    readonly property real kbGap: 8
+    readonly property real kbKey: (Math.min(ui.canvasW, ui.canvasH) - 2 * ui.edge - 3 * ui.qpGutter) / 4
+    readonly property int kbRepeatMs: 100
     readonly property real homeMenuXLandscape: 240
     readonly property real homeBarX: ui.homeTextX - ui.focusBarOffset
     readonly property real homeBarTop: ui.capHeight * ui.homeItem.size
