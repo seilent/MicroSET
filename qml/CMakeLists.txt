@@ -13,6 +13,7 @@ set(microset_qml
     MicroSet/Turnstile.qml
     MicroSet/PageStack.qml
     MicroSet/Page.qml
+    MicroSet/GlyphPaths.js
     MicroSet/components/PageSurface.qml
     MicroSet/components/CroppedHeader.qml
     MicroSet/components/Dialog.qml
