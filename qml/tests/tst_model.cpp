@@ -1,4 +1,5 @@
 #include "fakemicrosetd.h"
+#include "gamerows.h"
 #include "harness.h"
 #include "settingsmodel.h"
 
@@ -1494,6 +1495,35 @@ private slots:
         m->enter(u"games"_s);
         QTRY_COMPARE(keysOf(m->rows(u"games"_s, 0)).mid(4), (QStringList{u"label-games"_s, u"game-292120"_s}));
         m->endVisit(Lsfg);
+        m->endVisit(u"games"_s);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void pickerSnapshot()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s},
+                                                 {u"2161700"_s, u"Persona 3 Reload"_s}, {u"1245620"_s, u"ELDEN RING"_s}});
+        const QStringList files{FakeMicroSetd::shipped()};
+        fake->setSchema(FakeMicroSetd::describe(files));
+        fake->setProton(files, FakeMicroSetd::Profiles);
+        const auto m = model();
+        m->beginVisit(u"games"_s);
+        m->enter(u"games"_s);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"TSO off, fsync"_s);
+        GameRows picker;
+        picker.setGames(m->pickable(u"games"_s));
+        QCOMPARE(picker.count(), 3);
+        QSignalSpy reset(&picker, &QAbstractItemModel::modelReset);
+        fake->emitChanged(u"app.2238900.fex.tso"_s, u"off"_s);
+        for (const QString &key : {u"app.2161700.fex.smc"_s, u"app.1245620.wine.sync"_s, u"app.1245620.fex.multiblock"_s})
+            fake->emitChanged(key, key.endsWith("smc"_L1) ? u"full"_s : key.endsWith("sync"_L1) ? u"fsync"_s : u"off"_s);
+        QTRY_COMPARE(keysOf(m->rows(u"games"_s, 0)).size(), 9);
+        QVERIFY(m->pickable(u"games"_s).isEmpty());
+        QCOMPARE(picker.count(), 3);
+        QCOMPARE(picker.rowCount(), 7);
+        QCOMPARE(reset.count(), 0);
         m->endVisit(u"games"_s);
         qunsetenv("MICROSET_STEAM_DIR");
     }

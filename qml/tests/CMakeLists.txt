@@ -32,6 +32,10 @@ add_executable(tst_library tst_library.cpp)
 target_link_libraries(tst_library PRIVATE microset_page_fixtures microset_ui Qt6::Test)
 add_test(NAME page-library COMMAND tst_library)
 
+add_executable(tst_gamerows tst_gamerows.cpp)
+target_link_libraries(tst_gamerows PRIVATE microset_ui Qt6::Test)
+add_test(NAME page-gamerows COMMAND tst_gamerows)
+
 add_executable(tst_page tst_page.cpp)
 target_link_libraries(tst_page PRIVATE microset_harness microset_page_fixtures microset_pagetestplugin microset_uiplugin microset_ui
     Qt6::Quick Qt6::Test)
