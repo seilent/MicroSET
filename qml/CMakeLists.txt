@@ -22,6 +22,8 @@ set(microset_qml
     MicroSet/components/Glyph.qml
     MicroSet/components/Ring.qml
     MicroSet/components/ListRow.qml
+    MicroSet/components/LetterTile.qml
+    MicroSet/components/JumpLetter.qml
     MicroSet/SettingsRow.qml
     MicroSet/SettingsPage.qml
     MicroSet/GroupsPage.qml
