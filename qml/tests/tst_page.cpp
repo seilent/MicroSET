@@ -5,8 +5,10 @@
 #include <QColor>
 #include <QFile>
 #include <QFont>
+#include <QHash>
 #include <QJsonDocument>
 #include <QQmlApplicationEngine>
+#include <QQmlComponent>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QRegularExpression>
@@ -18,6 +20,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <memory>
+#include <vector>
 
 Q_IMPORT_QML_PLUGIN(MicroSetPlugin)
 Q_IMPORT_QML_PLUGIN(MicroSetPageTestPlugin)
@@ -1131,6 +1134,122 @@ private slots:
         QVERIFY(sheetShown());
         QCOMPARE(sheetFocus(), 0);
         QVERIFY(fake->calls().isEmpty());
+    }
+
+    void copiedTokensResolve()
+    {
+        QObject *ui = engine->singletonInstance<QObject *>("MicroSet", "Ui");
+        const QHash<QString, QObject *> singletons{
+            {u"Ui"_s, ui},
+            {u"ui"_s, ui},
+            {u"Motion"_s, engine->singletonInstance<QObject *>("MicroSet", "Motion")},
+        };
+        static const QRegularExpression token(u"\\b(Ui|Motion|ui)\\.([A-Za-z_]\\w*)"_s);
+        int found = 0;
+        for (const QString &name : {u"components/Keyboard.qml"_s, u"components/ListRow.qml"_s, u"components/Ring.qml"_s,
+                                    u"components/Glyph.qml"_s, u"GlyphPaths.js"_s, u"JumpGrid.qml"_s,
+                                    u"components/JumpLetter.qml"_s, u"components/LetterTile.qml"_s,
+                                    u"components/Dialog.qml"_s, u"Ui.qml"_s}) {
+            QFile file(QStringLiteral(MICROSET_SOURCE_DIR "/qml/MicroSet/") + name);
+            QVERIFY2(file.open(QIODevice::ReadOnly), qPrintable(name));
+            for (const QRegularExpressionMatch &m : token.globalMatch(QString::fromUtf8(file.readAll()))) {
+                QObject *singleton = singletons.value(m.captured(1));
+                QVERIFY(singleton);
+                const QMetaObject *meta = singleton->metaObject();
+                const QByteArray member = m.captured(2).toUtf8();
+                bool known = meta->indexOfProperty(member.constData()) >= 0;
+                for (int i = 0; !known && i < meta->methodCount(); ++i)
+                    known = meta->method(i).name() == member;
+                QVERIFY2(known, qPrintable(u"%1.%2 in %3"_s.arg(m.captured(1), m.captured(2), name)));
+                ++found;
+            }
+        }
+        QVERIFY(found > 0);
+    }
+
+    void copiedComponentsLoad()
+    {
+        QTest::failOnWarning(QRegularExpression(u"Setting initial properties failed|Could not set initial property"_s));
+        std::vector<std::unique_ptr<QQuickItem>> items;
+        QString error;
+        const auto make = [&](QAnyStringView type, QVariantMap props) -> QQuickItem * {
+            QQmlComponent component(engine.get());
+            component.loadFromModule("MicroSet", type);
+            auto *item = qobject_cast<QQuickItem *>(component.createWithInitialProperties(props));
+            if (!item) {
+                error = component.errorString();
+                return nullptr;
+            }
+            item->setParentItem(window->contentItem());
+            items.emplace_back(item);
+            return item;
+        };
+        const QVariantMap full{{u"width"_s, window->width()}, {u"height"_s, window->height()}};
+
+        QQuickItem *row = make("ListRow", {{u"primary"_s, u"game"_s}, {u"secondary"_s, u"query"_s},
+                                           {u"number"_s, u"12"_s}, {u"bold"_s, true}, {u"focused"_s, true},
+                                           {u"ring"_s, true}, {u"ringGlyph"_s, u"search"_s}});
+        QVERIFY2(row, qPrintable(error));
+        auto *ring = qvariant_cast<QQuickItem *>(row->property("ringItem"));
+        QVERIFY(ring);
+        auto *icon = qvariant_cast<QObject *>(ring->property("iconItem"));
+        QVERIFY(icon);
+        QVERIFY(icon->property("known").toBool());
+        QVERIFY(row->property("textX").toReal() > ring->parentItem()->x());
+
+        QQuickItem *glyph = make("Glyph", {{u"name"_s, u"search"_s}});
+        QVERIFY2(glyph, qPrintable(error));
+        QVERIFY(glyph->property("known").toBool());
+        QQuickItem *toggle = make("Ring", {{u"glyph"_s, u"play"_s}, {u"focused"_s, true}, {u"toggle"_s, true},
+                                           {u"on"_s, true}});
+        QVERIFY2(toggle, qPrintable(error));
+        QQuickItem *tile = make("LetterTile", {{u"letter"_s, u"m"_s}, {u"focused"_s, true}});
+        QVERIFY2(tile, qPrintable(error));
+
+        QQuickItem *grid = make("JumpGrid", full);
+        QVERIFY2(grid, qPrintable(error));
+        const QVariant available = QVariantList{u"a"_s, u"m"_s};
+        QVERIFY(QMetaObject::invokeMethod(grid, "open", Q_ARG(QVariant, available), Q_ARG(QString, u"m"_s)));
+        QVERIFY(QMetaObject::invokeMethod(grid, "complete"));
+        QVERIFY(grid->property("shown").toBool());
+        QCOMPARE(grid->property("focusLetter").toString(), u"m"_s);
+
+        QQuickItem *letter = make("JumpLetter", full);
+        QVERIFY2(letter, qPrintable(error));
+        QVERIFY(QMetaObject::invokeMethod(letter, "show", Q_ARG(QString, u"m"_s)));
+        QVERIFY(letter->property("shown").toBool());
+
+        QVariantMap dialogProps = full;
+        dialogProps.insert(u"title"_s, u"discard text?"_s);
+        dialogProps.insert(u"items"_s, QStringList{u"discard"_s, u"keep"_s});
+        QQuickItem *dialog = make("Dialog", dialogProps);
+        QVERIFY2(dialog, qPrintable(error));
+        QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
+        QVERIFY(QMetaObject::invokeMethod(dialog, "complete"));
+        dialog->setProperty("focusIndex", 1);
+        QTRY_COMPARE(dialog->property("barIndex").toReal(), 1.0);
+
+        QQuickItem *keyboard = make("Keyboard", full);
+        QVERIFY2(keyboard, qPrintable(error));
+        const QVariant request = QVariantMap{{u"title"_s, u"search"_s}, {u"text"_s, QString()}};
+        QVERIFY(QMetaObject::invokeMethod(keyboard, "open", Q_ARG(QVariant, request)));
+        QVERIFY(QMetaObject::invokeMethod(keyboard, "complete"));
+        bool handled = false;
+        for (const QString &action : {u"right"_s, u"a"_s, u"left"_s, u"a"_s}) {
+            QVERIFY(QMetaObject::invokeMethod(keyboard, "handleAction", Q_RETURN_ARG(bool, handled),
+                                              Q_ARG(QString, action), Q_ARG(bool, false)));
+            QVERIFY(handled);
+        }
+        auto *entry = qvariant_cast<QObject *>(keyboard->property("entry"));
+        QVERIFY(entry);
+        QCOMPARE(entry->property("text").toString(), u"b"_s);
+        QVERIFY(QMetaObject::invokeMethod(keyboard, "handleAction", Q_RETURN_ARG(bool, handled), Q_ARG(QString, u"b"_s),
+                                          Q_ARG(bool, false)));
+        auto *discard = qvariant_cast<QObject *>(keyboard->property("discard"));
+        QVERIFY(discard);
+        QVERIFY(discard->property("shown").toBool());
+        QCOMPARE(discard->property("focusIndex").toInt(), 1);
+        QCOMPARE(discard->property("barIndex").toReal(), 1.0);
     }
 };
 
