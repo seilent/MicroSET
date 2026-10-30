@@ -19,6 +19,9 @@ set(microset_qml
     MicroSet/components/Dialog.qml
     MicroSet/components/Toast.qml
     MicroSet/components/Sheet.qml
+    MicroSet/components/Glyph.qml
+    MicroSet/components/Ring.qml
+    MicroSet/components/ListRow.qml
     MicroSet/SettingsRow.qml
     MicroSet/SettingsPage.qml
     MicroSet/GroupsPage.qml
