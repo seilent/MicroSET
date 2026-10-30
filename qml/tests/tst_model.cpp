@@ -527,6 +527,7 @@ private slots:
         FakeMicroSetd::writeSteam(steam.path(), {{u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s}});
         m->enter(so2r);
         QCOMPARE(m->pageTitle(so2r, 0), u"STAR OCEAN THE SECOND STORY R"_s);
+        QTRY_VERIFY(!m->rows(so2r, 0).isEmpty());
         const QStringList options{u"fex.preset"_s, u"fex.tso"_s, u"fex.half_barrier"_s, u"fex.vector_tso"_s,
                                   u"fex.memcpy_tso"_s, u"fex.multiblock"_s, u"fex.max_inst"_s, u"fex.x87_reduced"_s,
                                   u"fex.smc"_s, u"fex.volatile_metadata"_s, u"fex.mono_hacks"_s, u"wine.sync"_s};
