@@ -24,6 +24,7 @@ set(microset_qml
     MicroSet/components/ListRow.qml
     MicroSet/components/LetterTile.qml
     MicroSet/components/JumpLetter.qml
+    MicroSet/components/Keyboard.qml
     MicroSet/JumpGrid.qml
     MicroSet/SettingsRow.qml
     MicroSet/SettingsPage.qml
