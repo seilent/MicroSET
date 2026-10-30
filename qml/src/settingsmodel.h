@@ -224,6 +224,7 @@ private:
     std::optional<Preview> m_preview;
     bool m_available = false;
     bool m_fixture = false;
+    bool m_bumpQueued = false;
     int m_revision = 0;
     int m_generation = 0;
 };

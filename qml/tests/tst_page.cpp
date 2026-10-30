@@ -528,7 +528,7 @@ private slots:
         key(Qt::Key_Down);
         reachable(u"lsfg-games"_s);
         key(Qt::Key_Return);
-        QVERIFY(!row(u"lsfg-proton"_s).isEmpty());
+        QTRY_VERIFY(!row(u"lsfg-proton"_s).isEmpty());
         key(Qt::Key_Down);
         reachable(u"lsfg-proton"_s);
         key(Qt::Key_Return);
@@ -546,7 +546,7 @@ private slots:
         QCOMPARE(fake->calls(), (QStringList{u"Set app.292120.lsfg.state on"_s, u"Set app.292120.lsfg.state auto"_s}));
         focus(u"lsfg-games"_s);
         key(Qt::Key_Return);
-        QVERIFY(row(u"lsfg-proton"_s).isEmpty());
+        QTRY_VERIFY(row(u"lsfg-proton"_s).isEmpty());
         focus(u"lsfg.enabled"_s);
         key(Qt::Key_Return);
         QTRY_COMPARE(value(u"lsfg-games"_s), u"off"_s);
@@ -571,14 +571,14 @@ private slots:
         QSignalSpy entrance(page(), SIGNAL(entrance(double,int,int,int,bool,int)));
         focus(u"lsfg-games"_s);
         key(Qt::Key_Return);
-        QVERIFY(!row(u"lsfg-proton"_s).isEmpty());
+        QTRY_VERIFY(!row(u"lsfg-proton"_s).isEmpty());
         key(Qt::Key_Return);
-        QVERIFY(row(u"lsfg-proton"_s).isEmpty());
+        QTRY_VERIFY(row(u"lsfg-proton"_s).isEmpty());
         QTest::qWait(100);
         QCOMPARE(entrance.count(), 0);
         page()->setProperty("animated", true);
         key(Qt::Key_Return);
-        QVERIFY(!row(u"lsfg-proton"_s).isEmpty());
+        QTRY_VERIFY(!row(u"lsfg-proton"_s).isEmpty());
         QTRY_COMPARE(entrance.count(), 1);
         int games = -1;
         int first = -1;
@@ -797,7 +797,7 @@ private slots:
         QCOMPARE(sheetFocus(), 8);
         key(Qt::Key_Down);
         QTRY_COMPARE(fake->calls(), QStringList{u"Override rgb.saturation 55"_s});
-        QCOMPARE(value(u"rgb.saturation"_s), u"55 %"_s);
+        QTRY_COMPARE(value(u"rgb.saturation"_s), u"55 %"_s);
         key(Qt::Key_Return);
         QTRY_COMPARE(fake->calls(), (QStringList{u"Override rgb.saturation 55"_s, u"Set rgb.saturation 55"_s,
                                                  u"ClearOverride rgb.saturation"_s}));
@@ -819,7 +819,7 @@ private slots:
         key(Qt::Key_Return);
         fake->emitChanged(u"audio.volume_step"_s, 10u);
         QTRY_VERIFY(!sheetShown());
-        QCOMPARE(value(u"audio.volume_step"_s), u"10%"_s);
+        QTRY_COMPARE(value(u"audio.volume_step"_s), u"10%"_s);
         QTest::qWait(100);
         QVERIFY(fake->calls().isEmpty());
     }
@@ -963,7 +963,7 @@ private slots:
         key(Qt::Key_Return);
         key(Qt::Key_Down);
         key(Qt::Key_Down);
-        QCOMPARE(value(u"audio.volume_step"_s), u"10%"_s);
+        QTRY_COMPARE(value(u"audio.volume_step"_s), u"10%"_s);
         QTRY_COMPARE(fake->sets().size(), 2);
         fake->emitChanged(u"audio.volume_step"_s, 5u);
         fake->release(1);

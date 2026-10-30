@@ -2,12 +2,16 @@
 #include "harness.h"
 #include "settingsmodel.h"
 
+#include <QDBusVariant>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QScopeGuard>
+#include <QSemaphore>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QThread>
 
 #include <algorithm>
 #include <memory>
@@ -17,6 +21,29 @@
 #include <sys/stat.h>
 
 using namespace Qt::StringLiterals;
+
+class Seen : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit Seen(const QString &until)
+        : m_until(until)
+    {
+    }
+
+    QSemaphore done;
+
+public slots:
+    void changed(const QString &key, const QDBusVariant &)
+    {
+        if (key == m_until)
+            done.release();
+    }
+
+private:
+    QString m_until;
+};
 
 class ModelTest : public QObject
 {
@@ -48,6 +75,7 @@ class ModelTest : public QObject
         out->load();
         if (!QTest::qWaitFor([&] { return out->available(); }))
             qWarning("model never became available");
+        QCoreApplication::sendPostedEvents(out.get(), QEvent::MetaCall);
         return out;
     }
 
@@ -1485,6 +1513,33 @@ private slots:
         fake->release();
         QTRY_VERIFY(!m->busy(u"audio.volume_step"_s));
         QVERIFY(!m->busy(u"nope.key"_s));
+    }
+
+    void bumpCoalesces()
+    {
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped()}));
+        const auto m = model();
+        auto *seen = new Seen(u"other.done"_s);
+        QThread thread;
+        seen->moveToThread(&thread);
+        connect(&thread, &QThread::finished, seen, &QObject::deleteLater);
+        thread.start();
+        const auto stop = qScopeGuard([&thread] {
+            thread.quit();
+            thread.wait();
+        });
+        QVERIFY(h->client().connect(u"net.seilent.MicroSet"_s, u"/net/seilent/MicroSet"_s, u"net.seilent.MicroSet1"_s,
+                                    u"Changed"_s, seen, SLOT(changed(QString, QDBusVariant))));
+        QSignalSpy bumps(m.get(), &SettingsModel::revisionChanged);
+        for (int game = 1; game <= 50; ++game)
+            fake->emitChanged(u"app.%1.fex.tso"_s.arg(game), u"off"_s);
+        fake->emitChanged(u"other.done"_s, true);
+        QVERIFY(seen->done.tryAcquire(1, 10000));
+        QCOMPARE(bumps.count(), 0);
+        QTRY_COMPARE(bumps.count(), 1);
+        QCOMPARE(m->value(u"app.50.fex.tso"_s, m->revision()).toString(), u"off"_s);
+        QTest::qWait(100);
+        QCOMPARE(bumps.count(), 1);
     }
 };
 

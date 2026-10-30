@@ -85,8 +85,8 @@ Window {
     function sheet(group: string, key: string, moves: int): void {
         view.open(group)
         const page = view.stack.currentItem
-        page.focusIndex = page.indexOfKey(key)
         Qt.callLater(() => {
+            page.focusIndex = page.indexOfKey(key)
             page.keepFocusVisible()
             if (root.motion) {
                 page.animated = true
@@ -148,16 +148,18 @@ Window {
             view.open(root.gameStates[root.shotState])
             if (root.shotState === "game-bottom" || root.shotState.startsWith("game-lsfg")) {
                 const page = view.stack.currentItem
-                page.focusIndex = page.rows.length - 2
-                Qt.callLater(root.bottom)
+                Qt.callLater(() => {
+                    page.focusIndex = page.rows.length - 2
+                    root.bottom()
+                })
             }
         } else if (root.lsfgStates[root.shotState] !== undefined) {
             view.open("Frame generation")
             const page = view.stack.currentItem
             if (root.lsfgOpen.indexOf(root.shotState) >= 0)
                 root.model.toggle("lsfg-games")
-            page.focusIndex = page.indexOfKey(root.lsfgStates[root.shotState])
             Qt.callLater(() => {
+                page.focusIndex = page.indexOfKey(root.lsfgStates[root.shotState])
                 if (root.shotState === "lsfg-bottom") {
                     root.bottom()
                 } else if (root.shotState === "lsfg-open-top" || root.shotState === "lsfg-games-motion") {
@@ -178,18 +180,24 @@ Window {
         } else if (root.shotState === "games-many") {
             view.open("games")
             const page = view.stack.currentItem
-            page.focusIndex = page.rows.length - 1
-            Qt.callLater(root.bottom)
+            Qt.callLater(() => {
+                page.focusIndex = page.rows.length - 1
+                root.bottom()
+            })
         } else if (root.shotState === "games-bottom") {
             view.open("games")
             const page = view.stack.currentItem
-            page.focusIndex = page.indexOfKey("game-2238900")
-            Qt.callLater(root.bottom)
+            Qt.callLater(() => {
+                page.focusIndex = page.indexOfKey("game-2238900")
+                root.bottom()
+            })
         } else if (root.shotState === "games-long") {
             view.open("games")
             const page = view.stack.currentItem
-            page.focusIndex = page.indexOfKey("game-251150")
-            Qt.callLater(page.keepFocusVisible)
+            Qt.callLater(() => {
+                page.focusIndex = page.indexOfKey("game-251150")
+                page.keepFocusVisible()
+            })
         } else if (root.shotState === "flip-before" || root.shotState === "flip-after") {
             view.open("display")
             const page = view.stack.currentItem

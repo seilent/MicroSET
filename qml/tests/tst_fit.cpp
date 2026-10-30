@@ -6,6 +6,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
 #include <QQuickItem>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QQuickWindow>
 #include <QScopedPointer>
@@ -47,10 +48,16 @@ class FitTest : public QObject
         return window ? window->findChild<QObject *>(u"settingsView"_s) : nullptr;
     }
 
+    static QByteArray json(const QVariantList &rows)
+    {
+        return QJsonDocument(QJsonArray::fromVariantList(rows)).toJson(QJsonDocument::Compact);
+    }
+
     static void check(QObject *view, SettingsModel &model, const QString &group, Count &count)
     {
         QVERIFY(QMetaObject::invokeMethod(view, "open", Q_ARG(QString, group)));
         QObject *page = qvariant_cast<QObject *>(qvariant_cast<QObject *>(view->property("stack"))->property("currentItem"));
+        QTRY_COMPARE(json(page->property("modelRows").toList()), json(model.rows(group, model.revision())));
         auto *sheet = qvariant_cast<QQuickItem *>(page->property("sheet"));
         QVERIFY(sheet);
         for (const QVariant &item : model.rows(group, model.revision())) {
@@ -102,6 +109,7 @@ class FitTest : public QObject
     {
         QVERIFY(QMetaObject::invokeMethod(view, "open", Q_ARG(QString, group)));
         QObject *page = qvariant_cast<QObject *>(qvariant_cast<QObject *>(view->property("stack"))->property("currentItem"));
+        QTRY_COMPARE(json(page->property("modelRows").toList()), json(model.rows(group, model.revision())));
         auto *repeater = qvariant_cast<QObject *>(page->property("repeater"));
         QVERIFY(repeater);
         const int rows = repeater->property("count").toInt();

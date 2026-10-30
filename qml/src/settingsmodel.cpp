@@ -394,8 +394,17 @@ void SettingsModel::setAvailable(bool available)
 
 void SettingsModel::bump()
 {
-    ++m_revision;
-    emit revisionChanged();
+    if (m_bumpQueued)
+        return;
+    m_bumpQueued = true;
+    QMetaObject::invokeMethod(
+        this,
+        [this] {
+            m_bumpQueued = false;
+            ++m_revision;
+            emit revisionChanged();
+        },
+        Qt::QueuedConnection);
 }
 
 void SettingsModel::refreshStored(const QString &key)
