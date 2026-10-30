@@ -1,5 +1,7 @@
 #include "auth.h"
 #include "dbuspad.h"
+#include "framelimit.h"
+#include "framelimitinfo.h"
 #include "gamescope.h"
 #include "holdhint.h"
 #include "overlay.h"
@@ -88,6 +90,9 @@ int main(int argc, char *argv[])
         return 1;
     }
     microset::exitCleanlyOnDisplayLoss();
+    microset::FrameLimitWatch frameLimit;
+    if (!frameLimit.start())
+        fail(u"cannot watch gamescope's frame limit"_s);
 
     QDBusConnection session = QDBusConnection::sessionBus();
     QDBusConnection system = QDBusConnection::systemBus();
@@ -116,14 +121,9 @@ int main(int argc, char *argv[])
     game.skip(SteamLibrary::excluded());
     std::unique_ptr<SettingsModel> model;
     std::unique_ptr<QQmlApplicationEngine> engine;
-    const auto pushGame = [&model, &game] {
-        if (!model)
-            return;
-        QVariantMap info = game.info();
-        const int limit = microset::fpsLimit();
-        if (!info.isEmpty() && limit >= 0)
-            info.insert(u"fpsLimit"_s, limit);
-        model->setGame(info);
+    const auto pushGame = [&model, &game, &frameLimit] {
+        if (model)
+            model->setGame(withFrameLimit(game.info(), frameLimit.limit(), frameLimit.refresh()));
     };
     QObject::connect(&overlay, &Overlay::shownChanged, &game, [&overlay, &game, pushGame] {
         if (!overlay.shown())
@@ -138,6 +138,7 @@ int main(int argc, char *argv[])
         model->load();
         pushGame();
         QObject::connect(&game, &RunningGame::changed, model.get(), pushGame);
+        QObject::connect(&frameLimit, &microset::FrameLimitWatch::changed, model.get(), pushGame);
         engine = std::make_unique<QQmlApplicationEngine>();
         QObject::connect(engine.get(), &QQmlApplicationEngine::warnings, engine.get(),
                          [](const QList<QQmlError> &list) {

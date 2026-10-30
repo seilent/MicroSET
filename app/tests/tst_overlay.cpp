@@ -2,6 +2,7 @@
 #include "dbuspad.h"
 #include "fakelogind.h"
 #include "fakemicrosetd.h"
+#include "framelimitinfo.h"
 #include "harness.h"
 #include "holdhint.h"
 #include "overlay.h"
@@ -925,6 +926,22 @@ private slots:
         QDBusConnection::disconnectFromBus(u"game"_s);
     }
 
+    void frameLimitInfo()
+    {
+        const QVariantMap game{{u"appid"_s, u"2238900"_s}};
+        const auto plus = [&](const QVariantMap &more) {
+            QVariantMap out = game;
+            out.insert(more);
+            return out;
+        };
+        QCOMPARE(withFrameLimit({}, 30, 60), QVariantMap());
+        QCOMPARE(withFrameLimit(game, -1, -1), game);
+        QCOMPARE(withFrameLimit(game, 0, 0), plus({{u"fpsLimit"_s, 0}, {u"refreshHz"_s, 0}}));
+        QCOMPARE(withFrameLimit(game, 30, -1), plus({{u"fpsLimit"_s, 30}}));
+        QCOMPARE(withFrameLimit(game, -1, 60), plus({{u"refreshHz"_s, 60}}));
+        QCOMPARE(withFrameLimit(game, 30, 60), plus({{u"fpsLimit"_s, 30}, {u"refreshHz"_s, 60}}));
+    }
+
     void thisGameLsfgRows()
     {
         QTemporaryDir steam;
@@ -970,19 +987,28 @@ private slots:
                  (QStringList{u"game-state"_s, u"game-profile"_s, u"game-yield"_s, u"game-lsfg"_s}));
 
         const auto warned = [&](const QVariantMap &change) { return keysOf(shown(change)).contains(u"game-lsfg-limit"_s); };
+        const auto limited = [](int limit, int refresh, QVariantMap more = {}) {
+            more.insert(u"fpsLimit"_s, limit);
+            more.insert(u"refreshHz"_s, refresh);
+            return more;
+        };
         QVERIFY(!warned({}));
-        QVERIFY(!warned({{u"fpsLimit"_s, 0}}));
-        QVERIFY(!warned({{u"fpsLimit"_s, 60}}));
-        QVERIFY(!warned({{u"fpsLimit"_s, 90}}));
-        QVERIFY(warned({{u"fpsLimit"_s, 30}}));
-        QVERIFY(warned({{u"fpsLimit"_s, 30}, {u"lsfg"_s, u"cap-overridden"_s}}));
-        QVERIFY(!warned({{u"fpsLimit"_s, 30}, {u"lsfgHeld"_s, false}}));
-        rows = shown({{u"fpsLimit"_s, 30}});
+        QVERIFY(warned(limited(30, 60)));
+        QVERIFY(!warned(limited(60, 60)));
+        QVERIFY(!warned(limited(0, 60)));
+        QVERIFY(!warned(limited(30, 30)));
+        QVERIFY(!warned(limited(90, 60)));
+        QVERIFY(warned(limited(45, 120)));
+        QVERIFY(!warned({{u"fpsLimit"_s, 30}}));
+        QVERIFY(!warned({{u"refreshHz"_s, 60}}));
+        QVERIFY(!warned(limited(30, 60, {{u"lsfgHeld"_s, false}})));
+        QVERIFY(warned(limited(30, 60, {{u"lsfg"_s, u"cap-overridden"_s}})));
+        rows = shown(limited(30, 60));
         QCOMPARE(keysOf(rows).at(keysOf(rows).indexOf(u"game-lsfg"_s) + 1), u"game-lsfg-limit"_s);
         QCOMPARE(rowOf(rows, u"game-lsfg-limit"_s).value(u"title"_s).toString(), u"Steam frame limit"_s);
         QCOMPARE(rowOf(rows, u"game-lsfg-limit"_s).value(u"value"_s).toString(), u"on: counts generated frames"_s);
         model->lsfg()->setFixture({}, false, QString());
-        QVERIFY(!keysOf(shown({{u"fpsLimit"_s, 30}})).contains(u"game-lsfg"_s));
+        QVERIFY(!keysOf(shown(limited(30, 60))).contains(u"game-lsfg"_s));
         qunsetenv("MICROSET_STEAM_DIR");
     }
 

@@ -70,7 +70,7 @@ QVariantMap gameOf(const QString &state)
                                       {u"game-lsfg-no-dll"_s, u"no-dll"_s}, {u"game-lsfg-env"_s, u"disabled-by-env"_s},
                                       {u"game-lsfg-check"_s, u"check-failed"_s}};
     const QString value = lsfg.value(state, u"on"_s);
-    game.insert({{u"lsfg"_s, value}, {u"fpsLimit"_s, state == "game-lsfg-limit"_L1 ? 30 : 60}});
+    game.insert({{u"lsfg"_s, value}, {u"fpsLimit"_s, state == "game-lsfg-limit"_L1 ? 30 : 60}, {u"refreshHz"_s, 60}});
     if (value == "on"_L1 || value == "cap-overridden"_L1)
         game.insert({{u"lsfgHeld"_s, state != "game-lsfg-failed"_L1 && state != "game-lsfg-young"_L1},
                      {u"lsfgYoung"_s, state == "game-lsfg-young"_L1}});

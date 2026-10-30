@@ -29,10 +29,10 @@ read, change and watch them over D-Bus.
   `MICROOS_PROTON_YIELDED`, both while the hook ran and the scope runs, and `Frame generation` from `MICROOS_LSFG`:
   `on` while lsfg-vk holds the lock `~/.cache/lsfg-vk/active/<SteamGameId>-<pid>` (`SteamGameId` from that environ, else
   the scope's appid), `not running yet` for the first 10 s of the scope, then `failed to start`; `Steam frame limit`
-  while Steam's limit (`GAMESCOPE_FPS_LIMIT`) is under 60. Any other game (native or on a Steam Linux
-  Runtime) gets the game row only. Scopes of the runtimes and Lossless Scaling are skipped. A scope that is removed or
-  leaves the active state turns the state row `unknown`. While `STEAM_COMPAT_FEX_CONFIG` is non empty, the running
-  game's page ends with `Set in Steam` (TSO, Multiblock). Row values are plain text.
+  while gamescope's applied limit (`GAMESCOPE_FPS_LIMIT_FEEDBACK`) is under the refresh rate. Any other game
+  (native or on a Steam Linux Runtime) gets the game row only. Scopes of the runtimes and Lossless Scaling are skipped.
+  A scope that is removed or leaves the active state turns the state row `unknown`. While `STEAM_COMPAT_FEX_CONFIG` is
+  non empty, the running game's page ends with `Set in Steam` (TSO, Multiblock). Row values are plain text.
 - `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and `microset-settings`. The
   page (`SettingsView`) lists the schema groups and edits their keys over `net.seilent.MicroSet`: A on a list or
   number row opens a value sheet, on an on/off row flips it. The `games` group holds `fex.preset`, `wine.sync` and
