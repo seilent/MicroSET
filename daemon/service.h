@@ -40,6 +40,7 @@ public slots:
     Q_SCRIPTABLE void Unsubscribe(const QString &key);
     Q_SCRIPTABLE QString Effective(const QString &appid);
     Q_SCRIPTABLE QString Profiles();
+    Q_SCRIPTABLE QString Resolve(const QStringList &appids, const QStringList &options);
 
 signals:
     Q_SCRIPTABLE void Changed(const QString &key, const QDBusVariant &value);

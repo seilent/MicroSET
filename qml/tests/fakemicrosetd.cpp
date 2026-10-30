@@ -95,22 +95,43 @@ QJsonObject FakeMicroSetd::describe(const QStringList &files)
     return out;
 }
 
+class FakeMicroSetd::Proton
+{
+public:
+    Proton(const QStringList &files, const QVariantMap &stored, const QByteArray &profiles)
+    {
+        loadSchema(m_schema, files, m_dir);
+        const QJsonObject state{{u"version"_s, 1}, {u"values"_s, QJsonObject::fromVariantMap(stored)}};
+        write(m_state.filePath(u"settings.json"_s), QJsonDocument(state).toJson());
+        write(m_state.filePath(u"profiles.json"_s), profiles);
+        m_store = std::make_unique<Store>(m_state.path());
+        m_store->load();
+        m_settings = std::make_unique<Settings>(m_schema, *m_store);
+        m_table.load(m_state.filePath(u"profiles.json"_s), m_schema);
+        m_resolver = std::make_unique<ProtonResolver>(*m_settings, m_table);
+    }
+
+    const ProtonResolver &resolver() const { return *m_resolver; }
+
+private:
+    QTemporaryDir m_dir;
+    QTemporaryDir m_state;
+    Schema m_schema;
+    std::unique_ptr<Store> m_store;
+    std::unique_ptr<Settings> m_settings;
+    ProtonProfiles m_table;
+    std::unique_ptr<ProtonResolver> m_resolver;
+};
+
 QJsonObject FakeMicroSetd::effective(const QStringList &files, const QVariantMap &stored, const QByteArray &profiles,
                                      const QString &appid)
 {
-    QTemporaryDir dir;
-    QTemporaryDir state;
-    Schema schema;
-    loadSchema(schema, files, dir);
-    write(state.filePath(u"settings.json"_s),
-          QJsonDocument(QJsonObject{{u"version"_s, 1}, {u"values"_s, QJsonObject::fromVariantMap(stored)}}).toJson());
-    write(state.filePath(u"profiles.json"_s), profiles);
-    Store store(state.path());
-    store.load();
-    Settings settings(schema, store);
-    ProtonProfiles table;
-    table.load(state.filePath(u"profiles.json"_s), schema);
-    return ProtonResolver(settings, table).effective(appid);
+    return Proton(files, stored, profiles).resolver().effective(appid);
+}
+
+QJsonObject FakeMicroSetd::profiles(const QStringList &files, const QByteArray &profiles)
+{
+    return Proton(files, {}, profiles).resolver().profiles().toJson();
 }
 
 void FakeMicroSetd::writeSteam(const QString &root, const QList<QPair<QString, QString>> &games,
@@ -289,6 +310,48 @@ QStringList FakeMicroSetd::subscriptions() const
     return m_subscriptions;
 }
 
+QStringList FakeMicroSetd::effectives() const
+{
+    QMutexLocker locker(&m_lock);
+    return m_effectives;
+}
+
+QList<QStringList> FakeMicroSetd::resolves() const
+{
+    QMutexLocker locker(&m_lock);
+    return m_resolves;
+}
+
+void FakeMicroSetd::holdCalls(const QString &member, bool hold)
+{
+    QList<QDBusMessage> taken;
+    {
+        QMutexLocker locker(&m_lock);
+        if (hold) {
+            m_heldMembers.insert(member);
+            return;
+        }
+        m_heldMembers.remove(member);
+        for (qsizetype i = 0; i < m_heldCalls.size();) {
+            if (m_heldCalls.at(i).member() == member)
+                taken << m_heldCalls.takeAt(i);
+            else
+                ++i;
+        }
+    }
+    for (const QDBusMessage &message : std::as_const(taken))
+        answer(message);
+}
+
+void FakeMicroSetd::failCalls(const QString &member, const QString &error)
+{
+    QMutexLocker locker(&m_lock);
+    if (error.isEmpty())
+        m_failures.remove(member);
+    else
+        m_failures.insert(member, error);
+}
+
 void FakeMicroSetd::apply(const QDBusMessage &message)
 {
     const QString key = message.arguments().value(0).toString();
@@ -308,10 +371,29 @@ void FakeMicroSetd::apply(const QDBusMessage &message)
 
 bool FakeMicroSetd::handle(const QDBusMessage &message)
 {
+    {
+        QMutexLocker locker(&m_lock);
+        if (message.member() == "Effective"_L1)
+            m_effectives << message.arguments().value(0).toString();
+        else if (message.member() == "Resolve"_L1)
+            m_resolves << message.arguments().value(0).toStringList();
+        if (m_heldMembers.contains(message.member())) {
+            m_heldCalls << message;
+            return true;
+        }
+    }
+    answer(message);
+    return true;
+}
+
+void FakeMicroSetd::answer(const QDBusMessage &message)
+{
     QDBusConnection bus(m_connection);
     const QString key = message.arguments().value(0).toString();
     QMutexLocker locker(&m_lock);
-    if (message.member() == "Schema"_L1) {
+    if (m_failures.contains(message.member())) {
+        bus.send(message.createErrorReply(m_failures.value(message.member()), message.member()));
+    } else if (message.member() == "Schema"_L1) {
         bus.send(message.createReply(QString::fromUtf8(QJsonDocument(m_schema).toJson(QJsonDocument::Compact))));
     } else if (message.member() == "List"_L1) {
         bus.send(message.createReply(QVariant(m_values)));
@@ -323,6 +405,18 @@ bool FakeMicroSetd::handle(const QDBusMessage &message)
         bus.send(message.createReply(QVariant(out)));
     } else if (message.member() == "Effective"_L1 && !m_files.isEmpty()) {
         const QJsonObject out = effective(m_files, m_stored, m_profiles, key);
+        bus.send(message.createReply(QString::fromUtf8(QJsonDocument(out).toJson(QJsonDocument::Compact))));
+    } else if (message.member() == "Resolve"_L1 && !m_files.isEmpty()) {
+        QString error;
+        const QJsonObject out = Proton(m_files, m_stored, m_profiles)
+                                    .resolver()
+                                    .resolveMany(message.arguments().value(0).toStringList(),
+                                                 message.arguments().value(1).toStringList(), &error);
+        const QString json = QString::fromUtf8(QJsonDocument(out).toJson(QJsonDocument::Compact));
+        bus.send(error.isEmpty() ? message.createReply(json)
+                                 : message.createErrorReply(u"org.freedesktop.DBus.Error.InvalidArgs"_s, error));
+    } else if (message.member() == "Profiles"_L1 && !m_files.isEmpty()) {
+        const QJsonObject out = profiles(m_files, m_profiles);
         bus.send(message.createReply(QString::fromUtf8(QJsonDocument(out).toJson(QJsonDocument::Compact))));
     } else if (message.member() == "Get"_L1) {
         bus.send(message.createReply(QVariant::fromValue(QDBusVariant(m_values.value(key)))));
@@ -367,5 +461,4 @@ bool FakeMicroSetd::handle(const QDBusMessage &message)
     } else {
         bus.send(message.createErrorReply(u"org.freedesktop.DBus.Error.UnknownMethod"_s, message.member()));
     }
-    return true;
 }

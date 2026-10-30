@@ -51,6 +51,11 @@
     <method name="Profiles">
       <arg name="json" type="s" direction="out"/>
     </method>
+    <method name="Resolve">
+      <arg name="appids" type="as" direction="in"/>
+      <arg name="options" type="as" direction="in"/>
+      <arg name="json" type="s" direction="out"/>
+    </method>
     <signal name="Changed">
       <arg name="key" type="s"/>
       <arg name="value" type="v"/>

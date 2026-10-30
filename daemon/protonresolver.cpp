@@ -15,6 +15,7 @@ const QString ProfilesKey = u"proton.profiles"_s;
 const QString On = u"on"_s;
 const QString Off = u"off"_s;
 const QString Default = u"default"_s;
+const QString SetSource = u"set"_s;
 const QString LsfgState = u"lsfg.state"_s;
 const QString LsfgEnabled = u"lsfg.enabled"_s;
 const QString LsfgMode = u"lsfg.mode"_s;
@@ -43,15 +44,16 @@ ProtonResolver::ProtonResolver(const Settings &settings, const ProtonProfiles &p
 ProtonResolver::Resolved ProtonResolver::preset(const QString &appid) const
 {
     if (!appid.isEmpty() && m_settings.isSet(app(appid, PresetOption)))
-        return {m_settings.value(app(appid, PresetOption)).toString(), u"set"_s};
+        return {m_settings.value(app(appid, PresetOption)).toString(), SetSource};
     return {m_settings.value(PresetOption).toString(), m_settings.isSet(PresetOption) ? u"global"_s : u"default"_s};
 }
 
-ProtonResolver::Resolved ProtonResolver::resolve(const QString &appid, const QString &option, bool profile) const
+ProtonResolver::Resolved ProtonResolver::resolve(const QString &appid, const QString &option, bool profile,
+                                                 bool withOwn) const
 {
     if (option == LsfgState && m_settings.isSet(LsfgEnabled))
         return {Off, u"global"_s};
-    const Resolved out = chain(appid, option, profile);
+    const Resolved out = chain(appid, option, profile, withOwn);
     if (out.source != Default)
         return out;
     if (option == LsfgState)
@@ -62,16 +64,17 @@ ProtonResolver::Resolved ProtonResolver::resolve(const QString &appid, const QSt
     return multiplier > 0 ? Resolved{QString::number(PanelHz / multiplier), Default} : out;
 }
 
-ProtonResolver::Resolved ProtonResolver::chain(const QString &appid, const QString &option, bool profile) const
+ProtonResolver::Resolved ProtonResolver::chain(const QString &appid, const QString &option, bool profile,
+                                               bool withOwn) const
 {
     const Schema &schema = m_settings.schema();
     const bool fex = option.startsWith("fex."_L1);
-    if (!appid.isEmpty() && m_settings.isSet(app(appid, option)))
-        return {m_settings.value(app(appid, option)).toString(), u"set"_s};
+    if (withOwn && !appid.isEmpty() && m_settings.isSet(app(appid, option)))
+        return {m_settings.value(app(appid, option)).toString(), SetSource};
     if (fex) {
         const Resolved chosen = preset(appid);
         const Schema::Preset *values = schema.preset(chosen.value);
-        if (chosen.source == "set"_L1)
+        if (chosen.source == SetSource)
             return {values ? values->value(option) : QString(), u"preset"_s};
         if (chosen.source == "global"_L1 && values && values->contains(option))
             return {values->value(option), u"global"_s};
@@ -110,18 +113,24 @@ QStringList ProtonResolver::apps() const
     return out;
 }
 
+QJsonObject ProtonResolver::entryOf(const QString &appid, const QString &option) const
+{
+    const bool chosen = option == PresetOption;
+    const Resolved resolved = chosen ? preset(appid) : resolve(appid, option);
+    QJsonObject item = entry(resolved);
+    if (option == LsfgState && resolved.source == Default)
+        item.insert(u"mode"_s, m_settings.value(LsfgMode).toString());
+    if (resolved.source == SetSource)
+        item.insert(u"auto"_s, entry(chosen ? preset(QString()) : resolve(appid, option, true, false)));
+    return item;
+}
+
 QJsonObject ProtonResolver::effective(const QString &appid) const
 {
-    QJsonObject options{{PresetOption, entry(preset(appid))}};
-    for (const QString &option : m_settings.schema().options()) {
-        if (option == PresetOption || option == ProfileOption)
-            continue;
-        const Resolved resolved = resolve(appid, option);
-        QJsonObject item = entry(resolved);
-        if (option == LsfgState && resolved.source == Default)
-            item.insert(u"mode"_s, m_settings.value(LsfgMode).toString());
-        options.insert(option, item);
-    }
+    QJsonObject options;
+    for (const QString &option : m_settings.schema().options())
+        if (option != ProfileOption)
+            options.insert(option, entryOf(appid, option));
     QJsonObject out{{u"appid"_s, appid}, {u"options"_s, options}};
     const ProtonProfiles::Entry *own = m_profiles.entry(appid);
     if (!own)
@@ -137,6 +146,35 @@ QJsonObject ProtonResolver::effective(const QString &appid) const
     if (!own->tool.isEmpty())
         profile.insert(u"tool"_s, own->tool);
     out.insert(u"profile"_s, profile);
+    return out;
+}
+
+QJsonObject ProtonResolver::resolveMany(const QStringList &appids, const QStringList &options, QString *error) const
+{
+    if (appids.size() > MaxAppIds) {
+        *error = u"too many appids"_s;
+        return {};
+    }
+    for (const QString &appid : appids) {
+        if (!Schema::isAppId(appid)) {
+            *error = u"not an appid"_s;
+            return {};
+        }
+    }
+    const QStringList known = m_settings.schema().options();
+    for (const QString &option : options) {
+        if (option == ProfileOption || !known.contains(option)) {
+            *error = u"no option "_s + option.left(64);
+            return {};
+        }
+    }
+    QJsonObject out;
+    for (const QString &appid : appids) {
+        QJsonObject entries;
+        for (const QString &option : options)
+            entries.insert(option, entryOf(appid, option));
+        out.insert(appid, entries);
+    }
     return out;
 }
 

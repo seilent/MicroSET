@@ -6,6 +6,7 @@
 #include <QMap>
 #include <QMutex>
 #include <QPair>
+#include <QSet>
 #include <QStringList>
 #include <QThread>
 #include <QVariant>
@@ -23,6 +24,7 @@ public:
     static QJsonObject describe(const QStringList &files);
     static QJsonObject effective(const QStringList &files, const QVariantMap &stored, const QByteArray &profiles,
                                  const QString &appid);
+    static QJsonObject profiles(const QStringList &files, const QByteArray &profiles);
     static QString fixture(const QString &name);
     static QString shipped();
     static void writeSteam(const QString &root, const QList<QPair<QString, QString>> &games,
@@ -45,15 +47,21 @@ public:
     void setHold(bool hold);
     void setProton(const QStringList &files, const QByteArray &profiles);
     void refuse(const QString &key, const QString &error);
+    void holdCalls(const QString &member, bool hold);
+    void failCalls(const QString &member, const QString &error);
     QVariantMap stored() const;
     Sets sets() const;
     QStringList calls() const;
     QStringList subscriptions() const;
+    QStringList effectives() const;
+    QList<QStringList> resolves() const;
 
 private:
     class Handler;
+    class Proton;
 
     bool handle(const QDBusMessage &message);
+    void answer(const QDBusMessage &message);
     void apply(const QDBusMessage &message);
 
     QString m_address;
@@ -74,5 +82,10 @@ private:
     QVariantMap m_base;
     QStringList m_subscriptions;
     QList<QDBusMessage> m_held;
+    QSet<QString> m_heldMembers;
+    QList<QDBusMessage> m_heldCalls;
+    QMap<QString, QString> m_failures;
+    QStringList m_effectives;
+    QList<QStringList> m_resolves;
     int m_starts = 0;
 };

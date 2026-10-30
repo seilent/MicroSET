@@ -104,7 +104,9 @@ A bad entry is dropped with one log line, and `microsetd --check-profiles <file>
 value counts as set when it differs from its default. Per option the first of these wins: the game's value, the game's
 `fex.preset`, the global `fex.preset` (for the options it sets) or `wine.sync`, the profile while `proton.profiles` and
 the game's `profile` are `on`, then Proton's own. `Effective(appid)` returns the result as JSON with the source of each
-value (`set`, `preset`, `global`, `profile`, `default`), `Profiles()` the loaded profiles.
+value (`set`, `preset`, `global`, `profile`, `default`); a value the game holds itself also carries `auto`, what the
+option resolves to without it. `Resolve(appids, options)` returns the same entries for up to 2000 games at once,
+`Profiles()` the loaded profiles.
 
 `microsetd` writes the result to `/run/microset/proton/` (dir 0755, files 0644): `default.json` and `<appid>.json` for
 every game with a value or a profile, each by rename and at most 4096 bytes, before it takes its bus name and on every

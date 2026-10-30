@@ -340,13 +340,91 @@ private slots:
         QCOMPARE(state(R"({"lsfg.mode": "blacklist"})"),
                  (QJsonObject{{u"value"_s, u"on"_s}, {u"source"_s, u"default"_s}, {u"mode"_s, u"blacklist"_s}}));
         QCOMPARE(state(R"({"lsfg.mode": "blacklist", "app.2238900.lsfg.state": "off"})"),
-                 (QJsonObject{{u"value"_s, u"off"_s}, {u"source"_s, u"set"_s}}));
+                 (QJsonObject{{u"value"_s, u"off"_s}, {u"source"_s, u"set"_s},
+                              {u"auto"_s, QJsonObject{{u"value"_s, u"on"_s}, {u"source"_s, u"default"_s}}}}));
         QCOMPARE(state(R"({"lsfg.enabled": false})"), (QJsonObject{{u"value"_s, u"off"_s}, {u"source"_s, u"global"_s}}));
         const Fixture f(R"({"app.2238900.lsfg.multiplier": "3"})");
         const QJsonObject options = f.resolver->effective(u"2238900"_s).value("options"_L1).toObject();
-        QCOMPARE(options.value("lsfg.multiplier"_L1).toObject(), (QJsonObject{{u"value"_s, u"3"_s}, {u"source"_s, u"set"_s}}));
+        QCOMPARE(options.value("lsfg.multiplier"_L1).toObject(),
+                 (QJsonObject{{u"value"_s, u"3"_s}, {u"source"_s, u"set"_s},
+                              {u"auto"_s, QJsonObject{{u"value"_s, u"2"_s}, {u"source"_s, u"default"_s}}}}));
         QCOMPARE(options.value("lsfg.fps_cap"_L1).toObject(),
                  (QJsonObject{{u"value"_s, u"20"_s}, {u"source"_s, u"default"_s}}));
+    }
+
+    void resolveMatchesEffective()
+    {
+        const QList<QByteArray> states{
+            "{}"_ba,
+            R"({"lsfg.mode": "blacklist"})"_ba,
+            R"({"lsfg.enabled": false, "app.2238900.lsfg.state": "on"})"_ba,
+            R"({"fex.preset": "compatibility", "app.292120.fex.multiblock": "off"})"_ba,
+            R"({"lsfg.mode": "blacklist", "app.2238900.lsfg.state": "off", "app.2238900.fex.preset": "performance",
+                "app.292120.fex.tso": "on", "app.292120.wine.sync": "ntsync", "app.2238900.lsfg.multiplier": "3"})"_ba,
+        };
+        const QStringList appids{u"292120"_s, u"2238900"_s, u"4294967295"_s};
+        QStringList sorted = appids;
+        sorted.sort();
+        for (const QByteArray &state : states) {
+            const Fixture f(state);
+            QStringList options = f.schema.options();
+            options.removeAll(u"profile"_s);
+            QCOMPARE(options.size(), 15);
+            QString error;
+            const QJsonObject all = f.resolver->resolveMany(appids, options, &error);
+            QVERIFY2(error.isEmpty(), qPrintable(error));
+            QCOMPARE(all.keys(), sorted);
+            for (const QString &appid : appids) {
+                const QJsonObject view = f.resolver->effective(appid).value("options"_L1).toObject();
+                QVERIFY2(all.value(appid).toObject() == view, state.constData());
+                for (const QString &option : options) {
+                    const QJsonObject one = f.resolver->resolveMany({appid}, {option}, &error).value(appid).toObject();
+                    QCOMPARE(one, (QJsonObject{{option, view.value(option)}}));
+                }
+            }
+        }
+    }
+
+    void autoOnSetOptions()
+    {
+        const auto entry = [](const Fixture &f, const char *appid, const char *option) {
+            return f.resolver->entryOf(QString::fromLatin1(appid), QString::fromLatin1(option));
+        };
+        const auto text = [](const QJsonValue &value) {
+            const QJsonObject item = value.toObject();
+            return item.value("value"_L1).toString() + u' ' + item.value("source"_L1).toString();
+        };
+        const Fixture blacklist(R"({"lsfg.mode": "blacklist", "app.2238900.lsfg.state": "off"})");
+        const QJsonObject off = entry(blacklist, "2238900", "lsfg.state");
+        QCOMPARE(text(off), u"off set"_s);
+        QCOMPARE(text(off.value("auto"_L1)), u"on default"_s);
+        QCOMPARE(off.value("auto"_L1).toObject().keys(), (QStringList{u"source"_s, u"value"_s}));
+        QVERIFY(!entry(blacklist, "292120", "lsfg.state").contains("auto"_L1));
+        const Fixture tso(R"({"app.292120.fex.tso": "on", "app.292120.wine.sync": "ntsync"})");
+        QCOMPARE(text(entry(tso, "292120", "fex.tso")), u"on set"_s);
+        QCOMPARE(text(entry(tso, "292120", "fex.tso").value("auto"_L1)), u"off profile"_s);
+        QCOMPARE(text(entry(tso, "292120", "wine.sync").value("auto"_L1)), u"fsync profile"_s);
+        const Fixture preset(R"({"app.2238900.fex.preset": "performance"})");
+        QCOMPARE(text(entry(preset, "2238900", "fex.preset")), u"performance set"_s);
+        QCOMPARE(text(entry(preset, "2238900", "fex.preset").value("auto"_L1)), u"default default"_s);
+        QCOMPARE(text(entry(preset, "2238900", "fex.tso")), u"off preset"_s);
+        const Fixture global(R"({"fex.preset": "compatibility", "app.2238900.fex.preset": "performance",
+                                 "app.2238900.fex.tso": "on"})");
+        QCOMPARE(text(entry(global, "2238900", "fex.preset").value("auto"_L1)), u"compatibility global"_s);
+        QCOMPARE(text(entry(global, "2238900", "fex.tso").value("auto"_L1)), u"off preset"_s);
+        const Fixture cap(R"({"app.2238900.lsfg.multiplier": "3", "app.2238900.lsfg.fps_cap": "30"})");
+        QCOMPARE(text(entry(cap, "2238900", "lsfg.fps_cap").value("auto"_L1)), u"20 default"_s);
+        QCOMPARE(text(entry(cap, "2238900", "lsfg.multiplier").value("auto"_L1)), u"2 default"_s);
+        for (const Fixture *f : {&blacklist, &tso, &preset, &global, &cap}) {
+            for (const QString &appid : {u"292120"_s, u"2238900"_s}) {
+                const QJsonObject options = f->resolver->effective(appid).value("options"_L1).toObject();
+                for (auto it = options.begin(); it != options.end(); ++it) {
+                    const QJsonObject item = it.value().toObject();
+                    QVERIFY2(item.contains("auto"_L1) == (item.value("source"_L1) == "set"_L1),
+                             qPrintable(appid + u' ' + it.key()));
+                }
+            }
+        }
     }
 
     void globalSyncSetBackKeepsTheProfile()

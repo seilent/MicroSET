@@ -293,6 +293,17 @@ QString Service::Profiles()
     return QString::fromUtf8(QJsonDocument(m_resolver.profiles().toJson()).toJson(QJsonDocument::Compact));
 }
 
+QString Service::Resolve(const QStringList &appids, const QStringList &options)
+{
+    QString error;
+    const QJsonObject out = m_resolver.resolveMany(appids, options, &error);
+    if (!error.isEmpty()) {
+        sendErrorReply(Errors::InvalidArgs, error);
+        return {};
+    }
+    return QString::fromUtf8(QJsonDocument(out).toJson(QJsonDocument::Compact));
+}
+
 void Service::addLive(const QString &key)
 {
     m_live.insert(key);

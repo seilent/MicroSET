@@ -192,7 +192,7 @@ private slots:
         QFile xml(QStringLiteral(MICROSET_SOURCE_DIR) + u"/data/net.seilent.MicroSet1.xml"_s);
         QVERIFY(xml.open(QIODevice::ReadOnly));
         const QStringList shipped = members(QString::fromUtf8(xml.readAll()));
-        QCOMPARE(shipped.size(), 14);
+        QCOMPARE(shipped.size(), 15);
         QCOMPARE(members(reply.arguments().value(0).toString()), shipped);
     }
 
@@ -1075,9 +1075,12 @@ private slots:
             QCOMPARE(options.size(), 15);
             for (auto it = options.begin(); it != options.end(); ++it) {
                 const QJsonObject entry = it.value().toObject();
-                const bool mode = it.key() == "lsfg.state"_L1 && entry.value("source"_L1) == "default"_L1;
-                QCOMPARE(entry.keys(), (mode ? QStringList{u"mode"_s, u"source"_s, u"value"_s}
-                                             : QStringList{u"source"_s, u"value"_s}));
+                QStringList keys{u"source"_s, u"value"_s};
+                if (it.key() == "lsfg.state"_L1 && entry.value("source"_L1) == "default"_L1)
+                    keys.prepend(u"mode"_s);
+                if (entry.value("source"_L1) == "set"_L1)
+                    keys.prepend(u"auto"_s);
+                QCOMPARE(entry.keys(), keys);
                 QVERIFY(sources.contains(entry.value("source"_L1).toString()));
             }
             QCOMPARE(options.value("lsfg.state"_L1).toObject().value("mode"_L1).toString(), u"whitelist"_s);
@@ -1113,6 +1116,67 @@ private slots:
         const ProtonResolver resolver(settings, profiles);
         for (qsizetype i = 0; i < appids.size(); ++i)
             QCOMPARE(views.at(i), resolver.effective(appids.at(i)));
+    }
+
+    void resolveArgs()
+    {
+        h->writeState(R"({"lsfg.mode": "blacklist", "app.2238900.lsfg.state": "off"})");
+        QVERIFY(up());
+        const auto json = [](const QDBusMessage &reply) {
+            return QJsonDocument::fromJson(reply.arguments().value(0).toString().toUtf8()).object();
+        };
+        const auto resolve = [this](const QStringList &appids, const QStringList &options) {
+            return h->call(u"Resolve"_s, {appids, options});
+        };
+        const auto refused = [&](const QStringList &appids, const QStringList &options) {
+            const QDBusMessage reply = resolve(appids, options);
+            return errorOf(reply) + u' ' + reply.errorMessage();
+        };
+        const QString invalid = u"org.freedesktop.DBus.Error.InvalidArgs "_s;
+        const QStringList state{u"lsfg.state"_s};
+        for (const QString &appid : {u"0"_s, u"app.292120"_s, QString(), u"12345678901"_s, u"29212x"_s})
+            QCOMPARE(refused({u"292120"_s, appid}, state), invalid + u"not an appid"_s);
+        QCOMPARE(refused({u"292120"_s}, {u"lsfg.state"_s, u"fex.nope"_s}), invalid + u"no option fex.nope"_s);
+        QCOMPARE(refused({u"292120"_s}, {u"profile"_s}), invalid + u"no option profile"_s);
+        QStringList many;
+        for (int appid = 1; appid <= 2001; ++appid)
+            many << QString::number(appid);
+        QCOMPARE(refused(many, state), invalid + u"too many appids"_s);
+        many.removeLast();
+        QCOMPARE(json(resolve(many, state)).size(), 2000);
+        QCOMPARE(errorOf(resolve({}, state)), QString());
+        QCOMPARE(json(resolve({}, state)), QJsonObject());
+        QCOMPARE(json(resolve({u"2238900"_s, u"2238900"_s}, state)),
+                 QJsonDocument::fromJson(R"({"2238900": {"lsfg.state": {"value": "off", "source": "set",
+                                             "auto": {"value": "on", "source": "default"}}}})")
+                     .object());
+        QCOMPARE(json(resolve({u"292120"_s}, {u"lsfg.state"_s, u"lsfg.state"_s})),
+                 QJsonDocument::fromJson(R"({"292120": {"lsfg.state": {"value": "on", "source": "default",
+                                             "mode": "blacklist"}}})")
+                     .object());
+        for (const QString &appid : {u"2238900"_s, u"4294967295"_s}) {
+            const QJsonObject view = json(h->call(u"Effective"_s, {appid})).value("options"_L1).toObject();
+            QCOMPARE(view.size(), 15);
+            const QJsonObject all = json(resolve({appid}, view.keys()));
+            QCOMPARE(errorOf(resolve({appid}, view.keys())), QString());
+            QCOMPARE(all, (QJsonObject{{appid, view}}));
+        }
+    }
+
+    void resolveTime()
+    {
+        QVERIFY(up());
+        QStringList appids;
+        for (int appid = 1; appid <= 2000; ++appid)
+            appids << QString::number(3000000 + appid);
+        QElapsedTimer timer;
+        timer.start();
+        const QDBusMessage reply = h->call(u"Resolve"_s, {appids, QStringList{u"lsfg.state"_s}});
+        const qint64 spent = timer.elapsed();
+        QCOMPARE(errorOf(reply), QString());
+        const QByteArray text = reply.arguments().value(0).toString().toUtf8();
+        QCOMPARE(QJsonDocument::fromJson(text).object().size(), 2000);
+        qInfo("Resolve of 2000 appids: %lld ms, %lld bytes", spent, qlonglong(text.size()));
     }
 
     void rollbackKeepsLsfgKeys()
