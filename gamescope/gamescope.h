@@ -8,6 +8,5 @@ void claimGamescopeFocus(QWindow *window);
 bool markOverlay(QWindow *window);
 void exitCleanlyOnDisplayLoss();
 bool displayGone();
-int fpsLimit();
 
 }

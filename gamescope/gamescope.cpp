@@ -74,30 +74,6 @@ void exitCleanlyOnDisplayLoss()
     std::atexit(exitIfDisplayGone);
 }
 
-int fpsLimit()
-{
-    auto *x11 = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
-    if (!x11 || !x11->connection())
-        return -1;
-    xcb_connection_t *connection = x11->connection();
-    const char name[] = "GAMESCOPE_FPS_LIMIT";
-    const xcb_intern_atom_cookie_t cookie = xcb_intern_atom(connection, 1, sizeof(name) - 1, name);
-    xcb_intern_atom_reply_t *interned = xcb_intern_atom_reply(connection, cookie, nullptr);
-    const xcb_atom_t property = interned ? interned->atom : XCB_ATOM_NONE;
-    std::free(interned);
-    const xcb_screen_t *screen = xcb_setup_roots_iterator(xcb_get_setup(connection)).data;
-    if (property == XCB_ATOM_NONE || !screen)
-        return -1;
-    const xcb_get_property_cookie_t asked
-        = xcb_get_property(connection, 0, screen->root, property, XCB_ATOM_CARDINAL, 0, 1);
-    xcb_get_property_reply_t *reply = xcb_get_property_reply(connection, asked, nullptr);
-    int limit = -1;
-    if (reply && reply->format == 32 && xcb_get_property_value_length(reply) == 4)
-        limit = int(*static_cast<const uint32_t *>(xcb_get_property_value(reply)));
-    std::free(reply);
-    return limit;
-}
-
 void claimGamescopeFocus(QWindow *window)
 {
     bool ok = false;

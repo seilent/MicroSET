@@ -827,9 +827,11 @@ QVariantList SettingsModel::thisGame() const
     else if (lsfg == "on"_L1 || lsfg == "cap-overridden"_L1)
         text = m_game.value(u"lsfgYoung"_s).toBool() ? u"not running yet"_s : u"failed to start"_s;
     out << infoRow(u"game-lsfg"_s, u"Frame generation"_s, text);
-    bool known = false;
-    const int limit = m_game.value(u"fpsLimit"_s).toInt(&known);
-    if (held && known && limit > 0 && limit < int(PanelHz))
+    bool limitKnown = false;
+    bool refreshKnown = false;
+    const int limit = m_game.value(u"fpsLimit"_s).toInt(&limitKnown);
+    const int refresh = m_game.value(u"refreshHz"_s).toInt(&refreshKnown);
+    if (held && limitKnown && refreshKnown && 0 < limit && limit < refresh)
         out << infoRow(u"game-lsfg-limit"_s, u"Steam frame limit"_s, u"on: counts generated frames"_s);
     return out;
 }
