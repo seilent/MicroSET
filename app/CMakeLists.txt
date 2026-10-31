@@ -9,6 +9,8 @@ add_library(microset_overlay_core STATIC
     src/overlayservice.h
     src/runninggame.cpp
     src/runninggame.h
+    src/sessionmenu.cpp
+    src/sessionmenu.h
 )
 target_include_directories(microset_overlay_core PUBLIC src)
 target_link_libraries(microset_overlay_core PUBLIC microset_pad microset_common Qt6::Gui Qt6::DBus)

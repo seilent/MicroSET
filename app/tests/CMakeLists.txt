@@ -6,6 +6,11 @@ target_link_libraries(tst_overlay PRIVATE microset_overlay_core microset_harness
 add_test(NAME overlay COMMAND tst_overlay)
 set_tests_properties(overlay PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+add_executable(tst_sessionmenu tst_sessionmenu.cpp)
+target_link_libraries(tst_sessionmenu PRIVATE microset_overlay_core microset_harness Qt6::Test)
+add_test(NAME session-menu COMMAND tst_sessionmenu)
+set_tests_properties(session-menu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 add_executable(tst_overlayqml tst_overlayqml.cpp)
 target_link_libraries(tst_overlayqml PRIVATE microset_overlay_core microset_harness microset_page_fixtures
     microset_overlay_uiplugin microset_uiplugin microset_ui Qt6::Quick Qt6::Test PkgConfig::XCB)
