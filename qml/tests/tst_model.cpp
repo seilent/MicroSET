@@ -644,7 +644,8 @@ private slots:
         QTemporaryDir steam;
         qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
         FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s},
-                                                 {u"2161700"_s, u"Persona 3 Reload"_s}, {u"1245620"_s, u"ELDEN RING"_s}});
+                                                 {u"2161700"_s, u"Persona 3 Reload"_s}, {u"1245620"_s, u"ELDEN RING"_s},
+                                                 {u"367520"_s, u"Hollow Knight"_s}});
         const QStringList files{FakeMicroSetd::shipped()};
         fake->setSchema(FakeMicroSetd::describe(files));
         fake->setProton(files, FakeMicroSetd::Profiles);
@@ -665,6 +666,19 @@ private slots:
         h->call(u"Get"_s, {u"audio.volume_step"_s});
         QCOMPARE(fake->effectives().count(u"2238900"_s), asked + 1);
         QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-2238900"_s), u"TSO off, Multiblock off"_s);
+        fake->holdCalls(u"Effective"_s, true);
+        stored.insert(u"app.367520.fex.tso"_s, u"on"_s);
+        fake->setStored(stored);
+        fake->emitChanged(u"app.367520.fex.tso"_s, u"on"_s);
+        QTRY_COMPARE(fake->effectives().count(u"367520"_s), 1);
+        stored.insert(u"app.367520.wine.sync"_s, u"fsync"_s);
+        fake->setStored(stored);
+        fake->emitChanged(u"app.367520.wine.sync"_s, u"fsync"_s);
+        QTRY_COMPARE(m->value(u"app.367520.wine.sync"_s, 0).toString(), u"fsync"_s);
+        h->call(u"Get"_s, {u"audio.volume_step"_s});
+        QCOMPARE(fake->effectives().count(u"367520"_s), 1);
+        fake->holdCalls(u"Effective"_s, false);
+        QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-367520"_s), u"TSO on, fsync"_s);
         stored.insert({{u"app.2161700.fex.multiblock"_s, u"off"_s}, {u"app.2161700.wine.sync"_s, u"fsync"_s}});
         fake->setStored(stored);
         for (const QString &key : {u"app.2161700.fex.multiblock"_s, u"app.2161700.wine.sync"_s})
