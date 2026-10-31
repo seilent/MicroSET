@@ -30,6 +30,9 @@ read, change and watch them over D-Bus.
   Runtime) gets the game row only. Scopes of the apps the game list leaves out are skipped. A scope that is removed or
   leaves the active state turns the state row `unknown`. While `STEAM_COMPAT_FEX_CONFIG` is non empty, the running
   game's page ends with `Set in Steam` (TSO, Multiblock). Row values are plain text.
+  The overlay also owns `net.seilent.MicroOs.SessionMenu` (interface `SessionMenu1`, `Show(sessions, current, hints)`):
+  a sheet listing the sessions MicroOS passes, current marked. A switches (`microos-session-switch@<name>.service`) or
+  starts an install (`microos-session-install@<name>.service`), B closes.
 - `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and `microset-settings`. The
   page (`SettingsView`) lists the schema groups and edits their keys over `net.seilent.MicroSet`: A on a list or
   number row opens a value sheet, on an on/off row flips it. The `games` group holds `fex.preset`, `wine.sync` and

@@ -5,6 +5,7 @@
 #include "overlay.h"
 #include "overlayservice.h"
 #include "runninggame.h"
+#include "sessionmenu.h"
 #include "settingsmodel.h"
 #include "sleepinhibitor.h"
 #include "steamlibrary.h"
@@ -162,6 +163,13 @@ int main(int argc, char *argv[])
     OverlayService service(&overlay, auth);
     if (!service.publish(session)) {
         fail(u"cannot own %1 on the session bus"_s.arg(OverlayService::service()));
+        return 1;
+    }
+    SessionMenu menu(auth, session, system);
+    QObject::connect(&menu, &SessionMenu::requested, &overlay, &Overlay::showMenu);
+    overlay.setSessionMenu(&menu);
+    if (!menu.publish(session)) {
+        fail(u"cannot own %1 on the session bus"_s.arg(SessionMenu::service()));
         return 1;
     }
     overlay.setHint(hint.active(), hint.device(), hint.kind());

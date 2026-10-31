@@ -1,17 +1,20 @@
 #include "auth.h"
 #include "dbuspad.h"
 #include "fakelogind.h"
+#include "fakemanager.h"
 #include "fakemicrosetd.h"
 #include "harness.h"
 #include "holdhint.h"
 #include "overlay.h"
 #include "overlayservice.h"
 #include "runninggame.h"
+#include "sessionmenu.h"
 #include "settingsmodel.h"
 #include "sleepinhibitor.h"
 
 #include <QCoreApplication>
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusPendingCall>
 #include <QDBusVariant>
@@ -176,6 +179,11 @@ class OverlayTest : public QObject
     std::unique_ptr<QQuickWindow> m_window;
     std::unique_ptr<QQuickWindow> m_toast;
     QStringList m_events;
+    std::unique_ptr<Harness> m_sys;
+    std::unique_ptr<Auth> m_auth;
+    std::unique_ptr<SessionMenu> m_menu;
+    std::unique_ptr<FakeManager> m_systemd;
+    std::unique_ptr<FakeManager> m_userd;
 
     QDBusConnection bus(const QString &name) { return QDBusConnection::connectToBus(m_h.address(), name); }
 
@@ -247,6 +255,85 @@ class OverlayTest : public QObject
         QVERIFY(windowUp());
     }
 
+    static bool startManager(QDBusConnection conn, std::unique_ptr<FakeManager> &manager)
+    {
+        manager = std::make_unique<FakeManager>(conn);
+        return conn.registerVirtualObject(FakeManager::Path, manager.get(), QDBusConnection::SubPath)
+            && conn.registerService(FakeManager::Service);
+    }
+
+    QDBusConnection menuSystem()
+    {
+        return QDBusConnection::connectToBus(m_sys->address(), u"menu-system"_s);
+    }
+
+    void wireMenu()
+    {
+        m_sys = std::make_unique<Harness>();
+        QVERIFY(m_sys->startBus());
+        QVERIFY(startManager(QDBusConnection::connectToBus(m_sys->address(), u"menu-systemd"_s), m_systemd));
+        QVERIFY(startManager(QDBusConnection::connectToBus(m_h.address(), u"menu-userd"_s), m_userd));
+        m_auth = std::make_unique<Auth>(bus(u"other"_s), m_h.path(u"proc"_s));
+        m_menu = std::make_unique<SessionMenu>(*m_auth, bus(u"session"_s), menuSystem());
+        QObject::connect(m_menu.get(), &SessionMenu::requested, m_overlay.get(), &Overlay::showMenu);
+        m_overlay->setSessionMenu(m_menu.get());
+        m_overlay->setMenuTimeouts(20000, 100);
+    }
+
+    void startMenu()
+    {
+        wireMenu();
+        QVERIFY(m_menu->publish(bus(u"session"_s)));
+    }
+
+    static QList<SessionMenuRow> menuRows()
+    {
+        return {
+            {u"steam"_s, u"Steam OS"_s, {{u"state"_s, u"available"_s}}},
+            {u"microdap"_s, u"Micro DAP"_s, {{u"state"_s, u"refused"_s}}},
+            {u"microemu"_s, u"Micro EMU"_s, {{u"state"_s, u"not-installed"_s}, {u"install"_s, true}}},
+            {u"desktop"_s, u"Desktop"_s, {}},
+            {u"android"_s, u"Android"_s, {{u"state"_s, u"not-installed"_s}, {u"install"_s, false}}},
+        };
+    }
+
+    QDBusMessage show(const QList<SessionMenuRow> &rows, const QString &current = {}, const QVariantMap &hints = {})
+    {
+        QDBusMessage message = QDBusMessage::createMethodCall(SessionMenu::service(), SessionMenu::path(),
+                                                              SessionMenu::interface(), u"Show"_s);
+        message.setArguments({QVariant::fromValue(rows), current, hints});
+        const QDBusPendingCall pending = bus(u"caller"_s).asyncCall(message);
+        if (!QTest::qWaitFor([&pending] { return pending.isFinished(); }, 5000))
+            return {};
+        return pending.reply();
+    }
+
+    void menuOn(const QVariantMap &hints = {{u"in-game"_s, true}})
+    {
+        QCOMPARE(show(menuRows(), u"steam"_s, hints).type(), QDBusMessage::ReplyMessage);
+        QTRY_VERIFY(m_overlay->menuOpen());
+        QTRY_COMPARE(m_arbiter->holder(), ours());
+        QTRY_COMPARE(m_pad->holder(), ours());
+    }
+
+    void padInput(const QString &name, double value)
+    {
+        QVERIFY(QMetaObject::invokeMethod(m_pad.get(), "onInputEvent", Qt::DirectConnection, Q_ARG(QString, name),
+                                          Q_ARG(double, value)));
+    }
+
+    void menuLeaving()
+    {
+        menuOn();
+        m_systemd->hold = true;
+        padInput(u"ui_accept"_s, 1.0);
+        m_overlay->menuAccept(3);
+        QTRY_COMPARE(m_systemd->units, QStringList{u"microos-session-switch@desktop.service"_s});
+        padInput(u"ui_accept"_s, 0.0);
+        m_systemd->answer(m_systemd->held.takeFirst());
+        QTRY_VERIFY(m_overlay->menuLeaving());
+    }
+
 private slots:
     void initTestCase()
     {
@@ -260,6 +347,7 @@ private slots:
         startArbiter();
         m_logind = std::make_unique<FakeLogind>(m_h.address());
         QVERIFY(m_logind->start());
+        m_h.writeCgroup(QCoreApplication::applicationPid(), Harness::UserCgroup);
         m_events.clear();
         m_window = std::make_unique<QQuickWindow>();
         m_window->resize(960, 640);
@@ -287,14 +375,24 @@ private slots:
     void cleanup()
     {
         m_overlay.reset();
+        m_menu.reset();
+        m_auth.reset();
         m_sleep.reset();
         m_pad.reset();
         m_window.reset();
         m_toast.reset();
         QDBusConnection::disconnectFromBus(u"pad-session"_s);
         QDBusConnection::disconnectFromBus(u"pad-system"_s);
+        QDBusConnection::disconnectFromBus(u"session"_s);
+        QDBusConnection::disconnectFromBus(u"menu-system"_s);
+        QDBusConnection::disconnectFromBus(u"menu-systemd"_s);
+        QDBusConnection::disconnectFromBus(u"menu-userd"_s);
+        QDBusConnection::disconnectFromBus(u"squatter"_s);
         QDBusConnection::disconnectFromBus(u"other"_s);
         QVERIFY(bus(u"other"_s).isConnected());
+        m_systemd.reset();
+        m_userd.reset();
+        m_sys.reset();
         m_logind.reset();
         stopArbiter();
     }
@@ -899,6 +997,479 @@ private slots:
         off->setGame(ok);
         QCOMPARE(rowOf(off->groups(0), u"game-profile"_s).value(u"value"_s).toString(), u"off"_s);
         qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void menuItemsAndNotes()
+    {
+        startMenu();
+        menuOn();
+        QCOMPARE(m_overlay->menuItems(),
+                 (QStringList{u"Steam OS"_s, u"Micro DAP"_s, u"Micro EMU"_s, u"Desktop"_s, u"Android"_s}));
+        QCOMPARE(m_overlay->menuCurrent(), 0);
+        QCOMPARE(m_overlay->menuNotes(),
+                 (QStringList{QString(), u"not reviewed"_s, u"not installed, a to install"_s, u"closes the game"_s,
+                              u"not installed"_s}));
+        QVERIFY(m_overlay->menuOnly());
+        QVERIFY(m_overlay->shown());
+    }
+
+    void menuNotesWithoutGame()
+    {
+        startMenu();
+        menuOn({});
+        QCOMPARE(m_overlay->menuNotes().at(3), QString());
+        QCOMPARE(m_overlay->menuNotes().at(2), u"not installed, a to install"_s);
+    }
+
+    void menuSecondShowCloses()
+    {
+        startMenu();
+        menuOn();
+        QCOMPARE(show(menuRows(), u"steam"_s).type(), QDBusMessage::ReplyMessage);
+        QTRY_VERIFY(!m_overlay->menuOpen());
+        QTRY_VERIFY(!m_overlay->shown());
+    }
+
+    void menuToggleAfterMenuOnly()
+    {
+        startMenu();
+        menuOn();
+        QVERIFY(m_overlay->menuOnly());
+        m_overlay->menuClose();
+        QTRY_VERIFY(!m_overlay->shown());
+        QTRY_VERIFY(!m_overlay->menuOnly());
+        m_overlay->toggle();
+        QVERIFY(m_overlay->shown());
+        QVERIFY(!m_overlay->menuOnly());
+        QTRY_VERIFY(windowUp());
+        QTRY_COMPARE(m_overlay->opacity(), 1.0);
+    }
+
+    void menuCloseWithoutPressHides()
+    {
+        startMenu();
+        menuOn();
+        m_overlay->menuClose();
+        QTRY_VERIFY(!m_overlay->shown());
+        QVERIFY(!m_overlay->menuOpen());
+        QTRY_VERIFY(!m_overlay->menuOnly());
+    }
+
+    void menuAcceptCurrentWithoutPressHides()
+    {
+        startMenu();
+        menuOn();
+        m_overlay->menuAccept(0);
+        QTRY_VERIFY(!m_overlay->shown());
+        QVERIFY(!m_overlay->menuOpen());
+    }
+
+    void menuBackHidesOnRelease()
+    {
+        startMenu();
+        menuOn();
+        padInput(u"ui_back"_s, 1.0);
+        m_overlay->menuClose();
+        QVERIFY(!m_overlay->menuOpen());
+        QVERIFY(m_overlay->shown());
+        padInput(u"ui_back"_s, 0.0);
+        QTRY_VERIFY(!m_overlay->shown());
+        QTRY_VERIFY(!m_window->handle());
+    }
+
+    void menuBackOverPageReturnsToPage()
+    {
+        startMenu();
+        showSettled();
+        menuOn();
+        QVERIFY(!m_overlay->menuOnly());
+        padInput(u"ui_back"_s, 1.0);
+        m_overlay->menuClose();
+        QVERIFY(!m_overlay->menuOpen());
+        padInput(u"ui_back"_s, 0.0);
+        QTest::qWait(100);
+        QVERIFY(m_overlay->shown());
+        QVERIFY(windowUp());
+    }
+
+    void menuBuriedRaises()
+    {
+        startMenu();
+        showSettled();
+        call(u"other"_s, u"Acquire"_s);
+        QTRY_VERIFY(m_overlay->buried());
+        QTRY_VERIFY(!m_window->handle());
+        menuOn();
+        QVERIFY(m_overlay->menuOpen());
+        QTRY_COMPARE(m_arbiter->holder(), ours());
+        QTRY_VERIFY(windowUp());
+        QVERIFY(!m_overlay->menuOnly());
+    }
+
+    void menuDuringFadeReverses()
+    {
+        startMenu();
+        showSettled();
+        m_overlay->hide();
+        QCOMPARE(show(menuRows(), u"steam"_s, {{u"in-game"_s, true}}).type(), QDBusMessage::ReplyMessage);
+        QTRY_VERIFY(m_overlay->menuOpen());
+        QTRY_COMPARE(m_overlay->opacity(), 1.0);
+        QVERIFY(windowUp());
+        QVERIFY(!m_overlay->menuOnly());
+        QCOMPARE(m_overlay->created(), 1);
+        QCOMPARE(m_overlay->destroyed(), 0);
+    }
+
+    void menuAcceptCurrentHidesOnRelease()
+    {
+        startMenu();
+        menuOn();
+        padInput(u"ui_accept"_s, 1.0);
+        m_overlay->menuAccept(0);
+        QVERIFY(!m_overlay->menuOpen());
+        padInput(u"ui_accept"_s, 0.0);
+        QTRY_VERIFY(!m_overlay->shown());
+    }
+
+    void menuAcceptCurrentOverPageStays()
+    {
+        startMenu();
+        showSettled();
+        menuOn();
+        padInput(u"ui_accept"_s, 1.0);
+        m_overlay->menuAccept(0);
+        QVERIFY(!m_overlay->menuOpen());
+        padInput(u"ui_accept"_s, 0.0);
+        QTest::qWait(100);
+        QVERIFY(m_overlay->shown());
+    }
+
+    void menuInstallHidesOverPage()
+    {
+        startMenu();
+        showSettled();
+        menuOn();
+        QVERIFY(!m_overlay->menuOnly());
+        padInput(u"ui_accept"_s, 1.0);
+        m_overlay->menuAccept(2);
+        QTRY_COMPARE(m_userd->units, QStringList{u"microos-session-install@microemu.service"_s});
+        QTRY_VERIFY(!m_overlay->menuOpen());
+        QVERIFY(m_overlay->shown());
+        padInput(u"ui_accept"_s, 0.0);
+        QTRY_VERIFY(!m_overlay->shown());
+        QTRY_VERIFY(!m_window->handle());
+    }
+
+    void menuInstallStartsUserUnit()
+    {
+        startMenu();
+        menuOn();
+        padInput(u"ui_accept"_s, 1.0);
+        m_overlay->menuAccept(2);
+        QTRY_COMPARE(m_userd->units, QStringList{u"microos-session-install@microemu.service"_s});
+        QCOMPARE(m_userd->modes, QStringList{u"replace"_s});
+        QCOMPARE(m_userd->calls, QStringList{u"StartUnit"_s});
+        QVERIFY(m_systemd->calls.isEmpty());
+        QTRY_VERIFY(!m_overlay->menuOpen());
+        QVERIFY(m_overlay->shown());
+        padInput(u"ui_accept"_s, 0.0);
+        QTRY_VERIFY(!m_overlay->shown());
+    }
+
+    void menuInstallHoldsInput()
+    {
+        startMenu();
+        menuOn();
+        m_userd->hold = true;
+        padInput(u"ui_accept"_s, 1.0);
+        m_overlay->menuAccept(2);
+        QTRY_COMPARE(m_userd->units, QStringList{u"microos-session-install@microemu.service"_s});
+        m_overlay->menuAccept(3);
+        m_overlay->menuClose();
+        QTest::qWait(100);
+        QCOMPARE(m_userd->units.size(), 1);
+        QVERIFY(m_systemd->units.isEmpty());
+        QVERIFY(m_overlay->menuOpen());
+        QVERIFY(m_overlay->shown());
+        padInput(u"ui_accept"_s, 0.0);
+        m_userd->answer(m_userd->held.takeFirst());
+        QTRY_VERIFY(!m_overlay->shown());
+    }
+
+    void menuInstallFailureToasts()
+    {
+        startMenu();
+        menuOn();
+        m_userd->fail = true;
+        QSignalSpy toasts(m_overlay.get(), &Overlay::menuToast);
+        padInput(u"ui_accept"_s, 1.0);
+        m_overlay->menuAccept(2);
+        QTRY_COMPARE(toasts.count(), 1);
+        QCOMPARE(toasts.at(0).at(0).toString(), u"install failed"_s);
+        QVERIFY(m_overlay->menuOpen());
+        padInput(u"ui_accept"_s, 0.0);
+        QTest::qWait(100);
+        QVERIFY(m_overlay->shown());
+    }
+
+    void menuRefusedAndNoInstallDoNothing()
+    {
+        startMenu();
+        menuOn();
+        m_overlay->menuAccept(1);
+        m_overlay->menuAccept(4);
+        QTest::qWait(100);
+        QVERIFY(m_systemd->calls.isEmpty());
+        QVERIFY(m_userd->calls.isEmpty());
+        QVERIFY(m_overlay->menuOpen());
+        QVERIFY(m_overlay->shown());
+    }
+
+    void menuSwitchStartsUnitAndLeaves()
+    {
+        startMenu();
+        menuOn();
+        m_systemd->hold = true;
+        padInput(u"ui_accept"_s, 1.0);
+        m_overlay->menuAccept(3);
+        QTRY_COMPARE(m_systemd->calls, (QStringList{u"Subscribe"_s, u"StartUnit"_s}));
+        QCOMPARE(m_systemd->units, QStringList{u"microos-session-switch@desktop.service"_s});
+        QCOMPARE(m_systemd->modes, QStringList{u"replace"_s});
+        QVERIFY(m_userd->calls.isEmpty());
+        m_overlay->menuAccept(1);
+        m_overlay->menuClose();
+        QTest::qWait(100);
+        QCOMPARE(m_systemd->units.size(), 1);
+        QVERIFY(m_overlay->menuOpen());
+        padInput(u"ui_accept"_s, 0.0);
+        QVERIFY(m_overlay->shown());
+        m_systemd->answer(m_systemd->held.takeFirst());
+        QTRY_VERIFY(m_overlay->menuLeaving());
+        QVERIFY(!m_overlay->menuOpen());
+        QVERIFY(m_overlay->shown());
+        QVERIFY(windowUp());
+    }
+
+    void menuSwitchReleaseKeepsLeaving()
+    {
+        startMenu();
+        menuOn();
+        m_systemd->hold = true;
+        padInput(u"ui_accept"_s, 1.0);
+        m_overlay->menuAccept(3);
+        QTRY_COMPARE(m_systemd->units, QStringList{u"microos-session-switch@desktop.service"_s});
+        m_systemd->answer(m_systemd->held.takeFirst());
+        QTRY_VERIFY(m_overlay->menuLeaving());
+        QVERIFY(m_overlay->shown());
+        padInput(u"ui_accept"_s, 0.0);
+        QTest::qWait(100);
+        QVERIFY(m_overlay->menuLeaving());
+        QVERIFY(m_overlay->shown());
+        QVERIFY(windowUp());
+    }
+
+    void menuBusyIgnoresShow()
+    {
+        startMenu();
+        menuOn();
+        m_systemd->hold = true;
+        padInput(u"ui_accept"_s, 1.0);
+        m_overlay->menuAccept(3);
+        QTRY_COMPARE(m_systemd->units, QStringList{u"microos-session-switch@desktop.service"_s});
+        QCOMPARE(show(menuRows(), u"steam"_s).type(), QDBusMessage::ReplyMessage);
+        QTest::qWait(100);
+        QVERIFY(m_overlay->menuOpen());
+        QVERIFY(!m_overlay->menuLeaving());
+        QCOMPARE(m_systemd->units.size(), 1);
+        padInput(u"ui_accept"_s, 0.0);
+        m_systemd->answer(m_systemd->held.takeFirst());
+        QTRY_VERIFY(m_overlay->menuLeaving());
+    }
+
+    void menuSecondShowBuriedRaises()
+    {
+        startMenu();
+        menuOn();
+        call(u"other"_s, u"Acquire"_s);
+        QTRY_VERIFY(m_overlay->buried());
+        QTRY_VERIFY(!m_window->handle());
+        QCOMPARE(show(menuRows(), u"steam"_s).type(), QDBusMessage::ReplyMessage);
+        QVERIFY(m_overlay->menuOpen());
+        QTRY_COMPARE(m_arbiter->holder(), ours());
+        QTRY_VERIFY(windowUp());
+    }
+
+    void menuSwitchingWhileOpenDoesNothing()
+    {
+        startMenu();
+        menuOn();
+        QCOMPARE(show(menuRows(), {}, {{u"switching"_s, true}}).type(), QDBusMessage::ReplyMessage);
+        QTest::qWait(100);
+        QVERIFY(m_overlay->menuOpen());
+        QVERIFY(m_overlay->shown());
+        QVERIFY(!m_overlay->menuLeaving());
+    }
+
+    void menuArbiterLossResets()
+    {
+        startMenu();
+        menuOn();
+        call(u"other"_s, u"Acquire"_s);
+        QTRY_VERIFY(m_overlay->buried());
+        QTRY_VERIFY(!m_window->handle());
+        stopArbiter();
+        QTRY_VERIFY(!m_overlay->shown());
+        QVERIFY(!m_overlay->menuOpen());
+        QTRY_VERIFY(!m_overlay->menuOnly());
+        startArbiter();
+    }
+
+    void menuSwitchFailureToasts()
+    {
+        startMenu();
+        menuOn();
+        m_systemd->fail = true;
+        QSignalSpy toasts(m_overlay.get(), &Overlay::menuToast);
+        padInput(u"ui_accept"_s, 1.0);
+        m_overlay->menuAccept(3);
+        QTRY_COMPARE(toasts.count(), 1);
+        QCOMPARE(toasts.at(0).at(0).toString(), u"switch failed"_s);
+        QVERIFY(m_overlay->menuOpen());
+        QVERIFY(!m_overlay->menuLeaving());
+        padInput(u"ui_accept"_s, 0.0);
+        QTest::qWait(100);
+        QVERIFY(m_overlay->shown());
+    }
+
+    void menuJobRemovedFailedHides()
+    {
+        startMenu();
+        QSignalSpy toasts(m_overlay.get(), &Overlay::menuToast);
+        menuLeaving();
+        m_systemd->removed(m_systemd->job, u"microos-session-switch@desktop.service"_s, u"failed"_s);
+        QTRY_COMPARE(toasts.count(), 1);
+        QCOMPARE(toasts.at(0).at(0).toString(), u"switch failed"_s);
+        QTRY_VERIFY(!m_overlay->shown());
+        QVERIFY(!m_overlay->menuLeaving());
+    }
+
+    void menuJobRemovedDoneStays()
+    {
+        startMenu();
+        QSignalSpy toasts(m_overlay.get(), &Overlay::menuToast);
+        menuLeaving();
+        m_systemd->removed(m_systemd->job, u"microos-session-switch@desktop.service"_s, u"done"_s);
+        QTest::qWait(300);
+        QCOMPARE(toasts.count(), 0);
+        QVERIFY(m_overlay->menuLeaving());
+        QVERIFY(m_overlay->shown());
+    }
+
+    void menuSwitchStillRunningHides()
+    {
+        startMenu();
+        m_overlay->setMenuTimeouts(300, 100);
+        QTest::ignoreMessage(QtInfoMsg,
+                             QRegularExpression(u"microset overlay: session menu: switch still running"_s));
+        menuLeaving();
+        QTRY_VERIFY(!m_overlay->shown());
+        QVERIFY(!m_overlay->menuLeaving());
+    }
+
+    void menuLeavingBackHides()
+    {
+        startMenu();
+        menuLeaving();
+        padInput(u"ui_back"_s, 1.0);
+        QTRY_VERIFY(!m_overlay->shown());
+        padInput(u"ui_back"_s, 0.0);
+    }
+
+    void menuLeavingToggleHides()
+    {
+        startMenu();
+        menuLeaving();
+        m_overlay->toggle();
+        QVERIFY(!m_overlay->shown());
+    }
+
+    void menuLeavingShowSwitchingHides()
+    {
+        startMenu();
+        menuLeaving();
+        QCOMPARE(show(menuRows(), {}, {{u"switching"_s, true}}).type(), QDBusMessage::ReplyMessage);
+        QTRY_VERIFY(!m_overlay->shown());
+    }
+
+    void menuSwitchingDoesNothing()
+    {
+        startMenu();
+        QTest::ignoreMessage(QtInfoMsg,
+                             QRegularExpression(u"microset overlay: session menu: switch already running"_s));
+        QCOMPARE(show(menuRows(), {}, {{u"switching"_s, true}}).type(), QDBusMessage::ReplyMessage);
+        QTest::qWait(100);
+        QVERIFY(!m_overlay->shown());
+        m_overlay->toggle();
+        QVERIFY(m_overlay->shown());
+    }
+
+    void menuHolderLossRestores()
+    {
+        startMenu();
+        menuOn();
+        call(u"other"_s, u"Acquire"_s);
+        QTRY_VERIFY(m_overlay->buried());
+        QTRY_VERIFY(!m_window->handle());
+        QVERIFY(m_overlay->menuOpen());
+        QVERIFY(m_overlay->shown());
+        call(u"other"_s, u"Release"_s);
+        QTRY_VERIFY(windowUp());
+        QVERIFY(m_overlay->menuOpen());
+    }
+
+    void menuSleepResets()
+    {
+        startMenu();
+        menuOn();
+        m_logind->prepareForSleep(true);
+        QTRY_VERIFY(!m_overlay->menuOpen());
+        QTRY_VERIFY(!m_overlay->shown());
+        QVERIFY(!m_window->handle());
+        m_logind->prepareForSleep(false);
+        QTRY_COMPARE(m_logind->open(), 1);
+    }
+
+    void menuReleaseArmClearedByHolderLoss()
+    {
+        startMenu();
+        menuOn();
+        padInput(u"ui_back"_s, 1.0);
+        m_overlay->menuClose();
+        QVERIFY(!m_overlay->menuOpen());
+        call(u"other"_s, u"Acquire"_s);
+        QTRY_VERIFY(m_overlay->buried());
+        QTest::qWait(200);
+        QVERIFY(m_overlay->shown());
+        call(u"other"_s, u"Release"_s);
+        QTRY_VERIFY(windowUp());
+    }
+
+    void menuSquatterKeepsRunning()
+    {
+        QDBusConnection squatter = bus(u"squatter"_s);
+        QVERIFY(squatter.registerService(SessionMenu::service()));
+        wireMenu();
+        QTest::ignoreMessage(QtInfoMsg, "microset overlay: session menu name queued");
+        QVERIFY(m_menu->publish(bus(u"session"_s)));
+        m_overlay->toggle();
+        QVERIFY(m_overlay->shown());
+        m_overlay->toggle();
+        QVERIFY(!m_overlay->shown());
+        QVERIFY(squatter.unregisterService(SessionMenu::service()));
+        QTRY_COMPARE(bus(u"session"_s).interface()->serviceOwner(SessionMenu::service()).value(),
+                     bus(u"session"_s).baseService());
+        menuOn();
+        QVERIFY(m_overlay->menuOpen());
     }
 
 public slots:

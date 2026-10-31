@@ -8,8 +8,9 @@
 #include <QElapsedTimer>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
-#include <QScopeGuard>
+#include <QQuickItem>
 #include <QQuickWindow>
+#include <QScopeGuard>
 #include <QRegularExpression>
 #include <QTest>
 #include <QtQml/qqmlextensionplugin.h>
@@ -32,6 +33,13 @@ class FakeOverlay : public QObject
     Q_PROPERTY(bool hint READ hint NOTIFY hintChanged)
     Q_PROPERTY(QString hintDevice READ hintDevice CONSTANT)
     Q_PROPERTY(QString hintKind READ hintKind NOTIFY hintChanged)
+    Q_PROPERTY(bool menuOpen READ menuOpen NOTIFY menuStateChanged)
+    Q_PROPERTY(bool menuLeaving READ menuLeaving NOTIFY menuStateChanged)
+    Q_PROPERTY(bool menuOnly READ menuOnly NOTIFY menuStateChanged)
+    Q_PROPERTY(bool menuBusy READ menuBusy NOTIFY menuCallChanged)
+    Q_PROPERTY(QStringList menuItems READ menuItems NOTIFY menuChanged)
+    Q_PROPERTY(int menuCurrent READ menuCurrent NOTIFY menuChanged)
+    Q_PROPERTY(QStringList menuNotes READ menuNotes NOTIFY menuChanged)
 
 public:
     bool shown() const { return m_shown; }
@@ -46,27 +54,88 @@ public:
     bool hint() const { return m_hint; }
     QString hintDevice() const { return u"/dev/mmcblk0"_s; }
     QString hintKind() const { return m_kind; }
+    bool menuOpen() const { return m_menuOpen; }
+    bool menuLeaving() const { return m_menuLeaving; }
+    bool menuOnly() const { return m_menuOnly; }
+    bool menuBusy() const { return m_menuBusy; }
+    QStringList menuItems() const { return m_items; }
+    int menuCurrent() const { return m_current; }
+    QStringList menuNotes() const { return m_notes; }
     void setHint(bool hint, const QString &kind = u"format"_s)
     {
         m_hint = hint;
         m_kind = kind;
         emit hintChanged();
     }
+    void openMenu(const QStringList &items, int current, const QStringList &notes, bool only = true)
+    {
+        m_items = items;
+        m_notes = notes;
+        m_current = current;
+        m_menuOnly = only;
+        m_menuLeaving = false;
+        emit menuChanged();
+        m_menuOpen = true;
+        emit menuStateChanged();
+    }
+    void leaveMenu()
+    {
+        m_menuOpen = false;
+        m_menuLeaving = true;
+        emit menuStateChanged();
+    }
+    void resetMenu()
+    {
+        m_menuOpen = false;
+        m_menuLeaving = false;
+        m_menuOnly = false;
+        emit menuStateChanged();
+    }
+    void setMenuBusy(bool busy)
+    {
+        m_menuBusy = busy;
+        emit menuCallChanged();
+    }
+    Q_INVOKABLE void menuAccept(int index)
+    {
+        ++accepts;
+        accepted = index;
+    }
+    Q_INVOKABLE void menuClose()
+    {
+        ++closes;
+        m_menuOpen = false;
+        emit menuStateChanged();
+    }
     Q_INVOKABLE void hide() { ++hides; }
     Q_INVOKABLE void hintDone() {}
 
     int hides = 0;
+    int accepts = 0;
+    int accepted = -1;
+    int closes = 0;
 
 signals:
     void shownChanged();
     void pageHint();
     void hintShownChanged();
     void hintChanged();
+    void menuStateChanged();
+    void menuCallChanged();
+    void menuChanged();
+    void menuToast(const QString &);
 
 private:
     bool m_shown = true;
     bool m_hint = false;
+    bool m_menuOpen = false;
+    bool m_menuLeaving = false;
+    bool m_menuOnly = false;
+    bool m_menuBusy = false;
     QString m_kind;
+    QStringList m_items;
+    QStringList m_notes;
+    int m_current = -1;
 };
 
 class FakePad : public QObject
@@ -430,6 +499,196 @@ private slots:
         m_pad->setHolding(true);
         m_pad->tap(FakePad::B);
         QCOMPARE(m_overlay->hides, 2);
+    }
+
+    void menuItemsMarkFocusAndNotes()
+    {
+        const QStringList items{u"Steam OS"_s, u"Micro DAP"_s, u"Micro EMU"_s, u"Desktop"_s, u"Android"_s};
+        const QStringList notes{QString(), u"not reviewed"_s, u"not installed, a to install"_s, u"closes the game"_s,
+                                u"not installed"_s};
+        m_overlay->openMenu(items, 0, notes);
+        QObject *sheet = m_window->findChild<QObject *>(u"menuSheet"_s);
+        QVERIFY(sheet);
+        QTRY_VERIFY(sheet->property("shown").toBool());
+        QCOMPARE(sheet->property("title").toString(), u"switch to"_s);
+        QCOMPARE(sheet->property("items").toStringList(), items);
+        QCOMPARE(sheet->property("mark").toInt(), 0);
+        QCOMPARE(sheet->property("focusIndex").toInt(), 0);
+        QVERIFY(sheet->property("wrap").toBool());
+        QCOMPARE(sheet->property("lead").toString(), QString());
+        QVERIFY(sheet->property("keepLead").toBool());
+        m_pad->tap(FakePad::Down);
+        QTRY_COMPARE(sheet->property("focusIndex").toInt(), 1);
+        QCOMPARE(sheet->property("lead").toString(), u"not reviewed"_s);
+        for (int i = 0; i < 3; ++i)
+            m_pad->tap(FakePad::Down);
+        QTRY_COMPARE(sheet->property("focusIndex").toInt(), 4);
+        QCOMPARE(sheet->property("lead").toString(), u"not installed"_s);
+        m_pad->tap(FakePad::Down);
+        QTRY_COMPARE(sheet->property("focusIndex").toInt(), 0);
+        QCOMPARE(sheet->property("lead").toString(), QString());
+        m_pad->tap(FakePad::Up);
+        QTRY_COMPARE(sheet->property("focusIndex").toInt(), 4);
+        QCOMPARE(sheet->property("lead").toString(), u"not installed"_s);
+    }
+
+    void menuMarkOnCurrent()
+    {
+        const QStringList items{u"Steam OS"_s, u"Micro EMU"_s, u"Desktop"_s};
+        const QStringList notes{QString(), u"not installed, a to install"_s, u"closes the game"_s};
+        m_overlay->openMenu(items, 1, notes);
+        QObject *sheet = m_window->findChild<QObject *>(u"menuSheet"_s);
+        QVERIFY(sheet);
+        QTRY_VERIFY(sheet->property("shown").toBool());
+        QCOMPARE(sheet->property("mark").toInt(), 1);
+        QCOMPARE(sheet->property("focusIndex").toInt(), 1);
+        QCOMPARE(sheet->property("lead").toString(), u"not installed, a to install"_s);
+    }
+
+    void menuAcceptThroughRouter()
+    {
+        m_overlay->openMenu({u"Steam OS"_s, u"Micro DAP"_s}, 0, {QString(), QString()});
+        m_pad->tap(FakePad::A);
+        QTRY_COMPARE(m_overlay->accepts, 1);
+        QCOMPARE(m_overlay->accepted, 0);
+        QCOMPARE(m_overlay->closes, 0);
+    }
+
+    void menuBackClosesSheet()
+    {
+        m_overlay->openMenu({u"Steam OS"_s, u"Micro DAP"_s}, 0, {QString(), QString()});
+        QObject *sheet = m_window->findChild<QObject *>(u"menuSheet"_s);
+        QVERIFY(sheet);
+        QTRY_VERIFY(sheet->property("shown").toBool());
+        m_pad->tap(FakePad::B);
+        QTRY_COMPARE(m_overlay->closes, 1);
+        QTRY_VERIFY(!sheet->property("shown").toBool());
+        QCOMPARE(m_overlay->accepts, 0);
+    }
+
+    void menuAcceptIgnoredWhileHint()
+    {
+        m_overlay->setHint(true);
+        m_overlay->openMenu({u"Steam OS"_s, u"Micro DAP"_s}, 0, {QString(), QString()});
+        QTest::qWait(50);
+        m_pad->tap(FakePad::A);
+        QTest::qWait(100);
+        QCOMPARE(m_overlay->accepts, 0);
+        m_overlay->setHint(false);
+        m_pad->tap(FakePad::A);
+        QTRY_COMPARE(m_overlay->accepts, 1);
+    }
+
+    void menuInputIgnoredWhileBusy()
+    {
+        m_overlay->openMenu({u"Steam OS"_s, u"Micro DAP"_s}, 0, {QString(), QString()});
+        m_overlay->setMenuBusy(true);
+        QTest::qWait(50);
+        m_pad->tap(FakePad::A);
+        m_pad->tap(FakePad::B);
+        QTest::qWait(100);
+        QCOMPARE(m_overlay->accepts, 0);
+        QCOMPARE(m_overlay->closes, 0);
+        m_overlay->setMenuBusy(false);
+        m_pad->tap(FakePad::A);
+        QTRY_COMPARE(m_overlay->accepts, 1);
+    }
+
+    void menuCancelsValueSheet()
+    {
+        QVERIFY(QMetaObject::invokeMethod(m_view, "open", Q_ARG(QString, u"audio"_s)));
+        int index = -1;
+        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index),
+                                          Q_ARG(QString, u"audio.volume_step"_s)));
+        page()->setProperty("focusIndex", index);
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QVERIFY(page()->property("valueOpen").toBool());
+        m_overlay->openMenu({u"Steam OS"_s}, 0, {QString()});
+        QTRY_VERIFY(!page()->property("valueOpen").toBool());
+        QCOMPARE(m_overlay->hides, 0);
+    }
+
+    void menuOnlyTogglesStackVisibility()
+    {
+        QObject *stack = qvariant_cast<QObject *>(m_view->property("stack"));
+        QVERIFY(stack);
+        QVERIFY(stack->property("visible").toBool());
+        m_overlay->openMenu({u"Steam OS"_s}, 0, {QString()});
+        QTRY_VERIFY(!stack->property("visible").toBool());
+        m_overlay->leaveMenu();
+        QTRY_VERIFY(!stack->property("visible").toBool());
+        m_overlay->resetMenu();
+        QTRY_VERIFY(stack->property("visible").toBool());
+        m_overlay->openMenu({u"Steam OS"_s}, 0, {QString()}, false);
+        QTRY_VERIFY(stack->property("visible").toBool());
+    }
+
+    void menuToastHoldMatchesMotion()
+    {
+        QObject *motion = m_engine->singletonInstance<QObject *>(u"MicroSet"_s, u"Motion"_s);
+        QVERIFY(motion);
+        QCOMPARE(motion->property("toastHold").toInt(), Overlay::MenuToastMs);
+    }
+
+    void menuArmHidesThroughRouter()
+    {
+        cleanup();
+        m_model = std::make_unique<SettingsModel>();
+        m_model->setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {});
+        DbusPad pad(QDBusConnection(u"none"_s), QDBusConnection(u"none"_s), nullptr, false);
+        Overlay overlay(&pad, nullptr);
+        const auto engineFirst = qScopeGuard([this] { m_engine.reset(); });
+        QQuickWindow *root = nullptr;
+        overlay.setUi([&] {
+            if (m_engine)
+                return;
+            m_engine = std::make_unique<QQmlApplicationEngine>();
+            m_engine->setInitialProperties({
+                {u"overlay"_s, QVariant::fromValue(static_cast<QObject *>(&overlay))},
+                {u"model"_s, QVariant::fromValue(static_cast<QObject *>(m_model.get()))},
+                {u"pad"_s, QVariant::fromValue(static_cast<QObject *>(&pad))},
+            });
+            m_engine->loadFromModule("MicroSetOverlay", "Overlay");
+            root = qobject_cast<QQuickWindow *>(m_engine->rootObjects().value(0));
+            QVERIFY(root);
+            overlay.setWindow(root);
+            overlay.setToastWindow(qvariant_cast<QWindow *>(root->property("toastWindow")));
+        });
+        const QList<SessionMenuEntry> entries{{u"steam"_s, u"Steam OS"_s, u"available"_s, false},
+                                               {u"desktop"_s, u"Desktop"_s, u"available"_s, false}};
+        overlay.showMenu(entries, u"steam"_s, false, false);
+        QVERIFY(root);
+        QVERIFY(overlay.shown());
+        QVERIFY(overlay.menuOnly());
+        QObject *sheet = root->findChild<QObject *>(u"menuSheet"_s);
+        QVERIFY(sheet);
+        QTRY_VERIFY(sheet->property("shown").toBool());
+        emit pad.pressed(DbusPad::B);
+        emit pad.action(DbusPad::B, false);
+        QTRY_VERIFY(!overlay.menuOpen());
+        QVERIFY(overlay.shown());
+        emit pad.released(DbusPad::B);
+        QTRY_VERIFY(!overlay.shown());
+        QTRY_VERIFY(!root->isVisible());
+    }
+
+    void menuToastShowsAboveSheet()
+    {
+        m_overlay->openMenu({u"Steam OS"_s, u"Micro DAP"_s}, 0, {QString(), QString()});
+        QObject *sheet = m_window->findChild<QObject *>(u"menuSheet"_s);
+        QObject *toast = m_window->findChild<QObject *>(u"menuToast"_s);
+        QVERIFY(sheet);
+        QVERIFY(toast);
+        auto *sheetItem = qobject_cast<QQuickItem *>(sheet);
+        auto *toastItem = qobject_cast<QQuickItem *>(toast);
+        QVERIFY(sheetItem);
+        QVERIFY(toastItem);
+        QCOMPARE(sheetItem->parentItem(), toastItem->parentItem());
+        const QList<QQuickItem *> siblings = toastItem->parentItem()->childItems();
+        QVERIFY(siblings.indexOf(toastItem) > siblings.indexOf(sheetItem));
+        emit m_overlay->menuToast(u"switch failed"_s);
+        QTRY_COMPARE(toast->property("title").toString(), u"switch failed"_s);
+        QCOMPARE(toast->property("artist").toString(), QString());
     }
 };
 

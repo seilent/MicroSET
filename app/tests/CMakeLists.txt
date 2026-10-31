@@ -38,8 +38,9 @@ if(NOT MICROSET_TEST_FONT_DIR)
 endif()
 
 set(game_states game game-missing game-state game-yield game-other-tool game-gone game-native game-page)
-set(states_960x640 top audio hint-page hint sheet undervolt-after-sheet ${game_states})
-set(states_640x960 top audio portrait hint-page hint hint-portrait sheet sheet-portrait undervolt-after-sheet ${game_states})
+set(menu_states menu menu-game menu-not-installed menu-refused menu-page menu-toast leaving)
+set(states_960x640 top audio hint-page hint sheet undervolt-after-sheet ${game_states} ${menu_states})
+set(states_640x960 top audio portrait hint-page hint hint-portrait sheet sheet-portrait undervolt-after-sheet ${game_states} ${menu_states})
 foreach(size 960x640 640x960)
     foreach(state IN LISTS states_${size})
         add_test(NAME overlay-shot-${state}-${size}

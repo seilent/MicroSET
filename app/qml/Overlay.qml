@@ -68,6 +68,18 @@ Window {
         Ui.orientationActive = active
     }
 
+    function openMenu(): void {
+        const page = view.stack.currentItem
+        if (page !== null && page !== undefined && (page.valueOpen === true || page.editing === true)
+                && typeof page.handleAction === "function")
+            page.handleAction("b", false)
+        menuSheet.items = root.overlay.menuItems
+        menuSheet.open()
+        menuSheet.mark = root.overlay.menuCurrent
+        menuSheet.wrap = true
+        menuSheet.focusIndex = root.overlay.menuCurrent >= 0 ? root.overlay.menuCurrent : 0
+    }
+
     function applyShot(): void {
         if (root.shotState === "audio") {
             view.open("audio")
@@ -94,6 +106,19 @@ Window {
                 page.completeScroll()
                 page.flick.contentY = page.maxContentY()
             })
+        } else if (root.shotState === "menu-page") {
+            view.open("audio")
+            root.openMenu()
+        } else if (root.shotState === "menu" || root.shotState === "menu-game"
+                || root.shotState === "menu-not-installed" || root.shotState === "menu-refused"
+                || root.shotState === "menu-toast") {
+            root.openMenu()
+            if (root.shotState !== "menu")
+                menuSheet.focusIndex = 0
+            if (root.shotState === "menu-toast") {
+                menuToast.show("", "install failed")
+                menuToast.complete()
+            }
         } else if (root.shotState === "hint-page") {
             view.toast.show("", root.holdText)
             view.toast.complete()
@@ -147,11 +172,28 @@ Window {
         when: !root.screenshot
     }
 
+    Binding {
+        target: view.stack
+        property: "visible"
+        value: !root.overlay.menuOnly && !root.overlay.menuLeaving
+    }
+
     Connections {
         target: root.overlay
 
         function onPageHint() {
             view.toast.show("", root.holdText)
+        }
+
+        function onMenuStateChanged() {
+            if (root.overlay.menuOpen)
+                root.openMenu()
+            else if (menuSheet.shown)
+                menuSheet.close()
+        }
+
+        function onMenuToast(text) {
+            menuToast.show("", text)
         }
 
         function onShownChanged() {
@@ -192,13 +234,37 @@ Window {
             onHideRequested: root.overlay.hide()
         }
 
+        Sheet {
+            id: menuSheet
+
+            objectName: "menuSheet"
+            anchors.fill: parent
+            title: "switch to"
+            lead: root.overlay.menuNotes[menuSheet.focusIndex] === undefined ? ""
+                : root.overlay.menuNotes[menuSheet.focusIndex]
+            keepLead: root.overlay.menuNotes.some((note) => note !== "")
+            animated: !root.screenshot
+            onAccepted: (index) => root.overlay.menuAccept(index)
+            onRejected: root.overlay.menuClose()
+        }
+
+        Toast {
+            id: menuToast
+
+            objectName: "menuToast"
+            x: 0
+            y: 0
+            width: rotor.width
+        }
+
         PadRouter {
             id: router
 
             anchors.fill: parent
-            stack: view.stack
+            stack: root.overlay.menuLeaving ? null : view.stack
             pad: root.pad
-            ignored: root.overlay.hint ? ["a"] : []
+            modal: menuSheet
+            ignored: root.overlay.menuBusy ? ["a", "b", "start", "back"] : root.overlay.hint ? ["a"] : []
             focus: true
         }
     }

@@ -1,4 +1,5 @@
 #include "auth.h"
+#include "fakemanager.h"
 #include "harness.h"
 #include "sessionmenu.h"
 
@@ -6,9 +7,7 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
-#include <QDBusObjectPath>
 #include <QDBusPendingCall>
-#include <QDBusVirtualObject>
 #include <QRegularExpression>
 #include <QSignalSpy>
 #include <QTest>
@@ -16,62 +15,6 @@
 #include <memory>
 
 using namespace Qt::StringLiterals;
-
-class FakeManager : public QDBusVirtualObject
-{
-public:
-    static inline const QString Service = u"org.freedesktop.systemd1"_s;
-    static inline const QString Path = u"/org/freedesktop/systemd1"_s;
-    static inline const QString Manager = u"org.freedesktop.systemd1.Manager"_s;
-
-    explicit FakeManager(const QDBusConnection &bus)
-        : m_bus(bus)
-    {
-    }
-
-    QString introspect(const QString &) const override { return {}; }
-
-    bool handleMessage(const QDBusMessage &message, const QDBusConnection &connection) override
-    {
-        if (message.member() == u"Subscribe"_s) {
-            calls << u"Subscribe"_s;
-            connection.send(message.createReply());
-            return true;
-        }
-        if (message.member() != u"StartUnit"_s)
-            return false;
-        calls << u"StartUnit"_s;
-        units << message.arguments().value(0).toString();
-        modes << message.arguments().value(1).toString();
-        if (fail) {
-            connection.send(message.createErrorReply(u"org.freedesktop.DBus.Error.Failed"_s, u"failed"_s));
-            return true;
-        }
-        if (!earlyResult.isEmpty()) {
-            removed(job, units.last(), earlyResult);
-            earlyResult.clear();
-        }
-        connection.send(message.createReply(QVariant::fromValue(QDBusObjectPath(job))));
-        return true;
-    }
-
-    void removed(const QString &path, const QString &unit, const QString &result)
-    {
-        QDBusMessage signal = QDBusMessage::createSignal(Path, Manager, u"JobRemoved"_s);
-        signal << uint(1) << QVariant::fromValue(QDBusObjectPath(path)) << unit << result;
-        m_bus.send(signal);
-    }
-
-    QString job = u"/org/freedesktop/systemd1/job/4"_s;
-    QStringList calls;
-    QStringList units;
-    QStringList modes;
-    QString earlyResult;
-    bool fail = false;
-
-private:
-    QDBusConnection m_bus;
-};
 
 class SessionMenuTest : public QObject
 {

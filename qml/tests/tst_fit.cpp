@@ -4,8 +4,10 @@
 #include <QFont>
 #include <QFontInfo>
 #include <QQmlApplicationEngine>
+#include <QQmlComponent>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QScopedPointer>
 #include <QTest>
 #include <QtQml/qqmlextensionplugin.h>
 
@@ -164,6 +166,91 @@ private slots:
                                                     {u"app.292120.wine.sync"_s, u"ntsync"_s}};
         QTest::newRow("global values") << QVariantMap{{u"fex.preset"_s, u"compatibility"_s}, {u"wine.sync"_s, u"fsync"_s}};
         QTest::newRow("profile off") << QVariantMap{{u"app.292120.profile"_s, u"off"_s}, {u"proton.profiles"_s, u"off"_s}};
+    }
+
+    void menuTextsFitAt576()
+    {
+        QVERIFY(qEnvironmentVariableIsSet("MICROSET_FONT_DIR"));
+        SettingsModel model;
+        model.setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {});
+        QQmlApplicationEngine engine;
+        QObject *view = viewOf(engine, model);
+        QVERIFY(view);
+        auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
+        QVERIFY(window);
+
+        QQmlComponent sheetComponent(&engine);
+        sheetComponent.loadFromModule("MicroSet", "Sheet");
+        QVERIFY2(sheetComponent.isReady(), qPrintable(sheetComponent.errorString()));
+        QScopedPointer<QObject> sheet(sheetComponent.create());
+        QVERIFY(sheet);
+        auto *sheetItem = qobject_cast<QQuickItem *>(sheet.data());
+        QVERIFY(sheetItem);
+        sheetItem->setParentItem(window->contentItem());
+        sheetItem->setWidth(640);
+        sheetItem->setHeight(960);
+        sheet->setProperty("animated", false);
+        sheet->setProperty("title", u"switch to"_s);
+        sheet->setProperty("items", QStringList{u"Steam OS"_s, u"Micro DAP"_s, u"Micro EMU"_s, u"Desktop"_s,
+                                                u"Android"_s});
+        QVERIFY(QMetaObject::invokeMethod(sheet.data(), "open"));
+        QTest::qWait(50);
+        const qreal room = sheetItem->width() - 2 * sheet->property("edge").toReal();
+        QCOMPARE(room, 576.0);
+        QStringList misses;
+        auto *list = qvariant_cast<QQuickItem *>(sheet->property("list"));
+        QVERIFY(list);
+        int words = 0;
+        for (QQuickItem *delegate : list->childItems()) {
+            for (QQuickItem *text : delegate->childItems()) {
+                ++words;
+                if (text->implicitWidth() > room)
+                    misses << u"item %1 %2 > %3"_s.arg(text->property("text").toString(),
+                                                       QString::number(text->implicitWidth()), QString::number(room));
+            }
+        }
+        QCOMPARE(words, 5);
+        auto *panel = qvariant_cast<QQuickItem *>(sheet->property("panel"));
+        QVERIFY(panel);
+        for (QQuickItem *child : panel->childItems()) {
+            if (child->property("text").toString() != sheet->property("title").toString())
+                continue;
+            if (child->implicitWidth() > room)
+                misses << u"title %1 > %2"_s.arg(QString::number(child->implicitWidth()), QString::number(room));
+        }
+        sheet->setProperty("keepLead", true);
+        auto *lead = qvariant_cast<QQuickItem *>(sheet->property("leadItem"));
+        QVERIFY(lead);
+        for (const QString &note : {u"not reviewed"_s, u"not installed, a to install"_s, u"not installed"_s,
+                                    u"closes the game"_s}) {
+            sheet->setProperty("lead", note);
+            QCOMPARE(lead->property("text").toString(), note);
+            if (lead->implicitWidth() > room)
+                misses << u"lead %1 > %2"_s.arg(QString::number(lead->implicitWidth()), QString::number(room));
+        }
+
+        QQmlComponent toastComponent(&engine);
+        toastComponent.loadFromModule("MicroSet", "Toast");
+        QVERIFY2(toastComponent.isReady(), qPrintable(toastComponent.errorString()));
+        QScopedPointer<QObject> toast(toastComponent.create());
+        QVERIFY(toast);
+        auto *toastItem = qobject_cast<QQuickItem *>(toast.data());
+        QVERIFY(toastItem);
+        toastItem->setParentItem(window->contentItem());
+        toastItem->setWidth(640);
+        auto *titleText = qvariant_cast<QQuickItem *>(toast->property("titleText"));
+        QVERIFY(titleText);
+        const qreal toastRoom = titleText->parentItem()->width();
+        QCOMPARE(toastRoom, 576.0);
+        for (const QString &text : {u"install failed"_s, u"switch failed"_s}) {
+            QVERIFY(QMetaObject::invokeMethod(toast.data(), "show", Q_ARG(QString, QString()),
+                                              Q_ARG(QString, text)));
+            QVERIFY(QMetaObject::invokeMethod(toast.data(), "complete"));
+            if (titleText->implicitWidth() > toastRoom)
+                misses << u"toast %1 %2 > %3"_s.arg(text, QString::number(titleText->implicitWidth()),
+                                                    QString::number(toastRoom));
+        }
+        QVERIFY2(misses.isEmpty(), qPrintable(u"menu texts wider than 576:\n"_s + misses.join(u'\n')));
     }
 
     void gameSheetsFitAt640()

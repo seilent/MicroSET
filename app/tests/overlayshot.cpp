@@ -13,6 +13,7 @@
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
 #include <QRegularExpression>
+#include <QStringList>
 #include <QTemporaryDir>
 #include <QTextStream>
 #include <QTimer>
@@ -40,7 +41,8 @@ const QStringList &states()
                                    u"hint"_s, u"hint-portrait"_s, u"sheet"_s,         u"sheet-portrait"_s,
                                    u"undervolt-after-sheet"_s, u"game"_s, u"game-missing"_s, u"game-state"_s,
                                    u"game-yield"_s, u"game-other-tool"_s, u"game-gone"_s, u"game-native"_s,
-                                   u"game-page"_s};
+                                   u"game-page"_s, u"menu"_s, u"menu-game"_s, u"menu-not-installed"_s,
+                                   u"menu-refused"_s, u"menu-page"_s, u"menu-toast"_s, u"leaving"_s};
     return names;
 }
 
@@ -75,6 +77,13 @@ class ShotOverlay : public QObject
     Q_PROPERTY(bool hint READ hint CONSTANT)
     Q_PROPERTY(QString hintDevice READ hintDevice CONSTANT)
     Q_PROPERTY(QString hintKind MEMBER kind CONSTANT)
+    Q_PROPERTY(bool menuOpen READ menuOpen CONSTANT)
+    Q_PROPERTY(bool menuLeaving READ menuLeaving CONSTANT)
+    Q_PROPERTY(bool menuOnly READ menuOnly CONSTANT)
+    Q_PROPERTY(bool menuBusy READ menuBusy CONSTANT)
+    Q_PROPERTY(QStringList menuItems READ menuItems CONSTANT)
+    Q_PROPERTY(int menuCurrent READ menuCurrent CONSTANT)
+    Q_PROPERTY(QStringList menuNotes READ menuNotes CONSTANT)
 
 public:
     bool shown() const { return true; }
@@ -82,8 +91,40 @@ public:
     bool hintShown() const { return false; }
     bool hint() const { return true; }
     QString hintDevice() const { return QStringLiteral("/dev/mmcblk0"); }
+    bool menuOpen() const { return m_menuOpen; }
+    bool menuLeaving() const { return m_menuLeaving; }
+    bool menuOnly() const { return m_menuOnly; }
+    bool menuBusy() const { return m_menuBusy; }
+    QStringList menuItems() const { return m_menuItems; }
+    int menuCurrent() const { return m_menuCurrent; }
+    QStringList menuNotes() const { return m_menuNotes; }
     Q_INVOKABLE void hide() {}
     Q_INVOKABLE void hintDone() {}
+    Q_INVOKABLE void menuAccept(int) {}
+    Q_INVOKABLE void menuClose() {}
+
+    void setState(const QString &state)
+    {
+        if (state == "leaving"_L1) {
+            m_menuLeaving = true;
+            return;
+        }
+        if (!state.startsWith("menu"_L1))
+            return;
+        m_menuOpen = true;
+        m_menuOnly = state != "menu-page"_L1;
+        m_menuItems = {u"Android"_s, u"Desktop"_s, u"Micro DAP"_s, u"Micro EMU"_s, u"Steam OS"_s};
+        m_menuNotes = {QString(), QString(), QString(), QString(), QString()};
+        m_menuCurrent = 4;
+        if (state == "menu-game"_L1) {
+            for (int i = 0; i < 4; ++i)
+                m_menuNotes[i] = u"closes the game"_s;
+        } else if (state == "menu-not-installed"_L1 || state == "menu-toast"_L1) {
+            m_menuNotes[0] = u"not installed, a to install"_s;
+        } else if (state == "menu-refused"_L1) {
+            m_menuNotes[0] = u"not reviewed"_s;
+        }
+    }
 
     QString kind;
 
@@ -92,6 +133,18 @@ signals:
     void pageHint();
     void hintShownChanged();
     void hintChanged();
+    void menuStateChanged();
+    void menuChanged();
+    void menuToast(const QString &);
+
+private:
+    bool m_menuOpen = false;
+    bool m_menuLeaving = false;
+    bool m_menuOnly = false;
+    bool m_menuBusy = false;
+    int m_menuCurrent = -1;
+    QStringList m_menuItems;
+    QStringList m_menuNotes;
 };
 
 }
@@ -172,6 +225,7 @@ int main(int argc, char *argv[])
     model->updates()->setFixture(u"testing-38784f1"_s, u"none"_s, {});
     ShotOverlay overlay;
     overlay.kind = hold ? u"undervolt"_s : parser.value(kindOption);
+    overlay.setState(state);
 
     QQmlApplicationEngine engine;
     bool warned = false;
