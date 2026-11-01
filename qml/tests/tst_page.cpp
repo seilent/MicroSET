@@ -433,6 +433,7 @@ private slots:
         QCOMPARE(page()->property("group").toString(), u"audio"_s);
         QTRY_COMPARE(fake->calls(), (QStringList{u"Set audio.volume_step 2"_s, u"Set audio.volume_step 5"_s}));
         QTRY_COMPARE(value(u"audio.volume_step"_s), u"5%"_s);
+        QTRY_VERIFY(!model->busy(u"audio.volume_step"_s));
         key(Qt::Key_Return);
         key(Qt::Key_Down);
         QTRY_COMPARE(fake->calls().size(), 3);
@@ -457,6 +458,7 @@ private slots:
         key(Qt::Key_Return);
         QTRY_COMPARE(fake->calls(), QStringList{u"Set audio.max_volume 90"_s});
         QTRY_COMPARE(value(u"audio.max_volume"_s), u"90%"_s);
+        QTRY_VERIFY(!model->busy(u"audio.max_volume"_s));
         key(Qt::Key_Return);
         key(Qt::Key_Down);
         key(Qt::Key_Up);
