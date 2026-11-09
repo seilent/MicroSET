@@ -36,6 +36,8 @@ add_library(microset_launcher_core STATIC
     src/battery.h
     src/clock.cpp
     src/clock.h
+    src/favoritesmodel.cpp
+    src/favoritesmodel.h
     src/glibthread.cpp
     src/glibthread.h
     src/desktophome.cpp
@@ -58,8 +60,8 @@ add_library(microset_launcher_core STATIC
 )
 target_include_directories(microset_launcher_core PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}" ${PROJECT_SOURCE_DIR}/qml/src)
 set_source_files_properties("${MICROSET_IDLE_CODE}" PROPERTIES GENERATED TRUE)
-target_link_libraries(microset_launcher_core PUBLIC microset_pad microset_common Qt6::Core Qt6::DBus Qt6::Gui
-    Qt6::Qml Qt6::Quick Qt6::WaylandClient PkgConfig::GIO wayland-client)
+target_link_libraries(microset_launcher_core PUBLIC microset_pad microset_common libmicroset Qt6::Core Qt6::DBus
+    Qt6::Gui Qt6::Qml Qt6::Quick Qt6::WaylandClient PkgConfig::GIO wayland-client)
 target_compile_options(microset_launcher_core PRIVATE ${GIO_CFLAGS_OTHER})
 
 

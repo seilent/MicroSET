@@ -21,3 +21,8 @@ target_link_libraries(tst_launcherlayout PRIVATE microset_launcher_core microset
 target_include_directories(tst_launcherlayout PRIVATE ${PROJECT_SOURCE_DIR}/tests)
 add_test(NAME launcher-layout COMMAND tst_launcherlayout)
 set_tests_properties(launcher-layout PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+add_executable(tst_launcherfavorites tst_launcherfavorites.cpp)
+target_link_libraries(tst_launcherfavorites PRIVATE microset_launcher_core microset_page_fixtures Qt6::Test)
+add_test(NAME launcher-favorites COMMAND tst_launcherfavorites)
+set_tests_properties(launcher-favorites PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

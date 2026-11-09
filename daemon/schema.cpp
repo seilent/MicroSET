@@ -5,6 +5,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QRegularExpression>
+#include <QSet>
 
 #include <algorithm>
 #include <cmath>
@@ -19,7 +20,7 @@ const QString PrivilegedOwner = u"microset"_s;
 const QStringList Reserved = {u"microset"_s, u"power"_s, u"meta"_s, u"session"_s, u"audio"_s, u"display"_s, u"rgb"_s,
                                u"system"_s, u"app"_s, u"fex"_s, u"wine"_s, u"proton"_s, u"lsfg"_s};
 const QStringList Types = {u"s"_s, u"b"_s, u"u"_s, u"i"_s, u"d"_s, u"as"_s};
-const QStringList Validators = {u"eq_filters"_s};
+const QStringList Validators = {u"eq_filters"_s, u"desktop_ids"_s};
 const QStringList Widgets = {u"none"_s, u"hue"_s, u"edit"_s};
 const QStringList UiFields = {u"order"_s, u"widget"_s, u"step"_s, u"steps"_s, u"values"_s, u"unit"_s, u"scale"_s, u"apply"_s,
                                u"bounded"_s, u"lock"_s, u"leads"_s};
@@ -188,6 +189,19 @@ bool eqFilters(const QStringList &items)
         return band.size() == 4 && FilterTypes.contains(band.at(0)) && inRange(band.at(1), 20, 20000)
             && inRange(band.at(2), -24, 12) && inRange(band.at(3), 0.1, 10);
     });
+}
+
+bool desktopIds(const QStringList &items)
+{
+    QSet<QString> seen;
+    for (const QString &item : items) {
+        const bool clean = item.endsWith(u".desktop"_s) && !item.contains(u'/')
+            && std::none_of(item.cbegin(), item.cend(), [](QChar c) { return c.unicode() < 0x20 || c.unicode() == 0x7f; });
+        if (!clean || seen.contains(item))
+            return false;
+        seen.insert(item);
+    }
+    return true;
 }
 
 }
@@ -653,6 +667,8 @@ bool Schema::accepts(const Key &key, const QVariant &value) const
         if (std::any_of(items.cbegin(), items.cend(), [&](const QString &item) { return item.size() > key.maxLength; }))
             return false;
         if (key.validator == "eq_filters"_L1 && !eqFilters(items))
+            return false;
+        if (key.validator == "desktop_ids"_L1 && !desktopIds(items))
             return false;
     }
     if (!key.enumFrom.isEmpty())

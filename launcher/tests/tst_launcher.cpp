@@ -557,6 +557,8 @@ private slots:
     {
         QVERIFY(AppModel::hidden(u"steam_http_loader.desktop"_s, u"steam-http-loader %u"_s));
         QVERIFY(AppModel::hidden(u"Lossless Scaling.desktop"_s, u"steam steam://rungameid/993090"_s));
+        QVERIFY(AppModel::hidden(u"org.es_de.frontend.desktop"_s, u"es-de"_s));
+        QVERIFY(AppModel::hidden(u"org.libretro.RetroArch.desktop"_s, u"retroarch"_s));
         QVERIFY(!AppModel::hidden(u"foot.desktop"_s, u"foot"_s));
         QVERIFY(!AppModel::hidden(u"steam.desktop"_s, u"steam"_s));
     }

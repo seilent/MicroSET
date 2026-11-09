@@ -134,6 +134,17 @@
       "label": "Boot into",
       "ui": {"order": 0, "apply": "confirm"}
     },
+    "launcher.favorites": {
+      "type": "as",
+      "default": ["foot.desktop"],
+      "max_items": 64,
+      "max_len": 255,
+      "validator": "desktop_ids",
+      "applier": null,
+      "group": null,
+      "label": "Launcher favorites",
+      "ui": {"widget": "none"}
+    },
     "audio.output": {
       "type": "s",
       "default": "auto",

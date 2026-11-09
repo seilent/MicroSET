@@ -50,6 +50,7 @@ private slots:
                                                u"audio.max_volume"_s, u"audio.output"_s, u"audio.power_on_volume"_s,
                                                u"audio.speaker_gain"_s, u"audio.volume_step"_s, u"display.auto_rotate"_s, u"display.brightness"_s,
                                                u"display.orientation"_s, u"display.rotation"_s, u"fex.preset"_s,
+                                               u"launcher.favorites"_s,
                                                u"lsfg.enabled"_s, u"lsfg.flow_scale"_s, u"lsfg.fps_cap"_s, u"lsfg.mode"_s,
                                                u"lsfg.multiplier"_s, u"lsfg.performance_mode"_s, u"lsfg.present_wait_offset"_s,
                                                u"meta.gpu_undervolt_serial"_s, u"meta.imported_power"_s,
@@ -236,6 +237,52 @@ private slots:
         QFETCH(bool, accepted);
         const Schema schema = make(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
         QCOMPARE(schema.accepts(*schema.key(u"audio.eq.usb.filters"_s), filters), accepted);
+    }
+
+    void desktopIds_data()
+    {
+        QTest::addColumn<QStringList>("ids");
+        QTest::addColumn<bool>("accepted");
+        QStringList most;
+        for (int i = 0; i < 64; ++i)
+            most << u"app%1.desktop"_s.arg(i);
+        QTest::newRow("default") << QStringList{u"foot.desktop"_s} << true;
+        QTest::newRow("empty") << QStringList() << true;
+        QTest::newRow("two") << QStringList{u"foot.desktop"_s, u"org.example.App.desktop"_s} << true;
+        QTest::newRow("missing suffix") << QStringList{u"foot"_s} << false;
+        QTest::newRow("uppercase suffix") << QStringList{u"foot.Desktop"_s} << false;
+        QTest::newRow("slash") << QStringList{u"org/example.desktop"_s} << false;
+        QTest::newRow("tab") << QStringList{u"foo\t.desktop"_s} << false;
+        QTest::newRow("del") << QStringList{u"foo\x7f.desktop"_s} << false;
+        QTest::newRow("duplicate") << QStringList{u"foot.desktop"_s, u"foot.desktop"_s} << false;
+        QTest::newRow("64 items") << most << true;
+        QTest::newRow("65 items") << (most + QStringList{u"one.more.desktop"_s}) << false;
+    }
+
+    void desktopIds()
+    {
+        QFETCH(QStringList, ids);
+        QFETCH(bool, accepted);
+        const Schema schema = make(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+        QCOMPARE(schema.accepts(*schema.key(u"launcher.favorites"_s), ids), accepted);
+    }
+
+    void desktopIdsKey()
+    {
+        const Schema schema = make(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+        const Key &favorites = *schema.key(u"launcher.favorites"_s);
+        QCOMPARE(favorites.type, u"as"_s);
+        QCOMPARE(favorites.defaultValue, QVariant(QStringList{u"foot.desktop"_s}));
+        QCOMPARE(favorites.maxItems, std::optional<int>(64));
+        QCOMPARE(favorites.maxLength, 255);
+        QCOMPARE(favorites.validator, u"desktop_ids"_s);
+        QVERIFY(favorites.applier.isEmpty());
+        QVERIFY(favorites.writable);
+        QVERIFY(schema.accepts(favorites, favorites.defaultValue));
+        const QJsonObject described = schema.describe(u"launcher"_s).value("launcher.favorites"_L1).toObject();
+        QCOMPARE(described.value("validator"_L1).toString(), u"desktop_ids"_s);
+        QCOMPARE(described.value("max_items"_L1).toInt(), 64);
+        QCOMPARE(described.value("max_len"_L1).toInt(), 255);
     }
 
     void itemsAndOverrides()
@@ -886,7 +933,7 @@ private slots:
         QCOMPARE(clock.value("type"_L1).toString(), u"u"_s);
         QCOMPARE(schema.describe(u"power.tdp"_s).size(), 1);
         QCOMPARE(schema.describe(u"powe"_s).size(), 0);
-        QCOMPARE(schema.describe({}).size(), 76);
+        QCOMPARE(schema.describe({}).size(), 77);
         QCOMPARE(schema.describe(u"audio"_s).size(), 27);
         QVERIFY(schema.describe(u"meta"_s).value("meta.imported_power"_L1).toObject().value("group"_L1).isNull());
     }

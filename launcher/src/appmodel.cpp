@@ -41,6 +41,7 @@ QVariantMap describe(const AppEntry &entry)
         {u"name"_s, entry.name},
         {u"source"_s, AppModel::iconSource(entry.id)},
         {u"startupClass"_s, entry.startupClass},
+        {u"flatpak"_s, entry.flatpak},
     };
 }
 
@@ -180,7 +181,7 @@ QString AppModel::steamLoaderId()
 
 bool AppModel::hidden(const QString &id, const QString &command)
 {
-    if (id == steamLoaderId())
+    if (id == steamLoaderId() || id == u"org.es_de.frontend.desktop"_s || id == u"org.libretro.RetroArch.desktop"_s)
         return true;
     return command.startsWith(steamPrefix());
 }
@@ -193,6 +194,16 @@ QString AppModel::iconSource(const QString &id)
 QVariantList AppModel::entries() const
 {
     return m_variants;
+}
+
+QVariantList AppModel::entriesFor(const QStringList &ids) const
+{
+    QVariantList out;
+    for (const AppEntry &entry : m_entries) {
+        if (ids.contains(entry.id))
+            out << describe(entry);
+    }
+    return out;
 }
 
 int AppModel::count() const
@@ -280,6 +291,9 @@ void AppModel::refresh()
         entry.name = fromUtf8(g_app_info_get_display_name(info));
         entry.command = fromUtf8(g_app_info_get_commandline(info));
         entry.startupClass = fromUtf8(g_desktop_app_info_get_startup_wm_class(desktop));
+        gchar *flatpak = g_desktop_app_info_get_string(desktop, "X-Flatpak");
+        entry.flatpak = fromUtf8(flatpak);
+        g_free(flatpak);
         GIcon *gicon = g_app_info_get_icon(info);
         if (gicon != nullptr && G_IS_FILE_ICON(gicon)) {
             GFile *file = g_file_icon_get_file(G_FILE_ICON(gicon));
@@ -332,6 +346,7 @@ void AppModel::setEntriesForTest(const QVariantList &entries)
         entry.name = map.value(u"name"_s).toString();
         entry.sortKey = entry.name;
         entry.iconFile = map.value(u"iconFile"_s).toString();
+        entry.flatpak = map.value(u"flatpak"_s).toString();
         rows << entry;
     }
     setEntries(rows);

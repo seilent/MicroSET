@@ -54,6 +54,7 @@ struct AppEntry
     QString iconFile;
     QString command;
     QString startupClass;
+    QString flatpak;
 };
 
 class AppModel : public QObject
@@ -74,6 +75,7 @@ public:
     void shutdown();
 
     QVariantList entries() const;
+    QVariantList entriesFor(const QStringList &ids) const;
     int count() const;
     const AppEntry *find(const QString &id) const;
     QString nameOf(const QString &id) const;

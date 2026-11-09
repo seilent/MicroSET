@@ -40,7 +40,8 @@ read, change and watch them over D-Bus.
   bus name `net.seilent.MicroSet.Launcher`). `Show` and `ShowPower` enter the home workspace through
   `net.seilent.MicroOs.DesktopHome`, `ShowPower` opening the power page too; `Toggle` leaves it when shown; its grid
   lists the installed apps and starts one in an `app-microset\x2dlauncher-*` scope, and B goes back to the workspace
-  it came from.
+  it came from. Favorites are `launcher.favorites`, desktop ids, `foot.desktop` by default, listed alphabetically;
+  an id whose app is not installed stays in the value and is not shown.
 - `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and `microset-settings`. The
   page (`SettingsView`) lists the schema groups and edits their keys over `net.seilent.MicroSet`: A on a list or
   number row opens a value sheet, on an on/off row flips it. The `games` group holds `fex.preset`, `wine.sync` and
@@ -139,7 +140,8 @@ once the override is gone.
 
 `as` keys can set `max_items` and a `validator`. `eq_filters` takes `preamp <dB>` (-24 to 0) first, then up to 10
 `<type> <Hz> <dB> <Q>` with type `peak`, `lowshelf`, `highshelf`, `bandpass`, `lowpass`, `highpass`, `allpass` or
-`matchedpeak`, 20 to 20000 Hz, -24 to 12 dB, Q 0.1 to 10. `audio.eq.<slot>.on`, `.name` and `.filters` and
+`matchedpeak`, 20 to 20000 Hz, -24 to 12 dB, Q 0.1 to 10. `desktop_ids` takes app ids ending in `.desktop`, no
+`/` or control character, each once: `launcher.favorites`. `audio.eq.<slot>.on`, `.name` and `.filters` and
 `audio.balance.<slot>` (-20 to 20 half dB, negative toward L) exist for `headphones`, `speaker`, `usb` and `bt`;
 `audio.crossfeed.headphones` and `audio.crossfeed.usb` are `off`, `default`, `chuMoy` or `janMeier`.
 `audio.max_volume` (50 to 100 % in steps of 5) caps every sink volume: at the default 100 a level above 100 % folds to

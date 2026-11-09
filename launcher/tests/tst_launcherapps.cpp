@@ -169,6 +169,16 @@ class AppsTest : public QObject
         return out;
     }
 
+    QString flatpakOf(const QString &id) const
+    {
+        for (const QVariant &row : m_apps->entries()) {
+            const QVariantMap map = row.toMap();
+            if (map.value(u"id"_s).toString() == id)
+                return map.value(u"flatpak"_s).toString();
+        }
+        return u"missing"_s;
+    }
+
     AppModel *m_apps = nullptr;
     GlibThread *m_glib = nullptr;
 
@@ -251,6 +261,7 @@ private slots:
         entry(u"missing.desktop"_s, u"Missing Tool"_s, u"TryExec=no-such-tool-anywhere"_s);
         entry(u"zed.desktop"_s, u"Zed"_s, u"Icon=/usr/share/pixmaps/zed.png"_s);
         entry(u"plain.desktop"_s, u"Plain"_s, u"Categories=Utility;"_s);
+        entry(u"org.example.Flat.desktop"_s, u"Flat"_s, u"X-Flatpak=org.example.Flat"_s);
         entry(u"steam_http_loader.desktop"_s, u"Steam HTTP Handler"_s, u"Exec=steam-http-loader %u"_s);
         writeEntry(QDir(m_data.path()).filePath(u"applications"_s), u"org.example.App.desktop"_s,
                    u"[Desktop Entry]\nType=Application\nName=App\nExec=true\nDBusActivatable=true\n"_s);
@@ -291,9 +302,11 @@ private slots:
     void filtersAndSorts()
     {
         const QStringList found = ids();
-        QCOMPARE(found, QStringList({u"org.example.App.desktop"_s, u"foot.desktop"_s, u"org.example.Inherit.desktop"_s,
-                                     u"plain.desktop"_s, u"runner.desktop"_s, u"zed.desktop"_s}));
-        QCOMPARE(names(), QStringList({u"App"_s, u"Foot Local"_s, u"Inherit"_s, u"Plain"_s, u"Runner"_s, u"Zed"_s}));
+        QCOMPARE(found, QStringList({u"org.example.App.desktop"_s, u"org.example.Flat.desktop"_s, u"foot.desktop"_s,
+                                     u"org.example.Inherit.desktop"_s, u"plain.desktop"_s, u"runner.desktop"_s,
+                                     u"zed.desktop"_s}));
+        QCOMPARE(names(), QStringList({u"App"_s, u"Flat"_s, u"Foot Local"_s, u"Inherit"_s, u"Plain"_s, u"Runner"_s,
+                                       u"Zed"_s}));
     }
 
     void duplicateIdPrefersTheUserDir()
@@ -308,6 +321,12 @@ private slots:
         QVERIFY(zed != nullptr);
         QCOMPARE(zed->iconFile, u"/usr/share/pixmaps/zed.png"_s);
         QVERIFY(!AppModel::iconSource(u"zed.desktop"_s).isEmpty());
+    }
+
+    void flatpakEntryKeepsItsAppId()
+    {
+        QCOMPARE(flatpakOf(u"org.example.Flat.desktop"_s), u"org.example.Flat"_s);
+        QCOMPARE(flatpakOf(u"foot.desktop"_s), QString());
     }
 
     void liveAdd()
