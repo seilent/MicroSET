@@ -12,9 +12,12 @@
 
 class Activator;
 class AppModel;
+class FavoritesModel;
 class IdlePulse;
 class PowerAction;
 class SleepInhibitor;
+class StoreJob;
+class StoreWorker;
 
 class Launcher : public QObject
 {
@@ -28,6 +31,10 @@ class Launcher : public QObject
     Q_PROPERTY(bool launching READ launching NOTIFY launchingChanged)
     Q_PROPERTY(QVariantList windows READ windows NOTIFY windowsChanged)
     Q_PROPERTY(QVariantList apps READ apps NOTIFY appsChanged)
+    Q_PROPERTY(QVariantList allApps READ allApps NOTIFY allAppsChanged)
+    Q_PROPERTY(QStringList favoriteIds READ favoriteIds NOTIFY favoritesChanged)
+    Q_PROPERTY(int favoriteCount READ favoriteCount NOTIFY favoritesChanged)
+    Q_PROPERTY(QString page READ page NOTIFY pageChanged)
     Q_PROPERTY(int columns READ columns WRITE setColumns NOTIFY columnsChanged)
     Q_PROPERTY(int focusRow READ focusRow NOTIFY focusChanged)
     Q_PROPERTY(int focusIndex READ focusIndex NOTIFY focusChanged)
@@ -42,12 +49,16 @@ public:
     static constexpr int PowerWaitMs = 1000;
     static constexpr int IdlePulseMs = 1000;
 
-    Launcher(DesktopHome *home, AppModel *apps, Activator *launch, PowerAction *power, PadLink *pad,
-             SleepInhibitor *sleep, int landscapeTurn, int reShowMs = ReShowMs, QObject *parent = nullptr);
+    Launcher(DesktopHome *home, AppModel *apps, FavoritesModel *favorites, Activator *launch, PowerAction *power,
+             PadLink *pad, SleepInhibitor *sleep, int landscapeTurn, int reShowMs = ReShowMs,
+             QObject *parent = nullptr);
 
     static QString service();
     static QString path();
     static QString interface();
+    static QString storeAppId();
+    static QString homePage();
+    static QString appsPage();
     static int turnFor(uint transform, int landscapeTurn);
 
     bool publish(QDBusConnection bus);
@@ -61,6 +72,10 @@ public:
     bool launching() const;
     QVariantList windows() const;
     QVariantList apps() const;
+    QVariantList allApps() const;
+    QStringList favoriteIds() const;
+    int favoriteCount() const;
+    QString page() const;
     int columns() const;
     int focusRow() const;
     int focusIndex() const;
@@ -87,6 +102,16 @@ public:
     Q_INVOKABLE void closePower();
     Q_INVOKABLE void leave();
     Q_INVOKABLE void pulse();
+    Q_INVOKABLE void launchApp(const QString &id);
+    Q_INVOKABLE void openAllApps();
+    Q_INVOKABLE void openStore();
+    Q_INVOKABLE void closePage();
+    Q_INVOKABLE void toggleFavorite(const QString &id);
+    Q_INVOKABLE void removeFavorite(const QString &id);
+    Q_INVOKABLE void uninstallApp(const QString &id);
+#ifdef MICROSET_STORE_CORE
+    void setStore(StoreWorker *store);
+#endif
 
 public slots:
     Q_SCRIPTABLE void Show();
@@ -102,17 +127,29 @@ signals:
     void launchingChanged();
     void windowsChanged();
     void appsChanged();
+    void allAppsChanged();
+    void favoritesChanged();
+    void pageChanged();
     void columnsChanged();
     void focusChanged();
     void clockChanged();
     void batteryChanged();
     void wifiChanged();
+    void sheetRequested();
+    void launchFailed(const QString &name, const QString &message);
+    void uninstallFailed(const QString &name, const QString &message);
+
+protected:
+    virtual bool startUninstall(const QString &appid);
 
 private:
     int gridBase() const;
+    int gridCount() const;
     int gridRows() const;
     int rowCount() const;
     int countOf(int row) const;
+    QString focusedFavorite() const;
+    void setPage(const QString &page);
     void setShown(bool shown);
     void setContent(bool content);
     void setPower(bool power);
@@ -123,10 +160,15 @@ private:
     void reShowNow();
     void clampFocus();
     void focusWindowAt(int index);
-    void launchAt(int index);
+    void activateGridAt(int index);
+    void launch(const QString &id, const QString &name);
+#ifdef MICROSET_STORE_CORE
+    void storeJobFinished(StoreJob *job);
+#endif
 
     DesktopHome *m_home;
     AppModel *m_apps;
+    FavoritesModel *m_favorites;
     Activator *m_launch;
     PowerAction *m_powerRunner;
     PadLink *m_pad;
@@ -147,9 +189,18 @@ private:
     int m_gridBase = 0;
     int m_focusRow = 0;
     int m_focusIndex = 0;
+    QString m_page;
+    QString m_launchPage;
+    QString m_launchName;
+    QString m_uninstallId;
+    QString m_uninstallApp;
+    QString m_uninstallName;
     QString m_clock;
     bool m_batteryPresent = false;
     int m_batteryPercent = 100;
     bool m_wifi = false;
     QString m_ssid;
+#ifdef MICROSET_STORE_CORE
+    StoreWorker *m_store = nullptr;
+#endif
 };

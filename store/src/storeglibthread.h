@@ -10,13 +10,13 @@
 struct _GMainContext;
 struct _GMainLoop;
 
-class GlibThread : public QThread
+class StoreGlibThread : public QThread
 {
     Q_OBJECT
 
 public:
-    explicit GlibThread(QObject *parent = nullptr);
-    ~GlibThread() override;
+    explicit StoreGlibThread(QObject *parent = nullptr);
+    ~StoreGlibThread() override;
 
     void run() override;
     void startAndWait();

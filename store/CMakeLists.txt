@@ -1,6 +1,6 @@
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(FLATPAK IMPORTED_TARGET flatpak)
-pkg_check_modules(APPSTREAM IMPORTED_TARGET appstream)
+pkg_check_modules(FLATPAK IMPORTED_TARGET GLOBAL flatpak)
+pkg_check_modules(APPSTREAM IMPORTED_TARGET GLOBAL appstream)
 if(NOT FLATPAK_FOUND OR NOT APPSTREAM_FOUND)
     message(STATUS "flatpak and appstream are not available, leaving out the store core")
     return()
@@ -9,14 +9,14 @@ endif()
 add_library(microset_store_core STATIC
     src/flatpakbackend.cpp
     src/flatpakbackend.h
-    src/glibthread.cpp
-    src/glibthread.h
     src/storebackend.h
     src/storecatalog.cpp
     src/storecatalog.h
     src/storecatalogmodel.cpp
     src/storecatalogmodel.h
     src/storeentry.h
+    src/storeglibthread.cpp
+    src/storeglibthread.h
     src/storejob.cpp
     src/storejob.h
     src/storeworker.cpp

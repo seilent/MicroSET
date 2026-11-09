@@ -8,6 +8,8 @@ PressScale {
     property string secondary: ""
     property string number: ""
     property string trailing: ""
+    property url icon: ""
+    property real iconSize: Ui.rowRing
     property bool focused: false
     property bool playing: false
     property bool bold: false
@@ -20,6 +22,9 @@ PressScale {
 
     readonly property bool indented: root.number !== "" || root.ring
     readonly property real textX: Ui.px(Ui.hubEdge) + (root.indented ? Ui.songTextX(root.number.length) : 0)
+    readonly property real textRight: trailingText.visible ? trailingText.x - Ui.px(Ui.gutter)
+        : iconImage.visible ? iconImage.x - Ui.px(Ui.gutter)
+        : root.width - Ui.px(Ui.hubEdge)
     readonly property var primaryRole: root.bold ? Ui.listPlaylist : Ui.listPrimary
     readonly property var secondaryRole: root.bold || root.countLine ? Ui.listCount : Ui.listSecondary
     readonly property real primaryAlpha: root.focused ? root.primaryRole.alpha : root.primaryRole.alphaDim
@@ -31,6 +36,7 @@ PressScale {
     readonly property Item secondaryItem: secondaryText
     readonly property Item trailingItem: trailingText
     readonly property Item ringItem: ringLoader.item
+    readonly property Item iconItem: iconImage
 
     width: Ui.windowW
     height: Ui.px(Ui.rowHeight)
@@ -53,6 +59,21 @@ PressScale {
         }
     }
 
+    Image {
+        id: iconImage
+
+        visible: root.icon.toString() !== ""
+        source: root.icon
+        x: root.width - Ui.px(Ui.hubEdge) - iconImage.width
+        y: (root.height - iconImage.height) / 2
+        width: Ui.px(root.iconSize)
+        height: iconImage.width
+        fillMode: Image.PreserveAspectFit
+        asynchronous: true
+        cache: true
+        sourceSize: Qt.size(iconImage.width, iconImage.height)
+    }
+
     Text {
         id: numberText
 
@@ -69,7 +90,7 @@ PressScale {
 
         x: root.textX
         y: root.secondary !== "" ? Ui.px(Ui.rowTextInset) : (root.height - primaryText.height) / 2
-        width: trailingText.visible ? trailingText.x - Ui.px(Ui.gutter) - primaryText.x : root.width - Ui.px(Ui.hubEdge) - primaryText.x
+        width: root.textRight - primaryText.x
         text: root.primary
         textFormat: Text.PlainText
         color: root.primaryColor
@@ -91,7 +112,7 @@ PressScale {
         x: root.textX
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Ui.px(Ui.rowTextInset)
-        width: root.width - Ui.px(Ui.hubEdge) - secondaryText.x
+        width: root.textRight - secondaryText.x
         text: root.secondary
         textFormat: Text.PlainText
         color: Ui.white(root.secondaryRole.alpha)
@@ -103,7 +124,8 @@ PressScale {
         id: trailingText
 
         visible: root.trailing !== ""
-        x: root.width - Ui.px(Ui.hubEdge) - trailingText.width
+        x: iconImage.visible ? iconImage.x - Ui.px(Ui.gutter) - trailingText.width
+            : root.width - Ui.px(Ui.hubEdge) - trailingText.width
         anchors.baseline: primaryText.baseline
         text: root.trailing
         color: Ui.white(Ui.listCount.alpha)

@@ -7,6 +7,46 @@ Window {
 
     required property QtObject launcher
     property QtObject pad: null
+    property string appId: ""
+    property string appName: ""
+
+    readonly property string page: root.launcher === null ? "home" : String(root.launcher.page)
+
+    function openAppSheet(id: string, name: string, flatpak: bool, starred: bool): void {
+        root.appId = id
+        root.appName = name
+        const verb = starred ? "remove from favorites" : "add to favorites"
+        sheet.title = name
+        sheet.items = flatpak ? [verb, "uninstall"] : [verb]
+        sheet.open()
+    }
+
+    function sheetPicked(index: int): void {
+        const id = root.appId
+        const name = root.appName
+        sheet.close()
+        if (index === 0) {
+            if (root.launcher !== null)
+                root.launcher.toggleFavorite(id)
+            return
+        }
+        if (index === 1)
+            root.askUninstall(id, name)
+    }
+
+    function askUninstall(id: string, name: string): void {
+        root.appId = id
+        confirm.title = "uninstall " + name + "?"
+        confirm.items = ["uninstall", "keep"]
+        confirm.open()
+    }
+
+    function confirmPicked(index: int): void {
+        const id = root.appId
+        confirm.close()
+        if (index === 0 && root.launcher !== null)
+            root.launcher.uninstallApp(id)
+    }
 
     visible: false
     color: Ui.bg
@@ -27,7 +67,7 @@ Window {
             ? Ui.px(Ui.contentTop) + Ui.px(Ui.tileCellH + Ui.gutter) : Ui.px(Ui.contentTop)
         readonly property real rowPitch: Ui.px(Ui.tileCellH + Ui.gutter)
         readonly property real cellPitch: Ui.px(Ui.tileS + Ui.gutter)
-        readonly property bool empty: home.appList.length === 0
+        readonly property bool empty: home.launcher !== null && home.launcher.favoriteCount === 0
         readonly property bool power: home.launcher !== null && home.launcher.power
         readonly property int focusRow: home.launcher === null ? 0 : home.launcher.focusRow
         readonly property int focusIndex: home.launcher === null ? 0 : home.launcher.focusIndex
@@ -53,6 +93,13 @@ Window {
                 home.launcher.focusRunningAt(index)
         }
 
+        function focusedTile(): var {
+            if (home.hasRunning && home.focusRow === 0)
+                return null
+            const index = home.gridIndex * home.columns + home.focusIndex
+            return index < 0 || index >= home.appList.length ? null : home.appList[index]
+        }
+
         function touchPress(kind: string, index: int, x: real, hit: Item): string {
             if (home.launcher === null)
                 return ""
@@ -69,10 +116,18 @@ Window {
             return ""
         }
 
+        function touchContext(kind: string, index: int, hit: Item): bool {
+            if (home.launcher === null || home.launcher.launching || !home.launcher.content || kind !== "tile")
+                return false
+            home.activate(index)
+            home.launcher.pulse()
+            return home.launcher.handleAction("x", false)
+        }
+
         width: root.width
         height: root.height
         objectName: "home"
-        visible: home.launcher !== null && home.launcher.content
+        visible: home.launcher !== null && home.launcher.content && root.page === "home"
 
         onWidthChanged: home.syncColumns()
         onHeightChanged: home.syncColumns()
@@ -128,13 +183,13 @@ Window {
             objectName: "empty"
             x: Ui.px(Ui.hubEdge)
             anchors.baseline: parent.top
-            anchors.baselineOffset: home.gridTop + Ui.px(Ui.qpHintDrop)
+            anchors.baselineOffset: home.gridTop + home.rowPitch + Ui.px(Ui.qpHintDrop)
             width: Ui.px(Ui.qpHintW)
             wrapMode: Text.WordWrap
             lineHeightMode: Text.FixedHeight
             lineHeight: Ui.px(Ui.qpHintPitch)
             visible: home.empty && !home.power
-            text: "No apps."
+            text: "Press X in all apps to pin an app here."
             color: Ui.white(Ui.quickplayHint.alpha)
             font: Ui.font(Ui.quickplayHint)
         }
@@ -158,7 +213,6 @@ Window {
             clip: true
             interactive: false
             boundsBehavior: Flickable.StopAtBounds
-            visible: !home.empty
             model: home.appList
 
             property bool touchScroll: true
@@ -179,10 +233,11 @@ Window {
                 required property int index
                 required property var modelData
 
+                readonly property bool endTile: cell.modelData.end !== undefined && cell.modelData.end !== ""
                 readonly property string touchKind: "tile"
                 readonly property int touchIndex: cell.index
 
-                objectName: "tile-" + cell.index
+                objectName: cell.endTile ? "end-" + cell.modelData.end : "tile-" + cell.index
                 size: Ui.tileS
                 source: cell.modelData.source
                 title: cell.modelData.name
@@ -256,8 +311,6 @@ Window {
                 home.scrollRunningToFocus()
                 return
             }
-            if (home.empty)
-                return
             grid.forceLayout()
             const row = Math.max(0, home.gridIndex)
             const top = row * home.rowPitch - grid.topMargin
@@ -288,6 +341,13 @@ Window {
             runningRow.contentX = Math.max(min, Math.min(max, x))
         }
 
+        function openFocusedSheet(): void {
+            const tile = home.focusedTile()
+            if (tile === null || tile.id === "")
+                return
+            root.openAppSheet(tile.id, tile.name, tile.flatpak !== "", true)
+        }
+
         Connections {
             target: home.launcher
 
@@ -309,7 +369,21 @@ Window {
                 else
                     power.close()
             }
+
+            function onSheetRequested() {
+                home.openFocusedSheet()
+            }
         }
+    }
+
+    AllApps {
+        id: apps
+
+        launcher: root.launcher
+        overlaySheet: sheet
+        overlayDialog: confirm
+        visible: root.launcher !== null && root.launcher.content && root.page === "allapps"
+        onSheetRequested: (id, name, flatpak, starred) => root.openAppSheet(id, name, flatpak, starred)
     }
 
     PowerPage {
@@ -327,12 +401,49 @@ Window {
         }
     }
 
+    Sheet {
+        id: sheet
+
+        objectName: "sheet"
+        anchors.fill: parent
+        onAccepted: (index) => root.sheetPicked(index)
+    }
+
+    Dialog {
+        id: confirm
+
+        objectName: "confirm"
+        anchors.fill: parent
+        onAccepted: (index) => root.confirmPicked(index)
+    }
+
+    Toast {
+        id: toast
+
+        objectName: "toast"
+        x: 0
+        y: 0
+        width: root.width
+    }
+
+    Connections {
+        target: root.launcher
+
+        function onLaunchFailed(name, message) {
+            toast.show(name, message)
+        }
+
+        function onUninstallFailed(name, message) {
+            toast.show(name, message)
+        }
+    }
+
     TouchLayer {
         id: touch
 
         anchors.fill: parent
         enabled: root.launcher !== null && root.launcher.content
-        dialogs: [power]
+        dialogs: [confirm, sheet, power]
         router: router
     }
 
@@ -342,6 +453,9 @@ Window {
         launcher: root.launcher
         pad: root.pad
         home: home
-        modal: power
+        allApps: apps
+        sheet: sheet
+        dialog: confirm
+        powerPage: power
     }
 }

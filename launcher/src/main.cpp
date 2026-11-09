@@ -4,6 +4,7 @@
 #include "dbuspad.h"
 #include "desktophome.h"
 #include "env.h"
+#include "favoritesmodel.h"
 #include "glibthread.h"
 #include "launch.h"
 #include "launcher.h"
@@ -11,6 +12,10 @@
 #include "sleepinhibitor.h"
 #include "waylandidle.h"
 #include "wifi.h"
+#ifdef MICROSET_STORE_CORE
+#include "flatpakbackend.h"
+#include "storeworker.h"
+#endif
 
 #include <QDBusConnection>
 #include <QGuiApplication>
@@ -23,6 +28,8 @@
 #include <LayerShellQt/Window>
 
 #include <qpa/qplatformwindow_p.h>
+
+#include <memory>
 
 Q_IMPORT_QML_PLUGIN(MicroSetPlugin)
 Q_IMPORT_QML_PLUGIN(MicroSetLauncherPlugin)
@@ -79,11 +86,18 @@ int main(int argc, char *argv[])
     apps.startMonitor(&glib);
     apps.refresh();
 
+    FavoritesModel favorites(system, &apps);
+
     HomeClient home(session);
     DbusPad pad(session, system, nullptr, false);
     SleepInhibitor sleep(system, u"the launcher home"_s);
     sleep.take();
-    Launcher launcher(&home, &apps, &launch, &power, &pad, &sleep, Env().landscapeTurn());
+    Launcher launcher(&home, &apps, &favorites, &launch, &power, &pad, &sleep, Env().landscapeTurn());
+#ifdef MICROSET_STORE_CORE
+    StoreWorker store(std::make_unique<FlatpakBackend>());
+    store.start();
+    launcher.setStore(&store);
+#endif
 
     WaylandIdlePulse idle;
     launcher.setIdle(&idle);

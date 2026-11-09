@@ -73,6 +73,11 @@ void FavoritesModel::load()
     settle(value.toStringList());
 }
 
+void FavoritesModel::setIdsForTest(const QStringList &ids)
+{
+    settle(ids);
+}
+
 void FavoritesModel::settle(const QStringList &ids)
 {
     if (ids == m_ids)

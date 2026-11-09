@@ -38,10 +38,14 @@ read, change and watch them over D-Bus.
   starts an install (`microos-session-install@<name>.service`), B closes.
 - `microset-launcher`: the MicroOS desktop home, a background layer surface on DSI-1 (`microset-launcher.service`,
   bus name `net.seilent.MicroSet.Launcher`). `Show` and `ShowPower` enter the home workspace through
-  `net.seilent.MicroOs.DesktopHome`, `ShowPower` opening the power page too; `Toggle` leaves it when shown; its grid
-  lists the installed apps and starts one in an `app-microset\x2dlauncher-*` scope, and B goes back to the workspace
-  it came from. Favorites are `launcher.favorites`, desktop ids, `foot.desktop` by default, listed alphabetically;
-  an id whose app is not installed stays in the value and is not shown.
+  `net.seilent.MicroOs.DesktopHome`, `ShowPower` opening the power page too; `Toggle` leaves it when shown. The home
+  grid holds the favorites (`launcher.favorites`, desktop ids, `foot.desktop` by default, alphabetical) and the two
+  end tiles All apps and Store; an id whose app is not installed stays in the value and is not shown. A starts the
+  focused app in an `app-microset\x2dlauncher-*` scope, X opens a sheet (remove from favorites, uninstall for a
+  Flatpak app), Y opens All apps, B goes back to the workspace it came from. All apps lists every installed entry as
+  a row with a heart, dim when the app is not a favorite: A starts, X adds or removes a favorite or uninstalls a
+  Flatpak app, Select opens the jump letters, Y opens the store app `net.seilent.MicroSet.Store`, B goes back. Touch
+  taps as A and a long press as X.
 - `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and `microset-settings`. The
   page (`SettingsView`) lists the schema groups and edits their keys over `net.seilent.MicroSet`: A on a list or
   number row opens a value sheet, on an on/off row flips it. The `games` group holds `fex.preset`, `wine.sync` and

@@ -30,6 +30,8 @@ public:
     Q_INVOKABLE void toggle(const QString &id);
     Q_INVOKABLE void unstar(const QString &id);
 
+    void setIdsForTest(const QStringList &ids);
+
 signals:
     void idsChanged();
     void favoritesChanged();

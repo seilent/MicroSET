@@ -4,6 +4,7 @@
 #include "clock.h"
 #include "desktophome.h"
 #include "fakelogind.h"
+#include "favoritesmodel.h"
 #include "harness.h"
 #include "homeclient.h"
 #include "idlepulse.h"
@@ -13,12 +14,19 @@
 #include "poweraction.h"
 #include "sleepinhibitor.h"
 #include "wifi.h"
+#ifdef MICROSET_STORE_CORE
+#include "fakebackend.h"
+#include "storejob.h"
+#include "storeworker.h"
+#endif
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QSignalSpy>
 #include <QTest>
+
+#include <memory>
 
 using namespace Qt::StringLiterals;
 
@@ -156,6 +164,23 @@ private:
     bool m_wanted = false;
 };
 
+class FakeLauncher : public Launcher
+{
+    Q_OBJECT
+
+public:
+    using Launcher::Launcher;
+
+    QStringList appids;
+
+protected:
+    bool startUninstall(const QString &appid) override
+    {
+        appids << appid;
+        return true;
+    }
+};
+
 class FakeIdle : public IdlePulse
 {
 public:
@@ -173,6 +198,7 @@ class LauncherTest : public QObject
 
     FakeHome *home = nullptr;
     AppModel *apps = nullptr;
+    FavoritesModel *favorites = nullptr;
     FakeActivator *launch = nullptr;
     FakePower *power = nullptr;
     Launcher *launcher = nullptr;
@@ -182,13 +208,16 @@ class LauncherTest : public QObject
     {
         home = new FakeHome();
         apps = new AppModel();
+        favorites = new FavoritesModel(QDBusConnection(u"launcher-test"_s), apps);
         launch = new FakeActivator();
         power = new FakePower();
-        launcher = new Launcher(home, apps, launch, power, nullptr, nullptr, 1, 60);
+        launcher = new Launcher(home, apps, favorites, launch, power, nullptr, nullptr, 1, 60);
         idle = new FakeIdle();
         launcher->setIdle(idle);
         launcher->setColumns(columns);
     }
+
+    void star(const QStringList &ids) { favorites->setIdsForTest(ids); }
 
     QVariantList windows(int count) const
     {
@@ -209,6 +238,14 @@ class LauncherTest : public QObject
         return out;
     }
 
+    static QStringList ids(int count)
+    {
+        QStringList out;
+        for (int i = 0; i < count; ++i)
+            out << u"app%1.desktop"_s.arg(i);
+        return out;
+    }
+
 private slots:
     void cleanup()
     {
@@ -221,6 +258,8 @@ private slots:
         power = nullptr;
         delete apps;
         apps = nullptr;
+        delete favorites;
+        favorites = nullptr;
         delete home;
         home = nullptr;
     }
@@ -315,6 +354,8 @@ private slots:
         build(4);
         home->publish(true, windows(3), 1);
         apps->setEntriesForTest(entries(10));
+        star(ids(10));
+        launcher->focusRunningAt(0);
         QCOMPARE(launcher->focusRow(), 0);
         QCOMPARE(launcher->focusIndex(), 0);
         QVERIFY(launcher->handleAction(u"right"_s, false));
@@ -335,6 +376,7 @@ private slots:
     {
         build(4);
         apps->setEntriesForTest(entries(10));
+        star(ids(10));
         home->publish(true, {}, 1);
         launcher->focusGridAt(1);
         QCOMPARE(launcher->focusRow(), 0);
@@ -350,6 +392,7 @@ private slots:
     {
         build(4);
         apps->setEntriesForTest(entries(10));
+        star(ids(10));
         home->publish(true, windows(2), 1);
         launcher->focusGridAt(5);
         QCOMPARE(launcher->focusRow(), 2);
@@ -361,11 +404,14 @@ private slots:
         QCOMPARE(launch->starts, QStringList{u"app5.desktop"_s});
     }
 
-    void emptyGridClampsFocus()
+    void emptyFavoritesClampsFocusToTheTiles()
     {
         build(6);
+        QCOMPARE(launcher->apps().size(), 2);
         QVERIFY(launcher->handleAction(u"right"_s, false));
-        QCOMPARE(launcher->focusIndex(), 0);
+        QCOMPARE(launcher->focusIndex(), 1);
+        QVERIFY(launcher->handleAction(u"right"_s, false));
+        QCOMPARE(launcher->focusIndex(), 1);
         QVERIFY(launcher->handleAction(u"down"_s, false));
         QCOMPARE(launcher->focusRow(), 0);
     }
@@ -374,6 +420,7 @@ private slots:
     {
         build(6);
         home->publish(true, windows(2), 1);
+        launcher->focusRunningAt(0);
         launcher->handleAction(u"right"_s, false);
         QVERIFY(launcher->handleAction(u"a"_s, false));
         QCOMPARE(home->calls.last(), u"FocusWindow"_s);
@@ -397,6 +444,7 @@ private slots:
     {
         build(6);
         home->publish(true, windows(2), 1);
+        launcher->focusRunningAt(0);
         QVERIFY(launcher->content());
         QVERIFY(launcher->handleAction(u"a"_s, false));
         QVERIFY(!launcher->content());
@@ -409,6 +457,7 @@ private slots:
         launch->hold = true;
         home->publish(true, {}, 1);
         apps->setEntriesForTest(entries(2));
+        star(ids(2));
         QVERIFY(launcher->handleAction(u"a"_s, false));
         QCOMPARE(launch->starts, QStringList{u"app0.desktop"_s});
         QVERIFY(launcher->launching());
@@ -424,6 +473,7 @@ private slots:
         build(6);
         home->publish(true, {}, 1);
         apps->setEntriesForTest(entries(2));
+        star(ids(2));
         QVERIFY(launcher->handleAction(u"a"_s, false));
         QVERIFY(!launcher->content());
         QTRY_VERIFY_WITH_TIMEOUT(launcher->content(), 5000);
@@ -435,6 +485,7 @@ private slots:
         launch->hold = true;
         home->publish(true, {}, 1);
         apps->setEntriesForTest(entries(2));
+        star(ids(2));
         QVERIFY(launcher->handleAction(u"a"_s, false));
         QVERIFY(launcher->launching());
         QVERIFY(launcher->handleAction(u"a"_s, false));
@@ -451,6 +502,7 @@ private slots:
         build(6);
         home->publish(true, {}, 1);
         apps->setEntriesForTest(entries(2));
+        star(ids(2));
         launch->failWith = u"refused"_s;
         QVERIFY(launcher->handleAction(u"a"_s, false));
         QVERIFY(!launcher->launching());
@@ -491,17 +543,203 @@ private slots:
         QVERIFY(launcher->content());
     }
 
+    void gridEndsWithTheTwoTiles()
+    {
+        build(6);
+        apps->setEntriesForTest(entries(4));
+        star(ids(2));
+        const QVariantList grid = launcher->apps();
+        QCOMPARE(grid.size(), 4);
+        QCOMPARE(grid.at(2).toMap().value(u"end"_s).toString(), u"allapps"_s);
+        QCOMPARE(grid.at(2).toMap().value(u"name"_s).toString(), u"All apps"_s);
+        QCOMPARE(grid.at(3).toMap().value(u"end"_s).toString(), u"store"_s);
+        QCOMPARE(grid.at(3).toMap().value(u"name"_s).toString(), u"Store"_s);
+        QCOMPARE(launcher->favoriteCount(), 2);
+        QCOMPARE(launcher->allApps().size(), 4);
+    }
+
+    void favoritesAddTilesBeforeTheEnd()
+    {
+        build(6);
+        apps->setEntriesForTest(entries(3));
+        QCOMPARE(launcher->apps().size(), 2);
+        star(QStringList{u"app2.desktop"_s});
+        QCOMPARE(launcher->apps().size(), 3);
+        QCOMPARE(launcher->apps().at(0).toMap().value(u"id"_s).toString(), u"app2.desktop"_s);
+        QCOMPARE(launcher->favoriteIds(), QStringList{u"app2.desktop"_s});
+    }
+
+    void allAppsTileOpensThePage()
+    {
+        build(6);
+        apps->setEntriesForTest(entries(4));
+        star(ids(1));
+        QCOMPARE(launcher->page(), Launcher::homePage());
+        launcher->focusGridAt(1);
+        QVERIFY(launcher->handleAction(u"a"_s, false));
+        QCOMPARE(launcher->page(), Launcher::appsPage());
+        launcher->closePage();
+        QCOMPARE(launcher->page(), Launcher::homePage());
+    }
+
+    void yOpensAllApps()
+    {
+        build(6);
+        home->publish(true, {}, 1);
+        QVERIFY(launcher->handleAction(u"y"_s, false));
+        QCOMPARE(launcher->page(), Launcher::appsPage());
+    }
+
+    void storeTileStartsTheStoreApp()
+    {
+        build(6);
+        apps->setEntriesForTest(entries(4));
+        launcher->focusGridAt(1);
+        QVERIFY(launcher->handleAction(u"a"_s, false));
+        QCOMPARE(launch->starts, QStringList{Launcher::storeAppId()});
+    }
+
+    void xRequestsTheSheetOnAFavoriteOnly()
+    {
+        build(6);
+        apps->setEntriesForTest(entries(4));
+        star(ids(1));
+        QSignalSpy sheets(launcher, &Launcher::sheetRequested);
+        launcher->focusGridAt(0);
+        QVERIFY(launcher->handleAction(u"x"_s, false));
+        QCOMPARE(sheets.count(), 1);
+        launcher->focusGridAt(1);
+        QVERIFY(launcher->handleAction(u"x"_s, false));
+        QCOMPARE(sheets.count(), 1);
+    }
+
+    void hidingReturnsToHome()
+    {
+        build(6);
+        home->publish(true, {}, 1);
+        launcher->openAllApps();
+        QCOMPARE(launcher->page(), Launcher::appsPage());
+        launch->hold = true;
+        launcher->launchApp(u"foot.desktop"_s);
+        QCOMPARE(launch->starts, QStringList{u"foot.desktop"_s});
+        QVERIFY(!launcher->content());
+        QCOMPARE(launcher->page(), Launcher::homePage());
+        launch->release();
+    }
+
+    void launchFailureFromAllAppsKeepsThePage()
+    {
+        build(6);
+        home->publish(true, {}, 1);
+        apps->setEntriesForTest(entries(2));
+        launcher->openAllApps();
+        QCOMPARE(launcher->page(), Launcher::appsPage());
+        launch->failWith = u"no entry"_s;
+        QSignalSpy failed(launcher, &Launcher::launchFailed);
+        launcher->launchApp(u"app0.desktop"_s);
+        QCOMPARE(failed.count(), 1);
+        QCOMPARE(failed.at(0).at(0).toString(), u"app 0"_s);
+        QCOMPARE(failed.at(0).at(1).toString(), u"no entry"_s);
+        QVERIFY(!launcher->launching());
+        QVERIFY(launcher->content());
+        QCOMPARE(launcher->page(), Launcher::appsPage());
+    }
+
+    void favoriteTogglesDoNotTouchTheAppList()
+    {
+        build(6);
+        apps->setEntriesForTest(entries(4));
+        QSignalSpy list(launcher, &Launcher::allAppsChanged);
+        QSignalSpy grid(launcher, &Launcher::appsChanged);
+        launcher->toggleFavorite(u"app1.desktop"_s);
+        QCOMPARE(grid.count(), 1);
+        QCOMPARE(list.count(), 0);
+        apps->setEntriesForTest(entries(5));
+        QCOMPARE(list.count(), 1);
+    }
+
+    void uninstallAsksTheStoreBeforeItTouchesTheStar()
+    {
+        FakeHome h;
+        AppModel model;
+        FavoritesModel stars(QDBusConnection(u"launcher-test"_s), &model);
+        FakeLauncher subject(&h, &model, &stars, nullptr, nullptr, nullptr, nullptr, 1);
+        model.setEntriesForTest(QVariantList{
+            QVariantMap{{u"id"_s, u"org.example.App.desktop"_s},
+                        {u"name"_s, u"App"_s},
+                        {u"flatpak"_s, u"org.example.App"_s}},
+            QVariantMap{{u"id"_s, u"foot.desktop"_s}, {u"name"_s, u"Foot"_s}}});
+        stars.setIdsForTest({u"org.example.App.desktop"_s, u"foot.desktop"_s});
+        subject.uninstallApp(u"org.example.App.desktop"_s);
+        QCOMPARE(subject.appids, QStringList{u"org.example.App"_s});
+        QCOMPARE(stars.ids(), QStringList({u"org.example.App.desktop"_s, u"foot.desktop"_s}));
+        subject.uninstallApp(u"foot.desktop"_s);
+        QCOMPARE(subject.appids.size(), 1);
+        QCOMPARE(stars.ids(), QStringList({u"org.example.App.desktop"_s, u"foot.desktop"_s}));
+    }
+
+#ifdef MICROSET_STORE_CORE
+    void uninstallUnstarsAfterTheStoreFinishes()
+    {
+        FakeHome h;
+        AppModel model;
+        FavoritesModel stars(QDBusConnection(u"launcher-test"_s), &model);
+        Launcher subject(&h, &model, &stars, nullptr, nullptr, nullptr, nullptr, 1);
+        auto backend = std::make_unique<FakeBackend>();
+        auto *fake = backend.get();
+        StoreWorker worker(std::move(backend));
+        worker.start();
+        subject.setStore(&worker);
+        model.setEntriesForTest(QVariantList{
+            QVariantMap{{u"id"_s, u"org.example.App.desktop"_s},
+                        {u"name"_s, u"App"_s},
+                        {u"flatpak"_s, u"org.example.App"_s}}});
+        stars.setIdsForTest({u"org.example.App.desktop"_s});
+        QSignalSpy failed(&subject, &Launcher::uninstallFailed);
+        subject.uninstallApp(u"org.example.App.desktop"_s);
+        QCOMPARE(stars.ids(), QStringList{u"org.example.App.desktop"_s});
+        QTRY_COMPARE(fake->uninstalled(), QStringList{u"org.example.App"_s});
+        QTRY_COMPARE(stars.ids(), QStringList{});
+        QCOMPARE(failed.count(), 0);
+    }
+
+    void uninstallFailureKeepsTheStarAndReportsTheError()
+    {
+        FakeHome h;
+        AppModel model;
+        FavoritesModel stars(QDBusConnection(u"launcher-test"_s), &model);
+        Launcher subject(&h, &model, &stars, nullptr, nullptr, nullptr, nullptr, 1);
+        auto backend = std::make_unique<FakeBackend>();
+        auto *fake = backend.get();
+        StoreWorker worker(std::move(backend));
+        worker.start();
+        subject.setStore(&worker);
+        model.setEntriesForTest(QVariantList{
+            QVariantMap{{u"id"_s, u"org.example.App.desktop"_s},
+                        {u"name"_s, u"App"_s},
+                        {u"flatpak"_s, u"org.example.App"_s}}});
+        stars.setIdsForTest({u"org.example.App.desktop"_s});
+        fake->setUninstallFails(u"org.example.App"_s, u"the app is running"_s);
+        QSignalSpy failed(&subject, &Launcher::uninstallFailed);
+        subject.uninstallApp(u"org.example.App.desktop"_s);
+        QTRY_COMPARE(failed.count(), 1);
+        QCOMPARE(failed.at(0).at(0).toString(), u"App"_s);
+        QCOMPARE(failed.at(0).at(1).toString(), u"the app is running"_s);
+        QCOMPARE(stars.ids(), QStringList{u"org.example.App.desktop"_s});
+    }
+#endif
+
     void idlePulsesOncePerSecond()
     {
         build(6);
         home->publish(true, {}, 1);
         QCOMPARE(idle->pulseCount(), 0);
-        launcher->handleAction(u"right"_s, false);
+        launcher->pulse();
         QCOMPARE(idle->pulseCount(), 1);
-        launcher->handleAction(u"right"_s, false);
+        launcher->pulse();
         QCOMPARE(idle->pulseCount(), 1);
         QTest::qWait(1100);
-        launcher->handleAction(u"right"_s, false);
+        launcher->pulse();
         QCOMPARE(idle->pulseCount(), 2);
     }
 
@@ -571,7 +809,7 @@ private slots:
         FakeHome *h = new FakeHome();
         AppModel *model = new AppModel();
         FakeActivator *act = new FakeActivator();
-        Launcher subject(h, model, act, nullptr, nullptr, nullptr, 1);
+        Launcher subject(h, model, nullptr, act, nullptr, nullptr, nullptr, 1);
         QDBusConnectionInterface *iface = bus.interface();
         const QString name = Launcher::service();
         QVERIFY(!iface->isServiceRegistered(name).value());
@@ -596,7 +834,7 @@ private slots:
         FakePad pad;
         SleepInhibitor sleep(system, u"test"_s);
         QVERIFY(sleep.subscribed());
-        Launcher subject(h, model, act, nullptr, &pad, &sleep, 1);
+        Launcher subject(h, model, nullptr, act, nullptr, &pad, &sleep, 1);
         h->publish(true, {}, 1);
         QVERIFY(subject.shown());
         QVERIFY(pad.wanted());
@@ -625,6 +863,7 @@ private slots:
         build(4);
         home->publish(true, windows(2), 1);
         apps->setEntriesForTest(entries(10));
+        star(ids(10));
         QSignalSpy focus(launcher, &Launcher::focusChanged);
         launcher->focusRunningAt(1);
         QCOMPARE(focus.count(), 1);

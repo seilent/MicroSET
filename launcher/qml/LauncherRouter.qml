@@ -8,17 +8,28 @@ PadRouter {
 
     required property QtObject launcher
     property Item home: null
+    property Item allApps: null
+    property Item sheet: null
+    property Item dialog: null
+    property Item powerPage: null
 
     readonly property var turnOrder: ["up", "right", "down", "left"]
     readonly property var faces: ["y", "b", "a", "x"]
     readonly property int turn: router.launcher === null ? 0 : router.launcher.padTurn
+    readonly property bool sheetUp: router.sheet !== null && router.sheet.shown === true
+    readonly property bool dialogUp: router.dialog !== null && router.dialog.shown === true
+    readonly property bool powerUp: router.powerPage !== null && router.powerPage.shown === true
+    readonly property var chain: [router.dialog, router.sheet, router.powerPage]
 
     keyboard: false
+    modal: router.dialogUp ? router.dialog : router.sheetUp ? router.sheet : router.powerUp ? router.powerPage : null
 
     HomeStack {
         id: homeStack
 
-        currentItem: router.home
+        home: router.home
+        allApps: router.allApps
+        page: router.launcher === null ? "home" : router.launcher.page
     }
 
     stack: homeStack
@@ -40,16 +51,24 @@ PadRouter {
             router.dropped(name, repeat)
             return false
         }
-        if (router.modalUp) {
-            const taken = router.modal.handleAction(name, repeat)
-            router.routed(name, repeat, taken)
-            return taken
-        }
-        if (router.launcher === null) {
+        if (router.launcher === null || router.launcher.launching || !router.launcher.content) {
             router.dropped(name, repeat)
             return false
         }
-        const handled = router.launcher.handleAction(name, repeat)
+        router.launcher.pulse()
+        for (const modal of router.chain) {
+            if (modal === null || modal === undefined || modal.shown !== true)
+                continue
+            const taken = typeof modal.handleAction === "function" ? modal.handleAction(name, repeat) : false
+            router.routed(name, repeat, taken)
+            return taken
+        }
+        const target = router.page()
+        let handled = false
+        if (target !== null && target === router.home)
+            handled = router.launcher.handleAction(name, repeat)
+        else if (target !== null && typeof target.handleAction === "function")
+            handled = target.handleAction(name, repeat)
         if (!handled)
             router.unhandled(name, repeat)
         router.routed(name, repeat, handled)

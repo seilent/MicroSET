@@ -1,4 +1,4 @@
-#include "glibthread.h"
+#include "storeglibthread.h"
 
 #include <QMutexLocker>
 
@@ -16,17 +16,17 @@ struct PostedWork
 
 }
 
-GlibThread::GlibThread(QObject *parent)
+StoreGlibThread::StoreGlibThread(QObject *parent)
     : QThread(parent)
 {
 }
 
-GlibThread::~GlibThread()
+StoreGlibThread::~StoreGlibThread()
 {
     stop();
 }
 
-void GlibThread::startAndWait()
+void StoreGlibThread::startAndWait()
 {
     QMutexLocker lock(&m_startMutex);
     m_started = false;
@@ -40,7 +40,7 @@ void GlibThread::startAndWait()
         m_startedWait.wait(&m_startMutex, 5000);
 }
 
-void GlibThread::run()
+void StoreGlibThread::run()
 {
     g_main_context_push_thread_default(m_context);
     bool stopping = false;
@@ -64,7 +64,7 @@ void GlibThread::run()
     m_context = nullptr;
 }
 
-void GlibThread::stop()
+void StoreGlibThread::stop()
 {
     if (!isRunning())
         return;
@@ -77,7 +77,7 @@ void GlibThread::stop()
     wait();
 }
 
-bool GlibThread::post(std::function<void()> work)
+bool StoreGlibThread::post(std::function<void()> work)
 {
     QMutexLocker lock(&m_postMutex);
     if (m_context == nullptr)

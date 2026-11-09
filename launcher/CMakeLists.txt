@@ -62,6 +62,10 @@ target_include_directories(microset_launcher_core PUBLIC src "${CMAKE_CURRENT_BI
 set_source_files_properties("${MICROSET_IDLE_CODE}" PROPERTIES GENERATED TRUE)
 target_link_libraries(microset_launcher_core PUBLIC microset_pad microset_common libmicroset Qt6::Core Qt6::DBus
     Qt6::Gui Qt6::Qml Qt6::Quick Qt6::WaylandClient PkgConfig::GIO wayland-client)
+if(TARGET microset_store_core)
+    target_link_libraries(microset_launcher_core PUBLIC microset_store_core)
+    target_compile_definitions(microset_launcher_core PUBLIC MICROSET_STORE_CORE)
+endif()
 target_compile_options(microset_launcher_core PRIVATE ${GIO_CFLAGS_OTHER})
 
 
@@ -69,6 +73,7 @@ set_source_files_properties(qml/Home.qml PROPERTIES QT_RESOURCE_ALIAS Home.qml)
 set_source_files_properties(qml/PowerPage.qml PROPERTIES QT_RESOURCE_ALIAS PowerPage.qml)
 set_source_files_properties(qml/LauncherRouter.qml PROPERTIES QT_RESOURCE_ALIAS LauncherRouter.qml)
 set_source_files_properties(qml/HomeStack.qml PROPERTIES QT_RESOURCE_ALIAS HomeStack.qml)
+set_source_files_properties(qml/AllApps.qml PROPERTIES QT_RESOURCE_ALIAS AllApps.qml)
 qt_add_library(microset_launcher_ui STATIC)
 qt_add_qml_module(microset_launcher_ui
     URI MicroSetLauncher
@@ -76,7 +81,7 @@ qt_add_qml_module(microset_launcher_ui
     RESOURCE_PREFIX /qt/qml
     OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/imports/MicroSetLauncher
     IMPORT_PATH ${PROJECT_BINARY_DIR}/imports
-    QML_FILES qml/Home.qml qml/PowerPage.qml qml/LauncherRouter.qml qml/HomeStack.qml
+    QML_FILES qml/Home.qml qml/PowerPage.qml qml/LauncherRouter.qml qml/HomeStack.qml qml/AllApps.qml
     DEPENDENCIES MicroSet
 )
 target_link_libraries(microset_launcher_ui PUBLIC microset_launcher_core microset_uiplugin Qt6::Gui Qt6::Qml Qt6::Quick)

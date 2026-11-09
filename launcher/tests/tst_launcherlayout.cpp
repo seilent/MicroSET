@@ -1,10 +1,16 @@
 #include "activator.h"
 #include "appmodel.h"
 #include "desktophome.h"
+#include "favoritesmodel.h"
 #include "homeclient.h"
 #include "idlepulse.h"
 #include "launcher.h"
 #include "poweraction.h"
+#ifdef MICROSET_STORE_CORE
+#include "fakebackend.h"
+#include "storejob.h"
+#include "storeworker.h"
+#endif
 
 #include <QDBusConnection>
 #include <QDBusMessage>
@@ -85,6 +91,13 @@ public:
         emit action(index, false);
     }
 
+    void hold(const QString &name)
+    {
+        const int index = names.key(name, -1);
+        if (index >= 0)
+            emit action(index, true);
+    }
+
     void release(const QString &name)
     {
         const int index = names.key(name, -1);
@@ -111,6 +124,26 @@ public:
     void start(const QString &id) override
     {
         starts << id;
+        if (hold) {
+            pending << id;
+            return;
+        }
+        finish(id);
+    }
+
+    void release()
+    {
+        hold = false;
+        if (!pending.isEmpty())
+            finish(pending.takeFirst());
+    }
+
+    void finish(const QString &id)
+    {
+        if (!failWith.isEmpty()) {
+            reportFailed(id, failWith);
+            return;
+        }
         reportStarted(id, 4242);
     }
 
@@ -119,6 +152,9 @@ public:
     QMap<QString, QString> environment() const override { return {}; }
 
     QStringList starts;
+    QStringList pending;
+    bool hold = false;
+    QString failWith;
 };
 
 class FakePower : public PowerAction
@@ -206,6 +242,7 @@ class LayoutTest : public QObject
 
     FakeHome *home = nullptr;
     AppModel *apps = nullptr;
+    FavoritesModel *favorites = nullptr;
     FakeActivator *activator = nullptr;
     FakePower *power = nullptr;
     Launcher *launcher = nullptr;
@@ -224,6 +261,7 @@ class LayoutTest : public QObject
         root = nullptr;
         delete launcher;
         launcher = nullptr;
+        store.reset();
         idle = nullptr;
         delete activator;
         activator = nullptr;
@@ -231,21 +269,29 @@ class LayoutTest : public QObject
         power = nullptr;
         delete apps;
         apps = nullptr;
+        delete favorites;
+        favorites = nullptr;
         delete home;
         home = nullptr;
     }
 
     FakePad *pad = nullptr;
+#ifdef MICROSET_STORE_CORE
+    std::unique_ptr<StoreWorker> store;
+#endif
 
-    void load(int w, int h, const QVariantList &entries, const QVariantList &rows = {}, uint turn = 1)
+    void load(int w, int h, const QVariantList &entries, const QVariantList &rows = {}, uint turn = 1,
+              const QStringList &favoriteIds = {})
     {
         reset();
         home = new FakeHome();
         apps = new AppModel();
         apps->setEntriesForTest(entries);
+        favorites = new FavoritesModel(QDBusConnection(u"launcher-layout"_s), apps);
+        favorites->setIdsForTest(favoriteIds);
         activator = new FakeActivator();
         power = new FakePower();
-        launcher = new Launcher(home, apps, activator, power, nullptr, nullptr, 1, 80);
+        launcher = new Launcher(home, apps, favorites, activator, power, nullptr, nullptr, 1, 80);
         idle = new FakeIdle();
         launcher->setIdle(idle);
         home->publish(true, rows, turn);
@@ -283,6 +329,14 @@ class LayoutTest : public QObject
         QVariantList out;
         for (int i = 0; i < count; ++i)
             out << QVariantMap{{u"id"_s, u"app%1.desktop"_s.arg(i)}, {u"name"_s, u"app %1"_s.arg(i)}};
+        return out;
+    }
+
+    static QStringList ids(int count)
+    {
+        QStringList out;
+        for (int i = 0; i < count; ++i)
+            out << u"app%1.desktop"_s.arg(i);
         return out;
     }
 
@@ -324,7 +378,7 @@ private slots:
         AppModel model;
         FakeActivator act;
         FakePower powerStub;
-        Launcher subject(&client, &model, &act, &powerStub, nullptr, nullptr, 1, 60);
+        Launcher subject(&client, &model, nullptr, &act, &powerStub, nullptr, nullptr, 1, 60);
         engine = new QQmlApplicationEngine();
         engine->setInitialProperties({{u"launcher"_s, QVariant::fromValue(static_cast<QObject *>(&subject))}});
         engine->loadFromModule("MicroSetLauncher", "Home");
@@ -402,7 +456,7 @@ private slots:
 
     void landscapeGrid()
     {
-        load(480, 320, entries(30));
+        load(480, 320, entries(30), {}, 1, ids(30));
         QCOMPARE(launcher->columns(), 6);
         QQuickItem *grid = find(u"grid"_s);
         QVERIFY(grid != nullptr);
@@ -418,7 +472,7 @@ private slots:
 
     void portraitGrid()
     {
-        load(320, 480, entries(30));
+        load(320, 480, entries(30), {}, 1, ids(30));
         QCOMPARE(launcher->columns(), 3);
         QQuickItem *grid = find(u"grid"_s);
         QVERIFY(grid != nullptr);
@@ -437,16 +491,353 @@ private slots:
         QQuickItem *empty = find(u"empty"_s);
         QVERIFY(empty != nullptr);
         QVERIFY(empty->isVisible());
-        QCOMPARE(empty->property("text").toString(), u"No apps."_s);
+        QCOMPARE(empty->property("text").toString(), u"Press X in all apps to pin an app here."_s);
         QCOMPARE(int(qRound(empty->x())), 20);
         QCOMPARE(int(qRound(empty->width())), 140);
         QCOMPARE(int(qRound(empty->property("lineHeight").toReal())), 11);
-        QCOMPARE(int(qRound(empty->y() + empty->property("baselineOffset").toReal())), 98 + 16);
+        QCOMPARE(int(qRound(empty->y() + empty->property("baselineOffset").toReal())), 98 + 96 + 16);
+        QVERIFY(find(u"end-allapps"_s) != nullptr);
+        QVERIFY(find(u"end-store"_s) != nullptr);
+    }
+
+    void emptyLineIsHiddenWithOneFavorite()
+    {
+        load(480, 320, entries(2), {}, 1, ids(1));
+        QQuickItem *empty = find(u"empty"_s);
+        QVERIFY(empty != nullptr);
+        QVERIFY(!empty->isVisible());
+        QVERIFY(find(u"tile-0"_s) != nullptr);
+        QVERIFY(find(u"end-allapps"_s) != nullptr);
+        QVERIFY(find(u"tile-1"_s) == nullptr);
+    }
+
+    void allAppsPageListsEveryEntry()
+    {
+        load(480, 320, entries(12), {}, 1, ids(2));
+        launcher->openAllApps();
+        QTest::qWait(50);
+        QQuickItem *apps = find(u"apps"_s);
+        QVERIFY(apps != nullptr);
+        QVERIFY(apps->isVisible());
+        QQuickItem *home = find(u"home"_s);
+        QVERIFY(home != nullptr);
+        QVERIFY(!home->isVisible());
+        QQuickItem *list = find(u"applist"_s);
+        QVERIFY(list != nullptr);
+        QCOMPARE(list->property("count").toInt(), 12);
+        QCOMPARE(list->property("focusIndex").toInt(), 0);
+    }
+
+    void allAppsPadMap()
+    {
+        load(480, 320, entries(12), {}, 1, ids(2));
+        launcher->openAllApps();
+        QTest::qWait(50);
+        QQuickItem *list = find(u"applist"_s);
+        QVERIFY(list != nullptr);
+        tap(u"down"_s);
+        QTest::qWait(50);
+        QCOMPARE(list->property("focusIndex").toInt(), 1);
+        tap(u"down"_s);
+        QTest::qWait(50);
+        QCOMPARE(list->property("focusIndex").toInt(), 2);
+        tap(u"up"_s);
+        QTest::qWait(50);
+        QCOMPARE(list->property("focusIndex").toInt(), 1);
+        QCOMPARE(list->property("pageRows").toInt(), 5);
+        tap(u"right"_s);
+        QTest::qWait(50);
+        QCOMPARE(list->property("focusIndex").toInt(), 6);
+        tap(u"left"_s);
+        QTest::qWait(50);
+        QCOMPARE(list->property("focusIndex").toInt(), 1);
+        tap(u"a"_s);
+        QTest::qWait(50);
+        QCOMPARE(activator->starts, QStringList{u"app1.desktop"_s});
+    }
+
+    void allAppsRepeatsMoveTheList()
+    {
+        load(480, 320, entries(12), {}, 1, ids(2));
+        launcher->openAllApps();
+        QTest::qWait(50);
+        QQuickItem *list = find(u"applist"_s);
+        QVERIFY(list != nullptr);
+        repeatPress(u"down"_s);
+        QTest::qWait(50);
+        QCOMPARE(list->property("focusIndex").toInt(), 1);
+        repeatPress(u"down"_s);
+        QTest::qWait(50);
+        QCOMPARE(list->property("focusIndex").toInt(), 2);
+    }
+
+    void allAppsBackReturnsHome()
+    {
+        load(480, 320, entries(6), {}, 1, ids(6));
+        launcher->openAllApps();
+        QTest::qWait(50);
+        tap(u"b"_s);
+        QTest::qWait(50);
+        QCOMPARE(launcher->page(), Launcher::homePage());
+        QVERIFY(home->calls.isEmpty());
+        QQuickItem *apps = find(u"apps"_s);
+        QVERIFY(apps != nullptr);
+        QVERIFY(!apps->isVisible());
+    }
+
+    void allAppsKeepsItsFocusAcrossThePageSwitch()
+    {
+        load(480, 320, entries(12), {}, 1, ids(6));
+        launcher->openAllApps();
+        QTest::qWait(50);
+        QQuickItem *list = find(u"applist"_s);
+        QVERIFY(list != nullptr);
+        tap(u"down"_s);
+        tap(u"down"_s);
+        QTest::qWait(50);
+        QCOMPARE(list->property("focusIndex").toInt(), 2);
+        tap(u"b"_s);
+        QTest::qWait(50);
+        launcher->focusGridAt(3);
+        tap(u"y"_s);
+        QTest::qWait(50);
+        QCOMPARE(launcher->page(), Launcher::appsPage());
+        QCOMPARE(list->property("focusIndex").toInt(), 2);
+        QCOMPARE(launcher->focusRow(), 0);
+        QCOMPARE(launcher->focusIndex(), 3);
+    }
+
+    void yOpensTheStoreFromAllApps()
+    {
+        load(480, 320, entries(6), {}, 1, ids(2));
+        launcher->openAllApps();
+        QTest::qWait(50);
+        tap(u"y"_s);
+        QTest::qWait(50);
+        QCOMPARE(activator->starts, QStringList{Launcher::storeAppId()});
+    }
+
+    void storeEndTileStartsTheStore()
+    {
+        load(480, 320, entries(6), {}, 1, ids(2));
+        QQuickItem *tile = find(u"end-store"_s);
+        QVERIFY(tile != nullptr);
+        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, tile->mapToScene(QPointF(10, 10)).toPoint());
+        QCOMPARE(activator->starts, QStringList{Launcher::storeAppId()});
+    }
+
+    void storeLaunchFailureShowsTheToast()
+    {
+        load(480, 320, entries(6), {}, 1, ids(2));
+        activator->failWith = u"no entry"_s;
+        tap(u"y"_s);
+        QTest::qWait(50);
+        tap(u"y"_s);
+        QTest::qWait(50);
+        QQuickItem *toast = find(u"toast"_s);
+        QVERIFY(toast != nullptr);
+        QTRY_VERIFY_WITH_TIMEOUT(toast->property("shown").toBool(), 2000);
+        QCOMPARE(toast->property("artist").toString(), u"Store"_s);
+        QCOMPARE(toast->property("title").toString(), u"no entry"_s);
+        QCOMPARE(launcher->page(), Launcher::appsPage());
+    }
+
+    void powerPageTakesThePressOverAllApps()
+    {
+        load(480, 320, entries(12), {}, 1, ids(12));
+        launcher->openAllApps();
+        QTest::qWait(50);
+        launcher->ShowPower();
+        QTRY_VERIFY_WITH_TIMEOUT(find(u"power"_s)->property("shown").toBool(), 2000);
+        tap(u"y"_s);
+        QTest::qWait(50);
+        QCOMPARE(launcher->page(), Launcher::appsPage());
+        QVERIFY(activator->starts.isEmpty());
+        QVERIFY(launcher->power());
+    }
+
+    void toastDoesNotBlockThePage()
+    {
+        load(480, 320, entries(12), {}, 1, ids(12));
+        launcher->openAllApps();
+        QTest::qWait(50);
+        QMetaObject::invokeMethod(launcher, "uninstallFailed", Q_ARG(QString, u"App"_s),
+                                  Q_ARG(QString, u"not installed"_s));
+        QQuickItem *toast = find(u"toast"_s);
+        QVERIFY(toast != nullptr);
+        QTRY_VERIFY_WITH_TIMEOUT(toast->property("shown").toBool(), 2000);
+        QQuickItem *list = find(u"applist"_s);
+        const int focus = list->property("focusIndex").toInt();
+        tap(u"down"_s);
+        QTest::qWait(50);
+        QCOMPARE(list->property("focusIndex").toInt(), focus + 1);
+    }
+
+    void longPressIsDroppedWhileLaunching()
+    {
+        load(480, 320, entries(4), {}, 1, ids(4));
+        QQuickItem *homeItem = find(u"home"_s);
+        QVERIFY(homeItem != nullptr);
+        QQuickItem *tile = find(u"tile-0"_s);
+        QVERIFY(tile != nullptr);
+        activator->hold = true;
+        launcher->launchApp(u"app0.desktop"_s);
+        QVERIFY(launcher->launching());
+        bool handled = true;
+        QVERIFY(QMetaObject::invokeMethod(homeItem, "touchContext", Q_RETURN_ARG(bool, handled),
+                                          Q_ARG(QString, u"tile"_s), Q_ARG(int, 0), Q_ARG(QQuickItem *, tile)));
+        QVERIFY(!handled);
+        QQuickItem *sheet = find(u"sheet"_s);
+        QVERIFY(sheet != nullptr);
+        QVERIFY(!sheet->property("shown").toBool());
+        activator->release();
+    }
+
+    void heartToggleKeepsTheDeepRowInPlace()
+    {
+        load(480, 320, entries(30), {}, 1, ids(30));
+        launcher->openAllApps();
+        QTest::qWait(50);
+        QQuickItem *list = find(u"applist"_s);
+        QVERIFY(list != nullptr);
+        QVERIFY(QMetaObject::invokeMethod(list, "snapTo", Q_ARG(int, 20)));
+        QTest::qWait(50);
+        list->setProperty("contentY", list->property("contentY").toReal() + 4 * list->property("rowPitch").toReal());
+        QTest::qWait(50);
+        const qreal contentY = list->property("contentY").toReal();
+        const int focus = list->property("focusIndex").toInt();
+        QCOMPARE(focus, 20);
+        QVERIFY(contentY > 0);
+        launcher->toggleFavorite(u"app20.desktop"_s);
+        QTest::qWait(50);
+        QCOMPARE(list->property("contentY").toReal(), contentY);
+        QCOMPARE(list->property("focusIndex").toInt(), focus);
+        QCOMPARE(launcher->favoriteIds().indexOf(u"app20.desktop"_s), -1);
+    }
+
+#ifdef MICROSET_STORE_CORE
+    void uninstallFailureShowsTheToast()
+    {
+        QVariantList rows = entries(2);
+        rows << QVariantMap{{u"id"_s, u"org.example.App.desktop"_s},
+                            {u"name"_s, u"App"_s},
+                            {u"flatpak"_s, u"org.example.App"_s}};
+        load(480, 320, rows, {}, 1, {u"app0.desktop"_s});
+        auto backend = std::make_unique<FakeBackend>();
+        auto *fake = backend.get();
+        store = std::make_unique<StoreWorker>(std::move(backend));
+        store->start();
+        launcher->setStore(store.get());
+        fake->setUninstallFails(u"org.example.App"_s, u"not installed"_s);
+        launcher->uninstallApp(u"org.example.App.desktop"_s);
+        QQuickItem *toast = find(u"toast"_s);
+        QVERIFY(toast != nullptr);
+        QTRY_VERIFY_WITH_TIMEOUT(toast->property("shown").toBool(), 2000);
+        QCOMPARE(toast->property("artist").toString(), u"App"_s);
+        QCOMPARE(toast->property("title").toString(), u"not installed"_s);
+    }
+#endif
+
+    void xOnAFavoriteOpensTheSheet()
+    {
+        load(480, 320, entries(6), {}, 1, ids(2));
+        launcher->focusGridAt(0);
+        tap(u"x"_s);
+        QTest::qWait(500);
+        QQuickItem *sheet = find(u"sheet"_s);
+        QVERIFY(sheet != nullptr);
+        QVERIFY(sheet->property("shown").toBool());
+        QCOMPARE(sheet->property("items").toStringList(), QStringList{u"remove from favorites"_s});
+    }
+
+    void sheetTakesThePressesFirst()
+    {
+        QVariantList rows = entries(2);
+        rows << QVariantMap{{u"id"_s, u"org.example.App.desktop"_s},
+                            {u"name"_s, u"App"_s},
+                            {u"flatpak"_s, u"org.example.App"_s}};
+        load(480, 320, rows, {}, 1, QStringList{u"org.example.App.desktop"_s});
+        launcher->focusGridAt(0);
+        tap(u"x"_s);
+        QTest::qWait(500);
+        QQuickItem *sheet = find(u"sheet"_s);
+        QVERIFY(sheet != nullptr);
+        QVERIFY(sheet->property("shown").toBool());
+        QCOMPARE(sheet->property("items").toStringList(), QStringList({u"remove from favorites"_s, u"uninstall"_s}));
+        tap(u"down"_s);
+        QTest::qWait(50);
+        QCOMPARE(sheet->property("focusIndex").toInt(), 1);
+        QCOMPARE(launcher->focusIndex(), 0);
+        QCOMPARE(launcher->page(), Launcher::homePage());
+        tap(u"a"_s);
+        QTest::qWait(500);
+        QQuickItem *confirm = find(u"confirm"_s);
+        QVERIFY(confirm != nullptr);
+        QVERIFY(confirm->property("shown").toBool());
+        QCOMPARE(confirm->property("items").toStringList(), QStringList({u"uninstall"_s, u"keep"_s}));
+        QVERIFY(!sheet->property("shown").toBool());
+        tap(u"b"_s);
+        QTest::qWait(500);
+        QVERIFY(!confirm->property("shown").toBool());
+        QCOMPARE(favorites->ids(), QStringList{u"org.example.App.desktop"_s});
+    }
+
+    void sheetRemovesTheFavorite()
+    {
+        load(480, 320, entries(6), {}, 1, ids(2));
+        launcher->focusGridAt(0);
+        tap(u"x"_s);
+        QTest::qWait(500);
+        tap(u"a"_s);
+        QTest::qWait(500);
+        QCOMPARE(favorites->ids(), QStringList{u"app1.desktop"_s});
+        QQuickItem *sheet = find(u"sheet"_s);
+        QVERIFY(sheet != nullptr);
+        QVERIFY(!sheet->property("shown").toBool());
+    }
+
+    void holdingAFavoriteOpensTheSheet()
+    {
+        load(480, 320, entries(6), {}, 1, ids(2));
+        QQuickItem *tile = find(u"tile-0"_s);
+        QVERIFY(tile != nullptr);
+        const QPoint at = tile->mapToScene(QPointF(10, 10)).toPoint();
+        QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, at);
+        QTest::qWait(600);
+        QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, at);
+        QTest::qWait(300);
+        QQuickItem *sheet = find(u"sheet"_s);
+        QVERIFY(sheet != nullptr);
+        QVERIFY(sheet->property("shown").toBool());
+        QVERIFY(activator->starts.isEmpty());
+    }
+
+    void pulseOncePerPress()
+    {
+        load(480, 320, entries(6), {}, 1, ids(2));
+        QCOMPARE(idle->pulseCount(), 0);
+        tap(u"right"_s);
+        QTest::qWait(50);
+        QCOMPARE(idle->pulseCount(), 1);
+        QTest::qWait(1100);
+        launcher->openAllApps();
+        QTest::qWait(50);
+        tap(u"down"_s);
+        QTest::qWait(50);
+        QCOMPARE(idle->pulseCount(), 2);
+        QTest::qWait(1100);
+        tap(u"x"_s);
+        QTest::qWait(600);
+        QCOMPARE(find(u"sheet"_s)->property("shown").toBool(), true);
+        QTest::qWait(1100);
+        tap(u"b"_s);
+        QTest::qWait(600);
+        QCOMPARE(idle->pulseCount(), 4);
     }
 
     void runningRowSitsOverTheGrid()
     {
-        load(480, 320, entries(10), windows(2));
+        load(480, 320, entries(10), windows(2), 1, ids(10));
         QQuickItem *running = find(u"running"_s);
         QVERIFY(running != nullptr);
         QVERIFY(running->isVisible());
@@ -465,7 +856,7 @@ private slots:
 
     void runningRowShowsTheCaptionAndBottomBorder()
     {
-        load(480, 320, entries(10), windows(2));
+        load(480, 320, entries(10), windows(2), 1, ids(10));
         QQuickItem *tile = find(u"running-0"_s);
         QVERIFY(tile != nullptr);
         launcher->focusRunningAt(0);
@@ -490,7 +881,7 @@ private slots:
 
     void gridScrollsToFocus()
     {
-        load(480, 320, entries(30));
+        load(480, 320, entries(30), {}, 1, ids(30));
         QQuickItem *grid = find(u"grid"_s);
         QVERIFY(grid != nullptr);
         QCOMPARE(grid->property("contentY").toReal(), -2.0);
@@ -524,14 +915,22 @@ private slots:
     static QString rawFor(const QString &onScreen, int padTurn)
     {
         const QStringList dirs{u"up"_s, u"right"_s, u"down"_s, u"left"_s};
-        const int index = dirs.indexOf(onScreen);
-        return dirs.at(((index - padTurn) % 4 + 4) % 4);
+        const QStringList faces{u"y"_s, u"b"_s, u"a"_s, u"x"_s};
+        const QStringList *names = dirs.indexOf(onScreen) >= 0 ? &dirs : &faces;
+        const int index = names->indexOf(onScreen);
+        if (index < 0)
+            return onScreen;
+        return names->at(((index - padTurn) % 4 + 4) % 4);
     }
+
+    void tap(const QString &onScreen) { pad->fire(rawFor(onScreen, launcher->padTurn())); }
+
+    void repeatPress(const QString &onScreen) { pad->hold(rawFor(onScreen, launcher->padTurn())); }
 
     void padUpMovesFocusUpOnScreen()
     {
         for (uint turn : {1u, 0u, 3u, 2u}) {
-            load(480, 320, entries(18), {}, turn);
+            load(480, 320, entries(18), {}, turn, ids(18));
             launcher->focusGridAt(8);
             QCOMPARE(launcher->focusRow(), 1);
             QCOMPARE(launcher->padTurn(), Launcher::turnFor(turn, 1));
@@ -546,7 +945,7 @@ private slots:
 
     void oneRawSignalIsOneMove()
     {
-        load(480, 320, entries(18), {}, 1);
+        load(480, 320, entries(18), {}, 1, ids(18));
         QCOMPARE(launcher->padTurn(), 2);
         pad->fire(rawFor(u"right"_s, launcher->padTurn()));
         QTest::qWait(20);
@@ -571,7 +970,7 @@ private slots:
             {0, u"right"_s, u"down"_s},
         };
         for (const Case &c : cases) {
-            load(480, 320, entries(18), {}, c.transform);
+            load(480, 320, entries(18), {}, c.transform, ids(18));
             QCOMPARE(launcher->padTurn(), (1 + int(c.transform)) % 4);
             QQuickItem *router = find(u"router"_s);
             QVERIFY(router != nullptr);
@@ -587,7 +986,7 @@ private slots:
 
     void faceButtonsTurnToo()
     {
-        load(480, 320, entries(6), {}, 0);
+        load(480, 320, entries(6), {}, 0, ids(6));
         QCOMPARE(launcher->padTurn(), 1);
         const QStringList faces{u"y"_s, u"b"_s, u"a"_s, u"x"_s};
         const QString rawA = faces.at(((2 - launcher->padTurn()) % 4 + 4) % 4);
@@ -599,7 +998,7 @@ private slots:
 
     void touchTapStartsTheGridApp()
     {
-        load(480, 320, entries(6));
+        load(480, 320, entries(6), {}, 1, ids(6));
         QQuickItem *tile = find(u"tile-2"_s);
         QVERIFY(tile != nullptr);
         QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, tile->mapToScene(QPointF(10, 10)).toPoint());
@@ -692,7 +1091,7 @@ private slots:
 
     void focusBorderIsNotClipped()
     {
-        load(480, 320, entries(6));
+        load(480, 320, entries(6), {}, 1, ids(6));
         QQuickItem *tile = find(u"tile-0"_s);
         QVERIFY(tile != nullptr);
         launcher->focusGridAt(0);

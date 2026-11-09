@@ -1,6 +1,6 @@
 #include "storeworker.h"
 
-#include "glibthread.h"
+#include "storeglibthread.h"
 #include "storebackend.h"
 #include "storejob.h"
 
@@ -30,7 +30,7 @@ CancelFlag makeCancelFlag()
 StoreWorker::StoreWorker(std::unique_ptr<StoreBackend> backend, QObject *parent)
     : QObject(parent)
     , m_backend(std::move(backend))
-    , m_thread(std::make_unique<GlibThread>())
+    , m_thread(std::make_unique<StoreGlibThread>())
 {
     qRegisterMetaType<StoreEntry>();
     qRegisterMetaType<QList<StoreEntry>>();
@@ -46,7 +46,7 @@ void StoreWorker::start()
     if (m_running)
         return;
     if (m_thread == nullptr)
-        m_thread = std::make_unique<GlibThread>();
+        m_thread = std::make_unique<StoreGlibThread>();
     m_thread->startAndWait();
     m_running = true;
 }

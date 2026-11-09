@@ -15,7 +15,7 @@
 
 struct _GCancellable;
 
-class GlibThread;
+class StoreGlibThread;
 class StoreBackend;
 
 class StoreWorker : public QObject
@@ -59,7 +59,7 @@ private:
     bool installedIds(QStringList *ids);
 
     std::unique_ptr<StoreBackend> m_backend;
-    std::unique_ptr<GlibThread> m_thread;
+    std::unique_ptr<StoreGlibThread> m_thread;
     StoreJob *m_job = nullptr;
     QHash<StoreJob *, Request> m_requests;
     QStringList m_installedIds;

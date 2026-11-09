@@ -3,10 +3,15 @@
 #include "activator.h"
 #include "appmodel.h"
 #include "desktophome.h"
+#include "favoritesmodel.h"
 #include "idlepulse.h"
 #include "launch.h"
 #include "poweraction.h"
 #include "sleepinhibitor.h"
+#ifdef MICROSET_STORE_CORE
+#include "storejob.h"
+#include "storeworker.h"
+#endif
 
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
@@ -14,17 +19,37 @@
 
 using namespace Qt::StringLiterals;
 
-Launcher::Launcher(DesktopHome *home, AppModel *apps, Activator *launch, PowerAction *power, PadLink *pad,
-                   SleepInhibitor *sleep, int landscapeTurn, int reShowMs, QObject *parent)
+namespace {
+
+constexpr int EndTileCount = 2;
+
+QVariantMap endTile(const QString &name, const QString &end)
+{
+    return QVariantMap{
+        {u"id"_s, QString()},
+        {u"name"_s, name},
+        {u"source"_s, QString()},
+        {u"startupClass"_s, QString()},
+        {u"flatpak"_s, QString()},
+        {u"end"_s, end},
+    };
+}
+
+}
+
+Launcher::Launcher(DesktopHome *home, AppModel *apps, FavoritesModel *favorites, Activator *launch, PowerAction *power,
+                   PadLink *pad, SleepInhibitor *sleep, int landscapeTurn, int reShowMs, QObject *parent)
     : QObject(parent)
     , m_home(home)
     , m_apps(apps)
+    , m_favorites(favorites)
     , m_launch(launch)
     , m_powerRunner(power)
     , m_pad(pad)
     , m_sleep(sleep)
     , m_landscapeTurn(landscapeTurn)
     , m_reShowMs(reShowMs)
+    , m_page(homePage())
 {
     m_gridBase = gridBase();
     m_reShow.setSingleShot(true);
@@ -79,16 +104,32 @@ Launcher::Launcher(DesktopHome *home, AppModel *apps, Activator *launch, PowerAc
     connect(m_apps, &AppModel::entriesChanged, this, [this] {
         clampFocus();
         emit appsChanged();
+        emit allAppsChanged();
     });
+    if (m_favorites != nullptr) {
+        connect(m_favorites, &FavoritesModel::favoritesChanged, this, [this] {
+            clampFocus();
+            emit appsChanged();
+            emit favoritesChanged();
+        });
+    }
     connect(m_launch, &Activator::started, this, [this](const QString &appId, qint64 pid) {
         qInfo("launcher: %s started as pid %lld", qPrintable(appId), static_cast<long long>(pid));
+        m_launchName.clear();
         setLaunching(false);
     });
     connect(m_launch, &Activator::failed, this, [this](const QString &appId, const QString &message) {
         qWarning("launcher: %s did not start: %s", qPrintable(appId), qPrintable(message));
+        const QString name = m_launchName.isEmpty() ? appId : m_launchName;
+        const QString page = m_launchPage;
+        m_launchName.clear();
         setLaunching(false);
-        if (m_hiddenByUs)
+        if (m_hiddenByUs) {
             reShowNow();
+            if (!page.isEmpty())
+                setPage(page);
+        }
+        emit launchFailed(name, message);
     });
     if (m_sleep != nullptr) {
         connect(m_sleep, &SleepInhibitor::prepareForSleep, this, [this](bool start) {
@@ -127,6 +168,21 @@ QString Launcher::path()
 QString Launcher::interface()
 {
     return u"net.seilent.MicroSet.Launcher1"_s;
+}
+
+QString Launcher::storeAppId()
+{
+    return u"net.seilent.MicroSet.Store.desktop"_s;
+}
+
+QString Launcher::homePage()
+{
+    return u"home"_s;
+}
+
+QString Launcher::appsPage()
+{
+    return u"allapps"_s;
 }
 
 int Launcher::turnFor(uint transform, int landscapeTurn)
@@ -186,7 +242,29 @@ QVariantList Launcher::windows() const
 
 QVariantList Launcher::apps() const
 {
+    QVariantList grid = m_favorites != nullptr ? m_favorites->favorites() : QVariantList();
+    grid << endTile(u"All apps"_s, u"allapps"_s) << endTile(u"Store"_s, u"store"_s);
+    return grid;
+}
+
+QVariantList Launcher::allApps() const
+{
     return m_apps->entries();
+}
+
+QStringList Launcher::favoriteIds() const
+{
+    return m_favorites != nullptr ? m_favorites->ids() : QStringList();
+}
+
+int Launcher::favoriteCount() const
+{
+    return m_favorites != nullptr ? int(m_favorites->favorites().size()) : 0;
+}
+
+QString Launcher::page() const
+{
+    return m_page;
 }
 
 int Launcher::columns() const
@@ -352,6 +430,7 @@ void Launcher::syncArbiter()
 void Launcher::hideForReShow()
 {
     m_hiddenByUs = true;
+    setPage(homePage());
     setContent(false);
     m_reShow.start(m_reShowMs);
 }
@@ -403,7 +482,7 @@ void Launcher::focusWindowAt(int index)
 
 void Launcher::focusGridAt(int index)
 {
-    if (m_power || index < 0 || index >= m_apps->count())
+    if (m_power || index < 0 || index >= gridCount())
         return;
 
     const int row = gridBase() + index / m_columns;
@@ -451,9 +530,14 @@ int Launcher::gridBase() const
     return m_home->windows().isEmpty() ? 0 : 1;
 }
 
+int Launcher::gridCount() const
+{
+    return favoriteCount() + EndTileCount;
+}
+
 int Launcher::gridRows() const
 {
-    return (m_apps->count() + m_columns - 1) / m_columns;
+    return (gridCount() + m_columns - 1) / m_columns;
 }
 
 int Launcher::rowCount() const
@@ -466,7 +550,18 @@ int Launcher::countOf(int row) const
     const int base = gridBase();
     if (row < base)
         return int(m_home->windows().size());
-    return qBound(0, m_apps->count() - (row - base) * m_columns, m_columns);
+    return qBound(0, gridCount() - (row - base) * m_columns, m_columns);
+}
+
+QString Launcher::focusedFavorite() const
+{
+    if (m_focusRow < gridBase())
+        return {};
+    const QVariantList list = m_favorites != nullptr ? m_favorites->favorites() : QVariantList();
+    const int index = (m_focusRow - gridBase()) * m_columns + m_focusIndex;
+    if (index < 0 || index >= list.size())
+        return {};
+    return list.at(index).toMap().value(u"id"_s).toString();
 }
 
 void Launcher::clampFocus()
@@ -489,29 +584,147 @@ void Launcher::activateFocused()
         focusWindowAt(m_focusIndex);
         return;
     }
-    launchAt((m_focusRow - gridBase()) * m_columns + m_focusIndex);
+    activateGridAt((m_focusRow - gridBase()) * m_columns + m_focusIndex);
 }
 
-void Launcher::launchAt(int index)
+void Launcher::activateGridAt(int index)
 {
-    const QVariantList entries = m_apps->entries();
-    if (index < 0 || index >= entries.size())
+    if (index < 0)
         return;
-    const QString id = entries.at(index).toMap().value(u"id"_s).toString();
-    if (id.isEmpty())
+    const QVariantList list = m_favorites != nullptr ? m_favorites->favorites() : QVariantList();
+    if (index < list.size()) {
+        const QVariantMap tile = list.at(index).toMap();
+        launch(tile.value(u"id"_s).toString(), tile.value(u"name"_s).toString());
         return;
+    }
+    if (index == list.size()) {
+        openAllApps();
+        return;
+    }
+    if (index == list.size() + 1)
+        openStore();
+}
+
+void Launcher::launchApp(const QString &id)
+{
+    launch(id, m_apps->nameOf(id));
+}
+
+void Launcher::launch(const QString &id, const QString &name)
+{
+    if (id.isEmpty() || m_launching)
+        return;
+    m_launchPage = m_page;
+    m_launchName = name;
     hideForReShow();
     setLaunching(true);
     m_launch->start(id);
 }
 
-bool Launcher::handleAction(const QString &name, bool repeat)
+void Launcher::openAllApps()
 {
     if (m_launching)
-        return true;
-    if (!m_content)
+        return;
+    setPage(appsPage());
+}
+
+void Launcher::openStore()
+{
+    launch(storeAppId(), u"Store"_s);
+}
+
+void Launcher::closePage()
+{
+    setPage(homePage());
+}
+
+void Launcher::toggleFavorite(const QString &id)
+{
+    if (m_favorites != nullptr)
+        m_favorites->toggle(id);
+}
+
+void Launcher::removeFavorite(const QString &id)
+{
+    if (m_favorites != nullptr)
+        m_favorites->unstar(id);
+}
+
+void Launcher::uninstallApp(const QString &id)
+{
+    const AppEntry *entry = m_apps->find(id);
+    const QString appid = entry != nullptr ? entry->flatpak : QString();
+    if (appid.isEmpty()) {
+        qWarning("launcher: %s has no X-Flatpak, not uninstalling", qPrintable(id));
+        return;
+    }
+    const QString name = entry->name;
+    m_uninstallId = id;
+    m_uninstallApp = appid;
+    m_uninstallName = name;
+    if (startUninstall(appid))
+        return;
+    m_uninstallId.clear();
+    m_uninstallApp.clear();
+    m_uninstallName.clear();
+    qWarning("launcher: no store backend to uninstall %s", qPrintable(appid));
+    emit uninstallFailed(name, u"uninstall failed"_s);
+}
+
+bool Launcher::startUninstall(const QString &appid)
+{
+#ifdef MICROSET_STORE_CORE
+    if (m_store == nullptr)
         return false;
-    pulse();
+    m_store->uninstall(appid);
+    return true;
+#else
+    Q_UNUSED(appid);
+    return false;
+#endif
+}
+
+#ifdef MICROSET_STORE_CORE
+void Launcher::setStore(StoreWorker *store)
+{
+    if (store == m_store)
+        return;
+    if (m_store != nullptr)
+        disconnect(m_store, nullptr, this, nullptr);
+    m_store = store;
+    if (m_store != nullptr)
+        connect(m_store, &StoreWorker::jobFinished, this, &Launcher::storeJobFinished);
+}
+
+void Launcher::storeJobFinished(StoreJob *job)
+{
+    if (job == nullptr || job->kind() != StoreJob::Uninstall || job->id() != m_uninstallApp)
+        return;
+    const QString id = m_uninstallId;
+    const QString name = m_uninstallName;
+    m_uninstallId.clear();
+    m_uninstallApp.clear();
+    m_uninstallName.clear();
+    if (job->state() == StoreJob::Done) {
+        if (m_favorites != nullptr)
+            m_favorites->unstar(id);
+        return;
+    }
+    if (job->state() == StoreJob::Failed)
+        emit uninstallFailed(name, job->message());
+}
+#endif
+
+void Launcher::setPage(const QString &page)
+{
+    if (page == m_page)
+        return;
+    m_page = page;
+    emit pageChanged();
+}
+
+bool Launcher::handleAction(const QString &name, bool repeat)
+{
     if (name == u"up"_s || name == u"down"_s || name == u"left"_s || name == u"right"_s) {
         if (repeat)
             return true;
@@ -546,6 +759,16 @@ bool Launcher::handleAction(const QString &name, bool repeat)
     if (name == u"b"_s) {
         if (!repeat)
             leave();
+        return true;
+    }
+    if (name == u"x"_s) {
+        if (!repeat && !focusedFavorite().isEmpty())
+            emit sheetRequested();
+        return true;
+    }
+    if (name == u"y"_s) {
+        if (!repeat)
+            openAllApps();
         return true;
     }
     return false;
