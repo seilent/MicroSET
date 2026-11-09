@@ -239,7 +239,8 @@ void LauncherLaunch::start(const QString &id)
 
 void LauncherLaunch::reportStarted(const QString &appId, qint64 pid)
 {
-    moveToScope(appId, pid);
+    if (pid > 0)
+        moveToScope(appId, pid);
     emit started(appId, pid);
 }
 

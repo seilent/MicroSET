@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Store
+Exec=/usr/bin/microset-store
+DBusActivatable=true
+NoDisplay=true

@@ -29,6 +29,7 @@ class Launcher : public QObject
     Q_PROPERTY(int padTurn READ padTurn NOTIFY padTurnChanged)
     Q_PROPERTY(bool serviceDown READ serviceDown NOTIFY serviceDownChanged)
     Q_PROPERTY(bool launching READ launching NOTIFY launchingChanged)
+    Q_PROPERTY(bool store READ store NOTIFY storeChanged)
     Q_PROPERTY(QVariantList windows READ windows NOTIFY windowsChanged)
     Q_PROPERTY(QVariantList apps READ apps NOTIFY appsChanged)
     Q_PROPERTY(QVariantList allApps READ allApps NOTIFY allAppsChanged)
@@ -70,6 +71,7 @@ public:
     int padTurn() const;
     bool serviceDown() const;
     bool launching() const;
+    bool store() const;
     QVariantList windows() const;
     QVariantList apps() const;
     QVariantList allApps() const;
@@ -125,6 +127,7 @@ signals:
     void padTurnChanged();
     void serviceDownChanged();
     void launchingChanged();
+    void storeChanged();
     void windowsChanged();
     void appsChanged();
     void allAppsChanged();

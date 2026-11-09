@@ -29,6 +29,18 @@ class StoreCatalogTest : public QObject
         return nullptr;
     }
 
+    static QList<StoreEntry> installedFor(const QStringList &ids)
+    {
+        QList<StoreEntry> out;
+        for (const QString &id : ids) {
+            StoreEntry entry;
+            entry.id = id;
+            entry.installed = true;
+            out << entry;
+        }
+        return out;
+    }
+
     void touch(const QString &dir, const QString &name)
     {
         QFile file(dir + u'/' + name);
@@ -213,7 +225,7 @@ private slots:
     {
         StoreCatalogModel model;
         model.setEntries(m_entries);
-        model.setInstalled({u"org.example.Beta"_s});
+        model.setInstalled(installedFor({u"org.example.Beta"_s}));
         const QVariantList rows = model.rows();
         for (const QVariant &row : rows) {
             const QVariantMap values = row.toMap();
@@ -222,11 +234,30 @@ private slots:
         }
     }
 
+    void rowIgnoresTheSearchFilter()
+    {
+        StoreCatalogModel model;
+        model.setEntries(m_entries);
+        QList<StoreEntry> installed = installedFor({u"org.example.Alpha"_s});
+        installed[0].installedSize = 21000000;
+        model.setInstalled(installed);
+        model.setSearch(u"zzz"_s);
+        QCOMPARE(model.count(), 0);
+        const QVariantMap row = model.row(u"org.example.Alpha"_s);
+        QCOMPARE(row.value(u"id"_s).toString(), u"org.example.Alpha"_s);
+        QCOMPARE(row.value(u"name"_s).toString(), u"Alpha"_s);
+        QCOMPARE(row.value(u"installed"_s).toBool(), true);
+        QCOMPARE(row.value(u"installedSize"_s).toLongLong(), 21000000);
+        QVERIFY(model.row(u"org.example.Absent"_s).isEmpty());
+        model.release();
+        QVERIFY(model.row(u"org.example.Alpha"_s).isEmpty());
+    }
+
     void releaseFreesTheCatalog()
     {
         StoreCatalogModel model;
         model.setEntries(m_entries);
-        model.setInstalled({u"org.example.Alpha"_s});
+        model.setInstalled(installedFor({u"org.example.Alpha"_s}));
         QCOMPARE(model.count(), 4);
         model.release();
         QCOMPARE(model.count(), 0);

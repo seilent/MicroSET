@@ -558,6 +558,22 @@ private slots:
         QCOMPARE(launcher->allApps().size(), 4);
     }
 
+    void storeTileFollowsTheBuild()
+    {
+        build(6);
+#ifdef MICROSET_STORE_CORE
+        QVERIFY(launcher->store());
+        QCOMPARE(launcher->apps().size(), 2);
+#else
+        QVERIFY(!launcher->store());
+        QCOMPARE(launcher->apps().size(), 1);
+        QCOMPARE(launcher->apps().at(0).toMap().value(u"end"_s).toString(), u"allapps"_s);
+        launcher->focusGridAt(1);
+        QVERIFY(launcher->handleAction(u"a"_s, false));
+        QVERIFY(launch->starts.isEmpty());
+#endif
+    }
+
     void favoritesAddTilesBeforeTheEnd()
     {
         build(6);

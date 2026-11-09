@@ -57,6 +57,16 @@ struct LaunchRequest
     QString appId;
 };
 
+bool busActivatable(GDesktopAppInfo *info, const QString &desktopId)
+{
+    if (!desktopId.endsWith(u".desktop"_s))
+        return false;
+    if (!g_desktop_app_info_get_boolean(info, "DBusActivatable"))
+        return false;
+    const QByteArray name = desktopId.chopped(8).toUtf8();
+    return g_dbus_is_name(name.constData()) && name.at(0) != ':';
+}
+
 void onLaunched(GDesktopAppInfo *, GPid pid, gpointer data)
 {
     auto *request = static_cast<LaunchRequest *>(data);
@@ -64,6 +74,23 @@ void onLaunched(GDesktopAppInfo *, GPid pid, gpointer data)
     request->model->reportLaunched(request->appId, child);
     if (request->activator != nullptr)
         request->activator->reportStarted(request->appId, child);
+}
+
+void onActivated(GObject *source, GAsyncResult *result, gpointer data)
+{
+    auto *request = static_cast<LaunchRequest *>(data);
+    GError *error = nullptr;
+    if (g_app_info_launch_uris_finish(G_APP_INFO(source), result, &error)) {
+        request->model->reportLaunched(request->appId, 0);
+        if (request->activator != nullptr)
+            request->activator->reportStarted(request->appId, 0);
+    } else {
+        if (request->activator != nullptr)
+            request->activator->reportFailed(request->appId, fromUtf8(error->message));
+        if (error != nullptr)
+            g_error_free(error);
+    }
+    delete request;
 }
 
 }
@@ -355,16 +382,17 @@ void AppModel::setEntriesForTest(const QVariantList &entries)
 void AppModel::launch(const QString &id, Activator *activator)
 {
     const AppEntry *entry = find(id);
-    if (entry == nullptr) {
+    const QString desktopId = entry != nullptr ? entry->id : id;
+    if (desktopId.isEmpty()) {
         if (activator != nullptr)
             activator->reportFailed(id, u"no entry"_s);
         return;
     }
-    const QByteArray desktopId = entry->id.toUtf8();
-    GDesktopAppInfo *info = g_desktop_app_info_new(desktopId.constData());
+    const QByteArray desktopIdBytes = desktopId.toUtf8();
+    GDesktopAppInfo *info = g_desktop_app_info_new(desktopIdBytes.constData());
     if (info == nullptr) {
         if (activator != nullptr)
-            activator->reportFailed(id, u"cannot read "_s + entry->id);
+            activator->reportFailed(id, u"cannot read "_s + desktopId);
         return;
     }
     GAppLaunchContext *launch = g_app_launch_context_new();
@@ -386,6 +414,13 @@ void AppModel::launch(const QString &id, Activator *activator)
     g_strfreev(own);
     for (auto it = environment.cbegin(); it != environment.cend(); ++it)
         g_app_launch_context_setenv(launch, it.key().toUtf8().constData(), it.value().toUtf8().constData());
+    if (busActivatable(info, desktopId)) {
+        auto *request = new LaunchRequest{this, activator, id};
+        g_app_info_launch_uris_async(G_APP_INFO(info), nullptr, launch, nullptr, onActivated, request);
+        g_object_unref(launch);
+        g_object_unref(info);
+        return;
+    }
     LaunchRequest request{this, activator, id};
     GError *error = nullptr;
     const gboolean ok = g_desktop_app_info_launch_uris_as_manager(info, nullptr, launch, G_SPAWN_SEARCH_PATH, nullptr,

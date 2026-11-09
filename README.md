@@ -39,13 +39,26 @@ read, change and watch them over D-Bus.
 - `microset-launcher`: the MicroOS desktop home, a background layer surface on DSI-1 (`microset-launcher.service`,
   bus name `net.seilent.MicroSet.Launcher`). `Show` and `ShowPower` enter the home workspace through
   `net.seilent.MicroOs.DesktopHome`, `ShowPower` opening the power page too; `Toggle` leaves it when shown. The home
-  grid holds the favorites (`launcher.favorites`, desktop ids, `foot.desktop` by default, alphabetical) and the two
-  end tiles All apps and Store; an id whose app is not installed stays in the value and is not shown. A starts the
-  focused app in an `app-microset\x2dlauncher-*` scope, X opens a sheet (remove from favorites, uninstall for a
-  Flatpak app), Y opens All apps, B goes back to the workspace it came from. All apps lists every installed entry as
-  a row with a heart, dim when the app is not a favorite: A starts, X adds or removes a favorite or uninstalls a
-  Flatpak app, Select opens the jump letters, Y opens the store app `net.seilent.MicroSet.Store`, B goes back. Touch
-  taps as A and a long press as X.
+  grid holds the favorites (`launcher.favorites`, desktop ids, `foot.desktop` by default, alphabetical) and the end
+  tiles All apps and Store, the Store tile only when built with the store; an id whose app is not installed stays in
+  the value and is not shown. A starts the focused app in an `app-microset\x2dlauncher-*` scope, X opens a sheet
+  (remove from favorites, uninstall for a Flatpak app), Y opens All apps, B goes back to the workspace it came from.
+  All apps lists every installed entry as a row with a heart, dim when the app is not a favorite: A starts, X adds or
+  removes a favorite or uninstalls a Flatpak app, Select opens the jump letters, Y opens the store app
+  `net.seilent.MicroSet.Store`, B goes back. Touch taps as A and a long press as X. A D-Bus activated app reports its
+  activation back, so the grid leaves the launching state on the reply.
+- `microset-store`: the desktop store, a layer surface on DSI-1 (`microset-store.service`, bus name
+  `net.seilent.MicroSet.Store`, started by D-Bus activation from `net.seilent.MicroSet.Store.desktop`, which All apps
+  does not list). The launcher's Store tile and Y open it, and both are gone with `MICROSET_STORE` off. The list shows
+  the Flathub catalog with an `installed` mark and a letter tile for an app without an icon: up and down move, left and
+  right page, A opens the app's page, Y opens the keyboard on the search, Select clears it, B quits the process. The
+  app's page shows its developer, summary and size: A on the first row installs, opens or cancels while the download
+  runs, the ring shows its progress, a second install waits as `queued` and each app keeps its own job, X uninstalls
+  after a confirm that starts on `keep`. Install and error messages show as a toast. The catalog comes from the
+  appstream cache: the page shows it at once and syncs once in the background, a store that never synced shows the
+  offline line, the cache is released while the window is hidden and results that land while it is hidden are
+  dropped. B quits at once, or once the queue is empty while a job runs. Opening an app starts it through the
+  launcher's path and hides the store. Needs `MICROSET_UI` and `microset-launcher` and is left out without them.
 - `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and `microset-settings`. The
   page (`SettingsView`) lists the schema groups and edits their keys over `net.seilent.MicroSet`: A on a list or
   number row opens a value sheet, on an on/off row flips it. The `games` group holds `fex.preset`, `wine.sync` and
@@ -187,10 +200,10 @@ on `/dev/ttyHS2`. The LEDs follow the screen brightness and are off during suspe
 ## Build
 
 Qt 6.11 (Core, DBus; Gui, Qml, Quick and xcb for the QML module, `microset-recovery` and `microset-settings`, off
-with `-DMICROSET_UI=OFF -DMICROSET_RECOVERY=OFF`), alsa-lib, CMake 3.22, a C++20 compiler. `microset-launcher` also
-needs layer-shell-qt, Qt WaylandClient with its private headers, glib2, wayland-client and `wayland-scanner`
-(`-DMICROSET_LAUNCHER=OFF` leaves it out). The store core in `store/` needs flatpak and appstream and is left out
-when they are missing (`-DMICROSET_STORE=OFF` leaves it out too).
+with `-DMICROSET_UI=OFF -DMICROSET_RECOVERY=OFF`), alsa-lib, CMake 3.22, a C++20 compiler. `microset-launcher` and
+`microset-store` also need layer-shell-qt, Qt WaylandClient with its private headers, glib2, wayland-client and
+`wayland-scanner` (`-DMICROSET_LAUNCHER=OFF` leaves both out). The store in `store/` needs flatpak and appstream and is
+left out when they are missing (`-DMICROSET_STORE=OFF` leaves it out too).
 `-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik faces adds the screenshot tests; the recovery shots must match
 `recovery/tests/shots.sha256`.
 

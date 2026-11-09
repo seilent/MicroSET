@@ -1,5 +1,6 @@
 #include "storecatalogmodel.h"
 
+#include <QUrl>
 #include <QVariantMap>
 
 #include <algorithm>
@@ -12,6 +13,11 @@ QString letter(const QString &name)
 {
     const QString trimmed = name.trimmed();
     return trimmed.isEmpty() ? QString() : trimmed.left(1).toUpper();
+}
+
+QString fileUrl(const QString &path)
+{
+    return path.isEmpty() ? QString() : QUrl::fromLocalFile(path).toString();
 }
 
 }
@@ -69,6 +75,33 @@ bool StoreCatalogModel::find(const QString &id, StoreEntry *entry) const
     return false;
 }
 
+QVariantMap StoreCatalogModel::row(const QString &id) const
+{
+    for (const StoreEntry &entry : m_entries) {
+        if (entry.id == id)
+            return rowOf(entry);
+    }
+    return {};
+}
+
+QVariantMap StoreCatalogModel::rowOf(const StoreEntry &entry) const
+{
+    return QVariantMap{
+        {u"id"_s, entry.id},
+        {u"ref"_s, entry.ref},
+        {u"name"_s, entry.name},
+        {u"summary"_s, entry.summary},
+        {u"developer"_s, entry.developer},
+        {u"icon"_s, entry.icon},
+        {u"iconLarge"_s, entry.iconLarge},
+        {u"iconUrl"_s, fileUrl(entry.icon)},
+        {u"iconLargeUrl"_s, fileUrl(entry.iconLarge)},
+        {u"letter"_s, letter(entry.name)},
+        {u"installed"_s, m_installed.contains(entry.id)},
+        {u"installedSize"_s, m_installedSize.value(entry.id, entry.installedSize)},
+    };
+}
+
 void StoreCatalogModel::setEntries(const QList<StoreEntry> &entries)
 {
     m_entries = entries;
@@ -76,9 +109,15 @@ void StoreCatalogModel::setEntries(const QList<StoreEntry> &entries)
     updateOffline();
 }
 
-void StoreCatalogModel::setInstalled(const QStringList &ids)
+void StoreCatalogModel::setInstalled(const QList<StoreEntry> &installed)
 {
-    m_installed = QSet<QString>(ids.begin(), ids.end());
+    m_installed.clear();
+    m_installedSize.clear();
+    for (const StoreEntry &entry : installed) {
+        m_installed.insert(entry.id);
+        if (entry.installedSize > 0)
+            m_installedSize.insert(entry.id, entry.installedSize);
+    }
     rebuild();
 }
 
@@ -105,6 +144,7 @@ void StoreCatalogModel::release()
     m_entries = {};
     m_rows = {};
     m_installed.clear();
+    m_installedSize.clear();
     emit rowsChanged();
     updateOffline();
 }
@@ -138,19 +178,7 @@ void StoreCatalogModel::rebuild()
 
     m_rows.clear();
     m_rows.reserve(matched.size());
-    for (const StoreEntry *entry : matched) {
-        m_rows << QVariantMap{
-            {u"id"_s, entry->id},
-            {u"ref"_s, entry->ref},
-            {u"name"_s, entry->name},
-            {u"summary"_s, entry->summary},
-            {u"developer"_s, entry->developer},
-            {u"icon"_s, entry->icon},
-            {u"iconLarge"_s, entry->iconLarge},
-            {u"letter"_s, letter(entry->name)},
-            {u"installed"_s, m_installed.contains(entry->id)},
-            {u"installedSize"_s, entry->installedSize},
-        };
-    }
+    for (const StoreEntry *entry : matched)
+        m_rows << rowOf(*entry);
     emit rowsChanged();
 }

@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=net.seilent.MicroSet.Store
+Exec=/usr/bin/microset-store
+SystemdService=microset-store.service

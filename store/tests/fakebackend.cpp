@@ -218,10 +218,12 @@ bool FakeBackend::uninstall(const QString &id, _GCancellable *cancellable, const
 {
     QString failure;
     QString warning;
+    int delay = 0;
     {
         QMutexLocker lock(&m_lock);
         failure = m_uninstallErrors.value(id);
         warning = m_uninstallWarnings.value(id);
+        delay = m_delayMs;
         m_calls << u"uninstall:"_s + id;
     }
     if (!failure.isEmpty()) {
@@ -229,6 +231,8 @@ bool FakeBackend::uninstall(const QString &id, _GCancellable *cancellable, const
             *error = failure;
         return false;
     }
+    if (delay > 0)
+        std::this_thread::sleep_for(std::chrono::milliseconds(delay));
     if (stopped(&m_cancelled, cancellable)) {
         if (error != nullptr)
             *error = u"cancelled"_s;

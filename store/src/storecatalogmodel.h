@@ -3,12 +3,14 @@
 #include "storeentry.h"
 
 #include <QCollator>
+#include <QHash>
 #include <QList>
 #include <QObject>
 #include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
+#include <QVariantMap>
 
 class StoreCatalogModel : public QObject
 {
@@ -30,9 +32,10 @@ public:
 
     bool contains(const QString &id) const;
     bool find(const QString &id, StoreEntry *entry) const;
+    QVariantMap row(const QString &id) const;
 
     void setEntries(const QList<StoreEntry> &entries);
-    void setInstalled(const QStringList &ids);
+    void setInstalled(const QList<StoreEntry> &installed);
     void setSynced(bool synced);
     void setSearch(const QString &search);
     void release();
@@ -46,10 +49,12 @@ signals:
 private:
     void rebuild();
     void updateOffline();
+    QVariantMap rowOf(const StoreEntry &entry) const;
 
     QList<StoreEntry> m_entries;
     QVariantList m_rows;
     QSet<QString> m_installed;
+    QHash<QString, qint64> m_installedSize;
     QString m_search;
     QCollator m_collator;
     bool m_synced = false;

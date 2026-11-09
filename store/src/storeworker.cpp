@@ -7,6 +7,7 @@
 #include <QHash>
 #include <QMetaObject>
 
+#include <algorithm>
 #include <atomic>
 
 #pragma push_macro("signals")
@@ -77,6 +78,20 @@ StoreJob *StoreWorker::job() const
     return m_job;
 }
 
+StoreJob *StoreWorker::jobFor(const QString &id) const
+{
+    for (auto it = m_requests.cbegin(); it != m_requests.cend(); ++it) {
+        if (it.key()->id() == id)
+            return it.key();
+    }
+    return nullptr;
+}
+
+bool StoreWorker::idle() const
+{
+    return m_requests.isEmpty();
+}
+
 bool StoreWorker::enqueue(std::function<void()> work)
 {
     if (!m_running || m_thread == nullptr)
@@ -118,27 +133,55 @@ void StoreWorker::finishJob(StoreJob *job, bool ok, bool cancelled, const QStrin
     emit jobFinished(job);
 }
 
-void StoreWorker::setInstalledIds(const QStringList &ids)
+void StoreWorker::setInstalled(const QList<StoreEntry> &installed, bool force)
 {
-    if (m_installedValid && m_installedIds == ids)
-        return;
-    m_installedIds = ids;
+    if (!force && m_installedValid && m_installed.size() == installed.size()) {
+        bool same = true;
+        for (qsizetype i = 0; i < installed.size() && same; ++i)
+            same = m_installed.at(i).id == installed.at(i).id
+                && m_installed.at(i).installedSize == installed.at(i).installedSize;
+        if (same)
+            return;
+    }
+    m_installed = installed;
     m_installedValid = true;
-    emit installedReady(ids);
+    emit installedReady(installed);
 }
 
-bool StoreWorker::installedIds(QStringList *ids)
+bool StoreWorker::installedEntries(QList<StoreEntry> *entries, QString *error)
 {
-    QString error;
-    const QList<StoreEntry> installed = m_backend->installed(&error);
-    if (!error.isEmpty())
+    QString message;
+    *entries = m_backend->installed(&message);
+    if (error != nullptr)
+        *error = message;
+    if (!message.isEmpty())
         return false;
-    QStringList collected;
-    for (const StoreEntry &entry : installed)
-        collected << entry.id;
-    collected.sort();
-    *ids = collected;
+    std::sort(entries->begin(), entries->end(), [](const StoreEntry &left, const StoreEntry &right) {
+        return left.id < right.id;
+    });
     return true;
+}
+
+void StoreWorker::load()
+{
+    if (!m_running)
+        return;
+    enqueue([this] {
+        QString catalogError;
+        const QList<StoreEntry> entries = m_backend->catalog(&catalogError);
+        QList<StoreEntry> installed;
+        const bool installedOk = installedEntries(&installed);
+        const bool catalogOk = catalogError.isEmpty();
+        QMetaObject::invokeMethod(
+            this,
+            [this, entries, catalogOk, installedOk, installed] {
+                if (catalogOk)
+                    emit catalogReady(entries);
+                if (installedOk)
+                    setInstalled(installed, true);
+            },
+            Qt::QueuedConnection);
+    });
 }
 
 void StoreWorker::refresh()
@@ -152,13 +195,9 @@ void StoreWorker::refresh()
         QString catalogError;
         const QList<StoreEntry> entries = m_backend->catalog(&catalogError);
         QString installedError;
-        const QList<StoreEntry> installed = m_backend->installed(&installedError);
-        QStringList ids;
-        for (const StoreEntry &entry : installed)
-            ids << entry.id;
-        ids.sort();
+        QList<StoreEntry> installed;
+        const bool installedOk = installedEntries(&installed, &installedError);
         const bool catalogOk = catalogError.isEmpty();
-        const bool installedOk = installedError.isEmpty();
         QString error = syncError;
         if (error.isEmpty())
             error = catalogError;
@@ -167,12 +206,12 @@ void StoreWorker::refresh()
         const bool ok = synced && catalogOk && installedOk;
         QMetaObject::invokeMethod(
             this,
-            [this, ok, error, entries, catalogOk, installedOk, ids] {
+            [this, ok, error, entries, catalogOk, installedOk, installed] {
                 m_syncing = false;
                 if (catalogOk)
                     emit catalogReady(entries);
                 if (installedOk)
-                    setInstalledIds(ids);
+                    setInstalled(installed);
                 emit syncFinished(ok, error);
             },
             Qt::QueuedConnection);
@@ -183,7 +222,7 @@ void StoreWorker::refresh()
 
 void StoreWorker::install(const QString &id)
 {
-    if (id.isEmpty() || !m_running)
+    if (id.isEmpty() || !m_running || jobFor(id) != nullptr)
         return;
     auto *job = new StoreJob(StoreJob::Install, id, this);
     Request request;
@@ -229,14 +268,14 @@ void StoreWorker::install(const QString &id)
         QString error;
         const bool ok = m_backend->install(id, cancellable, progress, &error);
         const bool cancelledNow = g_cancellable_is_cancelled(cancellable);
-        QStringList ids;
-        const bool installedOk = installedIds(&ids);
+        QList<StoreEntry> installed;
+        const bool installedOk = installedEntries(&installed);
         QMetaObject::invokeMethod(
             this,
-            [this, job, ok, cancelledNow, error, installedOk, ids] {
+            [this, job, ok, cancelledNow, error, installedOk, installed] {
                 finishJob(job, ok, cancelledNow, error);
                 if (installedOk)
-                    setInstalledIds(ids);
+                    setInstalled(installed);
             },
             Qt::QueuedConnection);
     });
@@ -248,7 +287,7 @@ void StoreWorker::install(const QString &id)
 
 void StoreWorker::uninstall(const QString &id)
 {
-    if (id.isEmpty() || !m_running)
+    if (id.isEmpty() || !m_running || jobFor(id) != nullptr)
         return;
     auto *job = new StoreJob(StoreJob::Uninstall, id, this);
     Request request;
@@ -294,14 +333,14 @@ void StoreWorker::uninstall(const QString &id)
         QString error;
         const bool ok = m_backend->uninstall(id, cancellable, progress, &error);
         const bool cancelledNow = g_cancellable_is_cancelled(cancellable);
-        QStringList ids;
-        const bool installedOk = installedIds(&ids);
+        QList<StoreEntry> installed;
+        const bool installedOk = installedEntries(&installed);
         QMetaObject::invokeMethod(
             this,
-            [this, job, ok, cancelledNow, error, installedOk, ids] {
+            [this, job, ok, cancelledNow, error, installedOk, installed] {
                 finishJob(job, ok, cancelledNow, error);
                 if (installedOk)
-                    setInstalledIds(ids);
+                    setInstalled(installed);
             },
             Qt::QueuedConnection);
     });
@@ -314,6 +353,20 @@ void StoreWorker::uninstall(const QString &id)
 void StoreWorker::cancel()
 {
     StoreJob *job = m_job;
+    if (job == nullptr)
+        return;
+    const auto it = m_requests.constFind(job);
+    if (it != m_requests.constEnd()) {
+        it->cancelled->store(true);
+        if (it->cancellable != nullptr)
+            g_cancellable_cancel(it->cancellable);
+    }
+    job->cancel();
+}
+
+void StoreWorker::cancelFor(const QString &id)
+{
+    StoreJob *job = jobFor(id);
     if (job == nullptr)
         return;
     const auto it = m_requests.constFind(job);

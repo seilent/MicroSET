@@ -1,0 +1,17 @@
+[Unit]
+Description=MicroSET store
+Requisite=microos-desktop-ready.target
+After=microos-desktop-ready.target
+PartOf=microos-desktop-ready.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=dbus
+BusName=net.seilent.MicroSet.Store
+SuccessExitStatus=255
+TimeoutStartSec=5
+Environment=QT_QPA_PLATFORM=wayland
+Environment=QT_QUICK_BACKEND=software
+Environment=QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+ExecStart=/usr/bin/microset-store
+Restart=no

@@ -70,6 +70,28 @@ private slots:
         QVERIFY(!m_model.offline());
     }
 
+    void loadEmitsTheCachedCatalogWithoutSyncing()
+    {
+        open();
+        m_fake->setEntries({entryFor(u"org.example.Alpha"_s, u"Alpha"_s),
+                            entryFor(u"org.example.Beta"_s, u"Beta"_s)});
+        m_fake->setInstalled({entryFor(u"org.example.Beta"_s, u"Beta"_s)});
+        QSignalSpy sync(&*m_worker, &StoreWorker::syncFinished);
+        m_worker->load();
+        QTRY_COMPARE(m_model.count(), 2);
+        QCOMPARE(m_fake->syncCount(), 0);
+        QCOMPARE(sync.count(), 0);
+        QCOMPARE(m_model.rows().at(1).toMap().value(u"installed"_s).toBool(), true);
+        QVERIFY(!m_model.synced());
+        QSignalSpy installedReady(&*m_worker, &StoreWorker::installedReady);
+        m_worker->load();
+        QTRY_COMPARE(installedReady.count(), 1);
+        QCOMPARE(installedReady.last().at(0).value<QList<StoreEntry>>().size(), 1);
+        m_worker->refresh();
+        QTRY_COMPARE(sync.count(), 1);
+        QCOMPARE(m_fake->syncCount(), 1);
+    }
+
     void failedSyncKeepsTheCatalog()
     {
         open();
@@ -209,7 +231,7 @@ private slots:
         QTRY_VERIFY(job->state() == StoreJob::Done);
         QCOMPARE(m_fake->uninstalled(), QStringList{u"org.example.Alpha"_s});
         QTRY_VERIFY(!installedReady.isEmpty());
-        QVERIFY(installedReady.last().at(0).toStringList().isEmpty());
+        QVERIFY(installedReady.last().at(0).value<QList<StoreEntry>>().isEmpty());
     }
 
     void uninstallFailureReachesTheJob()
@@ -277,6 +299,32 @@ private slots:
         QTRY_COMPARE(m_fake->installed(nullptr).size(), 1);
         QCOMPARE(m_fake->installed(nullptr).at(0).id, u"org.example.Alpha"_s);
         QCOMPARE(m_fake->calls(), QStringList{u"install:org.example.Alpha"_s});
+    }
+
+    void jobsKeepTheirOwnApp()
+    {
+        open();
+        m_fake->setInstallSteps(20);
+        m_fake->setInstallDelayMs(10);
+        m_worker->install(u"org.example.Alpha"_s);
+        m_worker->install(u"org.example.Beta"_s);
+        StoreJob *alpha = m_worker->jobFor(u"org.example.Alpha"_s);
+        StoreJob *beta = m_worker->jobFor(u"org.example.Beta"_s);
+        QVERIFY(alpha != nullptr);
+        QVERIFY(beta != nullptr);
+        QVERIFY(alpha != beta);
+        QCOMPARE(alpha->id(), u"org.example.Alpha"_s);
+        QCOMPARE(beta->id(), u"org.example.Beta"_s);
+        QTRY_VERIFY(alpha->state() == StoreJob::Downloading);
+        QCOMPARE(beta->state(), StoreJob::Queued);
+        QVERIFY(!m_worker->idle());
+        m_worker->cancelFor(u"org.example.Beta"_s);
+        QCOMPARE(beta->state(), StoreJob::Cancelled);
+        QVERIFY(alpha->running());
+        QTRY_COMPARE(m_worker->jobFor(u"org.example.Beta"_s), nullptr);
+        QTRY_VERIFY(alpha->state() == StoreJob::Done);
+        QVERIFY(m_worker->idle());
+        QCOMPARE(m_worker->jobFor(u"org.example.Alpha"_s), nullptr);
     }
 
     void cancellingDoesNotAbortASync()

@@ -21,8 +21,6 @@ using namespace Qt::StringLiterals;
 
 namespace {
 
-constexpr int EndTileCount = 2;
-
 QVariantMap endTile(const QString &name, const QString &end)
 {
     return QVariantMap{
@@ -235,6 +233,15 @@ bool Launcher::launching() const
     return m_launching;
 }
 
+bool Launcher::store() const
+{
+#ifdef MICROSET_STORE_CORE
+    return true;
+#else
+    return false;
+#endif
+}
+
 QVariantList Launcher::windows() const
 {
     return m_home->windows();
@@ -243,7 +250,9 @@ QVariantList Launcher::windows() const
 QVariantList Launcher::apps() const
 {
     QVariantList grid = m_favorites != nullptr ? m_favorites->favorites() : QVariantList();
-    grid << endTile(u"All apps"_s, u"allapps"_s) << endTile(u"Store"_s, u"store"_s);
+    grid << endTile(u"All apps"_s, u"allapps"_s);
+    if (store())
+        grid << endTile(u"Store"_s, u"store"_s);
     return grid;
 }
 
@@ -532,7 +541,7 @@ int Launcher::gridBase() const
 
 int Launcher::gridCount() const
 {
-    return favoriteCount() + EndTileCount;
+    return favoriteCount() + 1 + (store() ? 1 : 0);
 }
 
 int Launcher::gridRows() const
@@ -601,7 +610,7 @@ void Launcher::activateGridAt(int index)
         openAllApps();
         return;
     }
-    if (index == list.size() + 1)
+    if (store() && index == list.size() + 1)
         openStore();
 }
 
@@ -630,6 +639,8 @@ void Launcher::openAllApps()
 
 void Launcher::openStore()
 {
+    if (!store())
+        return;
     launch(storeAppId(), u"Store"_s);
 }
 
