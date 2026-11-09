@@ -1,0 +1,347 @@
+pragma ComponentBehavior: Bound
+import QtQuick
+import MicroSet
+
+Window {
+    id: root
+
+    required property QtObject launcher
+    property QtObject pad: null
+
+    visible: false
+    color: Ui.bg
+    flags: Qt.Window | Qt.FramelessWindowHint
+    title: "microset-launcher"
+
+    Item {
+        id: home
+
+        property QtObject launcher: root.launcher
+
+        readonly property var windowList: home.launcher === null ? [] : home.launcher.windows
+        readonly property var appList: home.launcher === null ? [] : home.launcher.apps
+        readonly property int columns: home.launcher === null || home.launcher.columns < 1 ? 1 : home.launcher.columns
+        readonly property bool hasRunning: home.windowList.length > 0
+        readonly property int gridBase: home.hasRunning ? 1 : 0
+        readonly property real gridTop: home.hasRunning
+            ? Ui.px(Ui.contentTop) + Ui.px(Ui.tileCellH + Ui.gutter) : Ui.px(Ui.contentTop)
+        readonly property real rowPitch: Ui.px(Ui.tileCellH + Ui.gutter)
+        readonly property real cellPitch: Ui.px(Ui.tileS + Ui.gutter)
+        readonly property bool empty: home.appList.length === 0
+        readonly property bool power: home.launcher !== null && home.launcher.power
+        readonly property int focusRow: home.launcher === null ? 0 : home.launcher.focusRow
+        readonly property int focusIndex: home.launcher === null ? 0 : home.launcher.focusIndex
+        readonly property int gridIndex: home.hasRunning ? home.focusRow - 1 : home.focusRow
+        readonly property int border: Ui.px(Ui.focusBorder)
+        property int revision: 0
+
+        function gridRowOf(index: int): int {
+            return home.gridBase + Math.floor(index / home.columns)
+        }
+
+        function gridColOf(index: int): int {
+            return index % home.columns
+        }
+
+        function activate(index: int): void {
+            if (home.launcher !== null)
+                home.launcher.focusGridAt(index)
+        }
+
+        function activateWindow(index: int): void {
+            if (home.launcher !== null)
+                home.launcher.focusRunningAt(index)
+        }
+
+        function touchPress(kind: string, index: int, x: real, hit: Item): string {
+            if (home.launcher === null)
+                return ""
+            if (kind === "tile") {
+                home.activate(index)
+                return "a"
+            }
+            if (kind === "running") {
+                home.activateWindow(index)
+                return "a"
+            }
+            if (kind === "header")
+                return "b"
+            return ""
+        }
+
+        width: root.width
+        height: root.height
+        objectName: "home"
+        visible: home.launcher !== null && home.launcher.content
+
+        onWidthChanged: home.syncColumns()
+        onHeightChanged: home.syncColumns()
+
+        function syncColumns(): void {
+            Ui.setSurface(home.width, home.height)
+            if (home.launcher !== null)
+                home.launcher.columns = Ui.gridCols
+        }
+
+        Component.onCompleted: home.syncColumns()
+
+        Rectangle {
+            anchors.fill: parent
+            color: Ui.bg
+        }
+
+        CroppedHeader {
+            id: header
+
+            text: "apps"
+            animated: false
+        }
+
+        StatusStrip {
+            id: strip
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            clock: home.launcher === null ? "" : home.launcher.clock
+            battery: home.launcher === null ? 100 : home.launcher.batteryPercent
+            batteryPresent: home.launcher !== null && home.launcher.batteryPresent
+
+            Text {
+                id: ssidText
+
+                anchors.verticalCenter: strip.row.verticalCenter
+                anchors.right: strip.row.left
+                anchors.rightMargin: Ui.px(Ui.statusGap)
+                visible: home.launcher !== null && home.launcher.wifi
+                text: home.launcher === null ? "" : home.launcher.ssid
+                elide: Text.ElideRight
+                width: Math.min(implicitWidth, Math.max(0, home.width / 2 - Ui.px(Ui.edge)))
+                color: Ui.white(Ui.time.alpha)
+                font: Ui.font(Ui.time)
+            }
+        }
+
+        Text {
+            id: emptyText
+
+            objectName: "empty"
+            x: Ui.px(Ui.hubEdge)
+            anchors.baseline: parent.top
+            anchors.baselineOffset: home.gridTop + Ui.px(Ui.qpHintDrop)
+            width: Ui.px(Ui.qpHintW)
+            wrapMode: Text.WordWrap
+            lineHeightMode: Text.FixedHeight
+            lineHeight: Ui.px(Ui.qpHintPitch)
+            visible: home.empty && !home.power
+            text: "No apps."
+            color: Ui.white(Ui.quickplayHint.alpha)
+            font: Ui.font(Ui.quickplayHint)
+        }
+
+        GridView {
+            id: grid
+
+            readonly property int cellH: home.rowPitch
+
+            objectName: "grid"
+            x: Ui.px(Ui.hubEdge) - home.border
+            y: home.gridTop - home.border
+            width: home.columns * home.cellPitch + 2 * home.border
+            height: Math.max(0, home.height - home.gridTop)
+            leftMargin: home.border
+            topMargin: home.border
+            rightMargin: home.border
+            bottomMargin: home.border
+            cellWidth: home.cellPitch
+            cellHeight: grid.cellH
+            clip: true
+            interactive: false
+            boundsBehavior: Flickable.StopAtBounds
+            visible: !home.empty
+            model: home.appList
+
+            property bool touchScroll: true
+            property bool touchScrollEnabled: true
+            property alias touch: gridScroll
+
+            TouchScroll {
+                id: gridScroll
+
+                flick: grid
+            }
+
+            onContentHeightChanged: home.scrollToFocus()
+
+            delegate: Tile {
+                id: cell
+
+                required property int index
+                required property var modelData
+
+                readonly property string touchKind: "tile"
+                readonly property int touchIndex: cell.index
+
+                objectName: "tile-" + cell.index
+                size: Ui.tileS
+                source: cell.modelData.source
+                title: cell.modelData.name
+                focused: home.focusRow === home.gridRowOf(cell.index) && home.focusIndex === home.gridColOf(cell.index)
+                captioned: true
+            }
+        }
+
+        ListView {
+            id: runningRow
+
+            objectName: "running"
+            x: Ui.px(Ui.hubEdge) - home.border
+            y: Ui.px(Ui.contentTop) - home.border
+            width: home.width - 2 * Ui.px(Ui.hubEdge) + 2 * home.border
+            height: Ui.px(Ui.tileCellH) + home.border
+            orientation: ListView.Horizontal
+            leftMargin: home.border
+            rightMargin: home.border
+            interactive: false
+            boundsBehavior: Flickable.StopAtBounds
+            clip: true
+            visible: home.hasRunning
+            model: home.windowList
+
+            property bool touchScroll: true
+            property bool touchScrollEnabled: true
+            property alias touch: runningScroll
+
+            TouchScroll {
+                id: runningScroll
+
+                flick: runningRow
+            }
+
+            onContentWidthChanged: home.scrollToFocus()
+
+            delegate: Item {
+                id: windowCell
+
+                required property int index
+                required property var modelData
+
+                width: home.cellPitch
+                height: Ui.px(Ui.tileCellH) + home.border
+
+                Tile {
+                    id: windowTile
+
+                    y: home.border
+
+                    readonly property string touchKind: "running"
+                    readonly property int touchIndex: windowCell.index
+
+                    objectName: "running-" + windowCell.index
+                    size: Ui.tileS
+                    source: home.revision >= 0 && home.launcher !== null
+                        ? home.launcher.windowIcon(windowCell.index) : ""
+                    title: home.revision >= 0 && home.launcher !== null
+                        ? home.launcher.windowName(windowCell.index) : ""
+                    focused: home.focusRow === 0 && home.focusIndex === windowCell.index
+                    captioned: true
+                }
+            }
+        }
+
+        function scrollToFocus(): void {
+            if (home.power)
+                return
+            if (home.hasRunning && home.focusRow === 0) {
+                home.scrollRunningToFocus()
+                return
+            }
+            if (home.empty)
+                return
+            grid.forceLayout()
+            const row = Math.max(0, home.gridIndex)
+            const top = row * home.rowPitch - grid.topMargin
+            const low = top - (grid.height - grid.topMargin - grid.bottomMargin - home.rowPitch)
+            const min = -grid.topMargin
+            const max = Math.max(min, grid.contentHeight + grid.bottomMargin - grid.height)
+            let y = grid.contentY
+            if (top < y)
+                y = top
+            else if (y < low)
+                y = low
+            grid.contentY = Math.max(min, Math.min(max, y))
+        }
+
+        function scrollRunningToFocus(): void {
+            if (!home.hasRunning || home.focusRow !== 0)
+                return
+            const cell = home.cellPitch
+            const left = home.focusIndex * cell - runningRow.leftMargin
+            const right = left + cell
+            const min = -runningRow.leftMargin
+            const max = Math.max(min, runningRow.contentWidth + runningRow.rightMargin - runningRow.width)
+            let x = runningRow.contentX
+            if (left < x)
+                x = left
+            else if (x + runningRow.width < right)
+                x = right - runningRow.width
+            runningRow.contentX = Math.max(min, Math.min(max, x))
+        }
+
+        Connections {
+            target: home.launcher
+
+            function onAppsChanged() {
+                home.revision++
+            }
+
+            function onWindowsChanged() {
+                home.revision++
+            }
+
+            function onFocusChanged() {
+                home.scrollToFocus()
+            }
+
+            function onPowerChanged() {
+                if (home.power)
+                    power.open()
+                else
+                    power.close()
+            }
+        }
+    }
+
+    PowerPage {
+        id: power
+
+        objectName: "power"
+        anchors.fill: parent
+        onPicked: (verb) => {
+            if (root.launcher !== null)
+                root.launcher.runPower(verb)
+        }
+        onDismissed: {
+            if (root.launcher !== null)
+                root.launcher.closePower()
+        }
+    }
+
+    TouchLayer {
+        id: touch
+
+        anchors.fill: parent
+        enabled: root.launcher !== null && root.launcher.content
+        dialogs: [power]
+        router: router
+    }
+
+    LauncherRouter {
+        id: router
+
+        launcher: root.launcher
+        pad: root.pad
+        home: home
+        modal: power
+    }
+}

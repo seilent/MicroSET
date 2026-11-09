@@ -36,6 +36,11 @@ read, change and watch them over D-Bus.
   The overlay also owns `net.seilent.MicroOs.SessionMenu` (interface `SessionMenu1`, `Show(sessions, current, hints)`):
   a sheet listing the sessions MicroOS passes, current marked. A switches (`microos-session-switch@<name>.service`) or
   starts an install (`microos-session-install@<name>.service`), B closes.
+- `microset-launcher`: the MicroOS desktop home, a background layer surface on DSI-1 (`microset-launcher.service`,
+  bus name `net.seilent.MicroSet.Launcher`). `Show` and `ShowPower` enter the home workspace through
+  `net.seilent.MicroOs.DesktopHome`, `ShowPower` opening the power page too; `Toggle` leaves it when shown; its grid
+  lists the installed apps and starts one in an `app-microset\x2dlauncher-*` scope, and B goes back to the workspace
+  it came from.
 - `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and `microset-settings`. The
   page (`SettingsView`) lists the schema groups and edits their keys over `net.seilent.MicroSet`: A on a list or
   number row opens a value sheet, on an on/off row flips it. The `games` group holds `fex.preset`, `wine.sync` and
@@ -176,7 +181,9 @@ on `/dev/ttyHS2`. The LEDs follow the screen brightness and are off during suspe
 ## Build
 
 Qt 6.11 (Core, DBus; Gui, Qml, Quick and xcb for the QML module, `microset-recovery` and `microset-settings`, off
-with `-DMICROSET_UI=OFF -DMICROSET_RECOVERY=OFF`), alsa-lib, CMake 3.22, a C++20 compiler.
+with `-DMICROSET_UI=OFF -DMICROSET_RECOVERY=OFF`), alsa-lib, CMake 3.22, a C++20 compiler. `microset-launcher` also
+needs layer-shell-qt, Qt WaylandClient with its private headers, glib2, wayland-client and `wayland-scanner`
+(`-DMICROSET_LAUNCHER=OFF` leaves it out).
 `-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik faces adds the screenshot tests; the recovery shots must match
 `recovery/tests/shots.sha256`.
 

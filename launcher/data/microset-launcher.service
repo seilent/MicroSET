@@ -1,0 +1,18 @@
+[Unit]
+Description=MicroSET launcher home
+Requisite=microos-desktop-ready.target
+After=microos-desktop-ready.target
+PartOf=microos-desktop-ready.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=dbus
+BusName=net.seilent.MicroSet.Launcher
+SuccessExitStatus=255
+TimeoutStartSec=5
+Environment=QT_QPA_PLATFORM=wayland
+Environment=QT_QUICK_BACKEND=software
+Environment=QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+ExecStart=/usr/bin/microset-launcher
+Restart=on-failure
+RestartSec=2

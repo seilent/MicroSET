@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=net.seilent.MicroSet.Launcher
+Exec=/usr/bin/microset-launcher
+SystemdService=microset-launcher.service
