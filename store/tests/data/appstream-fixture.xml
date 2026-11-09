@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<components version="0.8">
+  <component type="desktop-application">
+    <id>org.example.Alpha</id>
+    <name>Alpha</name>
+    <summary>Alpha summary</summary>
+    <developer id="example.org"><name>Alpha Dev</name></developer>
+    <metadata_license>CC0-1.0</metadata_license>
+    <project_license>MIT</project_license>
+    <launchable type="desktop-id">org.example.Alpha.desktop</launchable>
+    <icon type="cached" width="64" height="64">org.example.Alpha.png</icon>
+    <icon type="cached" width="128" height="128">org.example.Alpha.png</icon>
+    <bundle type="flatpak">app/org.example.Alpha/aarch64/stable</bundle>
+  </component>
+  <component type="desktop-application">
+    <id>org.example.Beta</id>
+    <name>Beta</name>
+    <summary>Beta summary</summary>
+    <developer id="example.org"><name>Beta Dev</name></developer>
+    <metadata_license>CC0-1.0</metadata_license>
+    <project_license>MIT</project_license>
+    <launchable type="desktop-id">org.example.Beta.desktop</launchable>
+  </component>
+  <component type="desktop-application">
+    <id>org.example.Gamma</id>
+    <name>Gamma</name>
+    <summary>A graphics tool</summary>
+    <metadata_license>CC0-1.0</metadata_license>
+    <project_license>MIT</project_license>
+    <launchable type="desktop-id">org.example.Gamma.desktop</launchable>
+  </component>
+  <component type="desktop-application">
+    <id>org.example.Delta</id>
+    <name>Delta</name>
+    <summary>Delta summary</summary>
+    <metadata_license>CC0-1.0</metadata_license>
+    <project_license>MIT</project_license>
+    <launchable type="desktop-id">org.example.Delta.desktop</launchable>
+  </component>
+  <component type="addon">
+    <id>org.example.Plugin</id>
+    <name>Plugin</name>
+    <summary>Not a desktop app</summary>
+    <metadata_license>CC0-1.0</metadata_license>
+    <project_license>MIT</project_license>
+    <extends>org.example.Alpha</extends>
+  </component>
+</components>

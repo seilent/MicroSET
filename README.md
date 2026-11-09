@@ -185,7 +185,8 @@ on `/dev/ttyHS2`. The LEDs follow the screen brightness and are off during suspe
 Qt 6.11 (Core, DBus; Gui, Qml, Quick and xcb for the QML module, `microset-recovery` and `microset-settings`, off
 with `-DMICROSET_UI=OFF -DMICROSET_RECOVERY=OFF`), alsa-lib, CMake 3.22, a C++20 compiler. `microset-launcher` also
 needs layer-shell-qt, Qt WaylandClient with its private headers, glib2, wayland-client and `wayland-scanner`
-(`-DMICROSET_LAUNCHER=OFF` leaves it out).
+(`-DMICROSET_LAUNCHER=OFF` leaves it out). The store core in `store/` needs flatpak and appstream and is left out
+when they are missing (`-DMICROSET_STORE=OFF` leaves it out too).
 `-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik faces adds the screenshot tests; the recovery shots must match
 `recovery/tests/shots.sha256`.
 
