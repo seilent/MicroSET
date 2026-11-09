@@ -10,7 +10,9 @@
 
 #include <array>
 
-class DbusPad : public QObject
+#include "padlink.h"
+
+class DbusPad : public PadLink
 {
     Q_OBJECT
     Q_PROPERTY(bool holding READ holding NOTIFY holdingChanged)
@@ -52,8 +54,8 @@ public:
     bool holding() const;
     QString holder() const;
     QString name() const;
-    bool wanted() const;
-    void setWanted(bool wanted);
+    bool wanted() const override;
+    void setWanted(bool wanted) override;
     void acquire();
     Q_INVOKABLE QString actionName(DbusPad::Action action) const;
 
@@ -64,7 +66,6 @@ signals:
     void holdingChanged();
     void holderChanged();
     void acquired(bool ok);
-    void releaseDone();
     void arbiterLost();
 
 private slots:

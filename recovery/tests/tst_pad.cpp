@@ -213,6 +213,19 @@ private slots:
         QTRY_COMPARE(actions.count(), 1);
     }
 
+    void releaseDoneThroughPadLink()
+    {
+        startArbiter();
+        QTRY_VERIFY(m_pad->holding());
+        PadLink *link = m_pad.get();
+        QSignalSpy done(link, &PadLink::releaseDone);
+        QCOMPARE(done.count(), 0);
+        link->setWanted(false);
+        QTRY_COMPARE(done.count(), 1);
+        QCOMPARE(m_arbiter->holder(), QString());
+        QVERIFY(!link->wanted());
+    }
+
     void directionRepeats()
     {
         startArbiter();

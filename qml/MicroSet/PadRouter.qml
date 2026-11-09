@@ -69,9 +69,13 @@ Item {
         return true
     }
 
+    function padName(raw: string): string {
+        return Ui.padButton(raw)
+    }
+
     function heldName(raw: string): string {
         const name = router.held[raw]
-        return name === undefined ? Ui.padButton(raw) : name
+        return name === undefined ? router.padName(raw) : name
     }
 
     function page(): Item {
@@ -116,6 +120,12 @@ Item {
         return handled
     }
 
+    function context(owner: Item, kind: string, index: int, hit: Item): bool {
+        if (router.screenOff || router.locked || router.saverUp || owner === null || typeof owner.touchContext !== "function")
+            return false
+        return owner.touchContext(kind, index, hit) === true
+    }
+
     function press(name: string) {
         if (name === "" || router.screenOff || router.locked || router.modalUp || router.saverUp)
             return
@@ -155,7 +165,7 @@ Item {
                 return
             if (router.held[raw] !== undefined)
                 return
-            const name = Ui.padButton(raw)
+            const name = router.padName(raw)
             const count = router.heldCount[name] === undefined ? 0 : router.heldCount[name]
             router.held[raw] = name
             router.heldCount[name] = count + 1

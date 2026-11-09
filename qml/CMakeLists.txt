@@ -11,6 +11,7 @@ set(microset_qml
     MicroSet/FocusList.qml
     MicroSet/TouchScroll.qml
     MicroSet/Turnstile.qml
+    MicroSet/TouchLayer.qml
     MicroSet/PageStack.qml
     MicroSet/Page.qml
     MicroSet/GlyphPaths.js
@@ -23,6 +24,8 @@ set(microset_qml
     MicroSet/components/Ring.qml
     MicroSet/components/ListRow.qml
     MicroSet/components/LetterTile.qml
+    MicroSet/components/StatusStrip.qml
+    MicroSet/components/Tile.qml
     MicroSet/components/JumpLetter.qml
     MicroSet/components/Keyboard.qml
     MicroSet/JumpGrid.qml

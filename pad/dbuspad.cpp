@@ -50,7 +50,7 @@ QString holderProperty()
 }
 
 DbusPad::DbusPad(const QDBusConnection &session, const QDBusConnection &system, QObject *parent, bool wanted)
-    : QObject(parent)
+    : PadLink(parent)
     , m_session(session)
     , m_system(system)
     , m_watcher(arbiterService(), session, QDBusServiceWatcher::WatchForOwnerChange)
