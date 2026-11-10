@@ -1976,7 +1976,8 @@ private slots:
                     QCOMPARE(pick, u"sheet"_s);
                     QCOMPARE(words(m->sheet(key)), (QStringList{u"off"_s, u"on"_s}));
                 } else if (edits.contains(key)) {
-                    QVERIFY2(pick == "edit"_L1, qPrintable(key));
+                    const bool hue = key == "rgb.hue"_L1 || key == "microdap.accent_hue"_L1;
+                    QVERIFY2(pick == (hue ? "edit"_L1 : "adjust"_L1), qPrintable(key + u' ' + pick));
                     seenEdits << key;
                 } else {
                     QVERIFY2(pick == "sheet"_L1, qPrintable(key + u' ' + pick));
@@ -1994,6 +1995,17 @@ private slots:
         QCOMPARE(words(m->sheet(u"microemu.retroarch.menu_shader_pipeline"_s)).size(), 7);
         QVERIFY(m->sheet(u"microemu.retroarch.audio_block_frames"_s).isEmpty());
         QCOMPARE(words(m->sheet(u"audio.eq.headphones.on"_s)), (QStringList{u"off"_s, u"on"_s}));
+    }
+
+    void longWordListSheets()
+    {
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"70-words.json"_s)}));
+        const auto m = model();
+        const QVariantMap row = rowOf(m->rows(u"words"_s, 0), u"fixture.words"_s);
+        QCOMPARE(row.value(u"pick"_s).toString(), u"sheet"_s);
+        const QVariantMap sheet = m->sheet(u"fixture.words"_s);
+        QCOMPARE(sheet.value(u"values"_s).toList().size(), 65);
+        QCOMPARE(words(sheet).last(), u"w64"_s);
     }
 
     void sheetOrderAndMarks()

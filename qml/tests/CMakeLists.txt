@@ -53,7 +53,8 @@ add_test(NAME page-fit COMMAND tst_fit)
 set_tests_properties(page-fit PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;MICROSET_FONT_DIR=${MICROSET_TEST_FONT_DIR}")
 
 foreach(size 960x640 640x960)
-    foreach(state top audio display rgb rgb-off power system updates edit-balance hue-edit toast long-label long-value merged
+    foreach(state top audio display rgb rgb-off power system updates adjust-balance adjust-balance-end adjust-number
+            hue-edit toast long-label long-value merged
             top-sections undervolt-off undervolt undervolt-next undervolt-waiting undervolt-fallback undervolt-long
             undervolt-changed undervolt-reason-focus undervolt-hold undervolt-refused undervolt-busy undervolt-trip
             undervolt-trip-long undervolt-both sheet-volume-step sheet-gpu-clock sheet-power-on

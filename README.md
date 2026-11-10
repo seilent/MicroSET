@@ -62,12 +62,13 @@ read, change and watch them over D-Bus.
 - `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and `microset-settings`. The
   accent follows `microdap.accent_hue` (hue 350 while the key is missing) in the settings page, the launcher, the store
   and recovery, and is white while `microdap.accent_off` is on. The page (`SettingsView`) lists the schema groups and
-  edits their keys over `net.seilent.MicroSet`: A on a list, number or on/off row opens a value sheet. The Stick LED
-  rows are read only while `rgb.enabled` is off and follow it as it changes; the hue row's swatch shows the hue at the
-  stored saturation (white at 0). The `games` group holds `fex.preset`, `wine.sync` and `proton.profiles`, then under a
-  `games` label the games that hold a value of their own and, while `proton.profiles` is `on`, the installed games with
-  an image profile, in library order (`#`, `a` to `z`, the kana rows, kanji), then `Add game`. A row shows the values in
-  force from the game itself or its profile (`TSO off, fsync`,
+  edits their keys over `net.seilent.MicroSet`: A on a list, number or on/off row opens a value sheet, on a balance row
+  or a range over 64 values the adjust overlay (left and right step, up and down too on a single number, A keeps, B
+  restores). The Stick LED rows are read only while `rgb.enabled` is off and follow it as it changes; the hue row's
+  swatch shows the hue at the stored saturation (white at 0). The `games` group holds `fex.preset`, `wine.sync` and
+  `proton.profiles`, then under a `games` label the games that hold a value of their own and, while `proton.profiles` is
+  `on`, the installed games with an image profile, in library order (`#`, `a` to `z`, the kana rows, kanji), then `Add
+  game`. A row shows the values in force from the game itself or its profile (`TSO off, fsync`,
   `MicroOS profile off`), `default` when none; a game set back to its defaults stays until the page closes. Games come
   from `steamapps/libraryfolders.vdf`, the `appmanifest_<appid>.acf` files of each library and
   `userdata/<id>/config/shortcuts.vdf` (keyed by the 32 bit shortcut id) under `MICROSET_STEAM_DIR`
@@ -98,14 +99,15 @@ read, change and watch them over D-Bus.
   from their profile, each with its state, then `Add game`; A on a game flips it with one `Set`, on a game that is not
   installed clears its values), `Multiplier`, `Real frame cap`, `Flow scale` and a note on Steam's frame limit. Game
   pages then add `Frame generation`, `Multiplier` and `Real frame cap`.
-- Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other
-  file only keys under its owner name (`microdap.*`, `microemu.*`). A key can carry `ui` hints for the page (`order`,
-  `widget` `none`, `hue` or `edit` (left/right edit instead of a sheet), `step` or a `steps` list (a value off the list
-  steps to the next entry in the step's direction), `values` labels, `unit`, `scale` to show the value divided by it,
-  `apply` `confirm` to apply on A, `bounded` to stop the sheet at the ends, `leads` (a one line note per value, shown
-  under the sheet title while that value has focus; a sheet with any note keeps the line the whole time) and a `lock`
-  that makes it read only while another key has a given value; a list or range over 64 values is an edit row) and a
-  file can name and order its groups under `groups`; the first file that describes a group wins.
+- Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other file
+  only keys under its owner name (`microdap.*`, `microemu.*`). A key can carry `ui` hints for the page (`order`,
+  `widget` `none`, `hue` (left/right edit instead of a sheet) or `edit` (the adjust overlay instead of a sheet), `step`
+  or a `steps` list (a value off the list steps to the next entry in the step's direction), `values` labels, `unit`,
+  `scale` to show the value divided by it, `apply` `confirm` to apply on A, `bounded` to stop the sheet at the ends,
+  `leads` (a one line note per value, shown under the sheet title while that value has focus; a sheet with any note
+  keeps the line the whole time) and a `lock` that makes it read only while another key has a given value; a number list
+  or range over 64 values opens the adjust overlay) and a file can name and order its groups under `groups`; the first
+  file that describes a group wins.
 - A range key can carry a `floor` inside its range: the lowest level an applier restores and a page offers, while `Set`
   still takes the whole range. `"store": "coalesce"` keeps a key's new value in memory and writes the state file 1 s
   after the last change (`MICROSET_COALESCE_MS` in tests), on stop and before sleep, and 10 times that after a failed

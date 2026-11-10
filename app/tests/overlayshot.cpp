@@ -38,7 +38,7 @@ void fail(const QString &message)
 const QStringList &states()
 {
     static const QStringList names{u"top"_s,  u"audio"_s,         u"portrait"_s,      u"hint-page"_s,
-                                   u"hint"_s, u"hint-portrait"_s, u"sheet"_s,         u"sheet-portrait"_s,
+                                   u"hint"_s, u"hint-portrait"_s, u"sheet"_s,         u"sheet-portrait"_s, u"adjust"_s,
                                    u"undervolt-after-sheet"_s, u"game"_s, u"game-missing"_s, u"game-state"_s,
                                    u"game-yield"_s, u"game-other-tool"_s, u"game-gone"_s, u"game-native"_s,
                                    u"game-page"_s, u"game-lsfg"_s, u"game-lsfg-limit"_s, u"game-lsfg-failed"_s,

@@ -70,9 +70,8 @@ Window {
 
     function openMenu(): void {
         const page = view.stack.currentItem
-        if (page !== null && page !== undefined && (page.valueOpen === true || page.editing === true)
-                && typeof page.handleAction === "function")
-            page.handleAction("b", false)
+        if (page !== null && page !== undefined && page.pickerOpen === true)
+            page.closePickers()
         menuSheet.items = root.overlay.menuItems
         menuSheet.open()
         menuSheet.mark = root.overlay.menuCurrent
@@ -88,6 +87,14 @@ Window {
             const page = view.stack.currentItem
             page.focusIndex = page.indexOfKey("audio.volume_step")
             Qt.callLater(page.activate)
+        } else if (root.shotState === "adjust") {
+            view.open("audio")
+            const page = view.stack.currentItem
+            page.focusIndex = page.indexOfKey("audio.balance.headphones")
+            Qt.callLater(() => {
+                page.keepFocusVisible()
+                page.activate()
+            })
         } else if (root.shotState === "undervolt-after-sheet") {
             view.open("power")
             const page = view.stack.currentItem

@@ -434,6 +434,9 @@ QtObject {
     readonly property real overlayTextPitch: 18
     readonly property real overlayLit: 1.0
     readonly property real overlayDim: 0.4
+    readonly property real adjustExit: 54
+    readonly property real adjustColumn: 47
+    readonly property real adjustNumberDrop: 0.35
     readonly property real batteryLowPercent: 10
 
     readonly property real capHeight: 0.70

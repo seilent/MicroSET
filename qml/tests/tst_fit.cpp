@@ -170,6 +170,43 @@ private slots:
                  qPrintable(u"sheet words, titles or leads wider than the panel at 640 wide:\n"_s + count.misses.join(u'\n')));
     }
 
+    void adjustLinesFit()
+    {
+        QVERIFY(qEnvironmentVariableIsSet("MICROSET_FONT_DIR"));
+        SettingsModel model;
+        model.setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {});
+        const std::initializer_list<std::pair<QSize, bool>> cases{
+            {QSize(640, 960), true}, {QSize(960, 640), true}, {QSize(1920, 1080), false}};
+        for (const auto &[size, fit] : cases) {
+            QQmlApplicationEngine engine;
+            engine.setInitialProperties({
+                {u"model"_s, QVariant::fromValue(static_cast<QObject *>(&model))},
+                {u"screenshot"_s, true},
+                {u"shotState"_s, u"none"_s},
+                {u"shotWidth"_s, size.width()},
+                {u"shotHeight"_s, size.height()},
+            });
+            engine.loadFromModule("MicroSetPageTest", "PageRoot");
+            auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
+            QVERIFY(window);
+            QObject *view = window->findChild<QObject *>(u"settingsView"_s);
+            QVERIFY(QMetaObject::invokeMethod(view, "open", Q_ARG(QString, u"audio"_s)));
+            QObject *page = qvariant_cast<QObject *>(qvariant_cast<QObject *>(view->property("stack"))->property("currentItem"));
+            int index = -1;
+            QVERIFY(QMetaObject::invokeMethod(page, "indexOfKey", Q_RETURN_ARG(int, index),
+                                              Q_ARG(QString, u"audio.balance.headphones"_s)));
+            page->setProperty("focusIndex", index);
+            QVERIFY(QMetaObject::invokeMethod(page, "activate"));
+            QObject *adjust = qvariant_cast<QObject *>(page->property("adjust"));
+            QTRY_VERIFY(adjust->property("shown").toBool());
+            QTRY_COMPARE(adjust->property("linesFit").toBool(), fit);
+            QTest::qWait(100);
+            QCOMPARE(adjust->property("linesFit").toBool(), fit);
+            QCOMPARE(qvariant_cast<QQuickItem *>(adjust->property("line1"))->isVisible(), fit);
+            QCOMPARE(qvariant_cast<QQuickItem *>(adjust->property("line2"))->isVisible(), fit);
+        }
+    }
+
     void lsfgFitsAt640()
     {
         QVERIFY(qEnvironmentVariableIsSet("MICROSET_FONT_DIR"));

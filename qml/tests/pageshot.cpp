@@ -38,7 +38,7 @@ const QStringList &states()
 {
     static const QStringList names{
         u"top"_s,     u"audio"_s, u"display"_s,  u"rgb"_s,  u"rgb-off"_s,  u"power"_s,  u"system"_s,  u"updates"_s,
-        u"edit-balance"_s, u"hue-edit"_s, u"toast"_s, u"long-label"_s, u"long-value"_s, u"merged"_s,
+        u"adjust-balance"_s, u"adjust-balance-end"_s, u"adjust-number"_s, u"hue-edit"_s, u"toast"_s, u"long-label"_s, u"long-value"_s, u"merged"_s,
         u"top-sections"_s, u"undervolt-off"_s, u"undervolt"_s, u"undervolt-next"_s, u"undervolt-waiting"_s, u"undervolt-fallback"_s,
         u"undervolt-long"_s, u"undervolt-changed"_s, u"undervolt-reason-focus"_s, u"undervolt-hold"_s,
         u"undervolt-refused"_s, u"undervolt-busy"_s, u"undervolt-trip"_s, u"undervolt-trip-long"_s,
@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
         files << FakeMicroSetd::fixture(u"50-fixture.json"_s) << FakeMicroSetd::fixture(u"60-microdap.json"_s);
     else if (accentOff)
         files << FakeMicroSetd::fixture(u"60-microdap.json"_s);
-    if (state.startsWith("sheet-emu"_L1))
+    if (state.startsWith("sheet-emu"_L1) || state == "adjust-number"_L1)
         files << FakeMicroSetd::fixture(u"50-microemu.json"_s);
     const QMap<QString, QStringList> undervolt{
         {u"undervolt"_s, {u"low"_s, u"low"_s, QString(), QString()}},
@@ -193,6 +193,7 @@ int main(int argc, char *argv[])
                          FakeMicroSetd::effective(files, games.stored, FakeMicroSetd::Profiles, QString::number(appid)));
     QVariantMap values{{u"audio.output"_s, u"speaker"_s},
                        {u"audio.eq.headphones.on"_s, true},
+                       {u"audio.balance.headphones"_s, state == "adjust-balance-end"_L1 ? -20 : 0},
                        {u"audio.eq.headphones.name"_s, state == "long-value"_L1 ? LongProfile : u"Sennheiser HD 600 ParametricEQ"_s},
                        {u"fixture.long"_s, u"extended"_s},
                        {u"microdap.accent_hue"_s, 200u},

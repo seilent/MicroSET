@@ -542,8 +542,10 @@ QString SettingsModel::pickOf(const Entry &entry) const
         return {};
     if (entry.type == "b"_L1)
         return u"sheet"_s;
-    if (entry.widget == "hue"_L1 || entry.widget == "edit"_L1 || sheetValues(entry).isEmpty())
+    if (entry.widget == "hue"_L1)
         return u"edit"_s;
+    if (isNumeric(entry.type) && (entry.widget == "edit"_L1 || sheetValues(entry).isEmpty()))
+        return u"adjust"_s;
     return u"sheet"_s;
 }
 
@@ -563,10 +565,10 @@ QVariantList SettingsModel::sheetValues(const Entry &entry) const
         if (span - whole > 1e-9)
             values << coerce(entry.type, *entry.max);
     }
-    if (values.size() > MaxSteps)
-        return {};
     if (!isNumeric(entry.type))
         return values;
+    if (values.size() > MaxSteps)
+        return {};
     if (entry.floor)
         values.removeIf([&](const QVariant &value) { return value.toDouble() < *entry.floor; });
     std::sort(values.begin(), values.end(), [](const QVariant &a, const QVariant &b) { return a.toDouble() > b.toDouble(); });
@@ -726,6 +728,10 @@ QVariantMap SettingsModel::rowOf(const Entry &entry) const
         {u"confirm"_s, entry.confirm},
         {u"pick"_s, pickOf(entry)},
         {u"bounded"_s, entry.bounded},
+        {u"min"_s, entry.min ? QVariant(*entry.min) : QVariant()},
+        {u"max"_s, entry.max ? QVariant(*entry.max) : QVariant()},
+        {u"unit"_s, entry.unit},
+        {u"decimals"_s, decimalsOf(entry.step)},
     };
     if (entry.widget == "hue"_L1 && !lockedNow) {
         const int hue = shown.toInt();

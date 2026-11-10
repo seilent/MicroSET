@@ -113,6 +113,29 @@ class PageTest : public QObject
         return sheet()->property("focusIndex").toInt();
     }
 
+    QObject *adjust() const
+    {
+        return qvariant_cast<QObject *>(page()->property("adjust"));
+    }
+
+    QQuickItem *adjustColumn(int index) const
+    {
+        QQuickItem *column = nullptr;
+        QMetaObject::invokeMethod(qvariant_cast<QObject *>(adjust()->property("columns")), "itemAt",
+                                  Q_RETURN_ARG(QQuickItem *, column), Q_ARG(int, index));
+        return column;
+    }
+
+    QString adjustNumber(int index) const
+    {
+        return qvariant_cast<QQuickItem *>(adjustColumn(index)->property("numberItem"))->property("text").toString();
+    }
+
+    bool adjustLit(int index, const char *sign) const
+    {
+        return qvariant_cast<QQuickItem *>(adjustColumn(index)->property(sign))->opacity() == 1.0;
+    }
+
     void held(const QString &name)
     {
         bool handled = false;
@@ -1071,27 +1094,96 @@ private slots:
         QTRY_COMPARE(row(u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#ffffff"_s);
     }
 
-    void balanceEditsWithDraft()
+    void balanceAdjusts()
     {
         open(u"audio"_s);
         focus(u"audio.balance.headphones"_s);
         key(Qt::Key_Return);
         QVERIFY(page()->property("editing").toBool());
+        QVERIFY(adjust()->property("shown").toBool());
         QVERIFY(!sheetShown());
         key(Qt::Key_Right);
         key(Qt::Key_Right);
+        QCOMPARE(value(u"audio.balance.headphones"_s), u"r 1 db"_s);
+        QTRY_COMPARE(adjustNumber(0), u"-1.0"_s);
+        QCOMPARE(adjustNumber(1), u"0.0"_s);
+        QVERIFY(adjustLit(0, "plusBox"));
+        QVERIFY(adjustLit(0, "minusBox"));
+        QVERIFY(!adjustLit(1, "plusBox"));
+        QVERIFY(!adjustLit(1, "minusBox"));
+        key(Qt::Key_Up);
+        key(Qt::Key_Down);
         QCOMPARE(value(u"audio.balance.headphones"_s), u"r 1 db"_s);
         QTest::qWait(100);
         QVERIFY(fake->calls().isEmpty());
         key(Qt::Key_Return);
         QVERIFY(!page()->property("editing").toBool());
+        QVERIFY(!adjust()->property("shown").toBool());
         QTRY_COMPARE(fake->calls(), QStringList{u"Set audio.balance.headphones 2"_s});
         key(Qt::Key_Return);
         key(Qt::Key_Left);
         key(Qt::Key_Escape);
+        QVERIFY(!page()->property("editing").toBool());
         QCOMPARE(value(u"audio.balance.headphones"_s), u"r 1 db"_s);
         QTest::qWait(100);
         QCOMPARE(fake->calls().size(), 1);
+    }
+
+    void balanceEnds()
+    {
+        fake->setValues({{u"audio.balance.headphones"_s, -20}});
+        model->load();
+        open(u"audio"_s);
+        QTRY_COMPARE(value(u"audio.balance.headphones"_s), u"l 10 db"_s);
+        focus(u"audio.balance.headphones"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(adjustNumber(0), u"0.0"_s);
+        QCOMPARE(adjustNumber(1), u"-10.0"_s);
+        QVERIFY(!adjustLit(0, "plusBox"));
+        QVERIFY(!adjustLit(0, "minusBox"));
+        QVERIFY(adjustLit(1, "plusBox"));
+        QVERIFY(!adjustLit(1, "minusBox"));
+        key(Qt::Key_Left);
+        QCOMPARE(value(u"audio.balance.headphones"_s), u"l 10 db"_s);
+        key(Qt::Key_Right);
+        QCOMPARE(value(u"audio.balance.headphones"_s), u"l 9.5 db"_s);
+        QCOMPARE(adjustNumber(1), u"-9.5"_s);
+        QVERIFY(adjustLit(1, "minusBox"));
+        key(Qt::Key_Escape);
+        fake->setValues({{u"audio.balance.headphones"_s, 20}});
+        model->load();
+        QTRY_COMPARE(value(u"audio.balance.headphones"_s), u"r 10 db"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(adjustNumber(0), u"-10.0"_s);
+        QVERIFY(adjustLit(0, "plusBox"));
+        QVERIFY(!adjustLit(0, "minusBox"));
+        QVERIFY(!adjustLit(1, "plusBox"));
+        QVERIFY(!adjustLit(1, "minusBox"));
+        key(Qt::Key_Escape);
+        QTest::qWait(100);
+        QVERIFY(fake->calls().isEmpty());
+    }
+
+    void adjustNumber()
+    {
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"50-microemu.json"_s)}));
+        model->load();
+        QTRY_VERIFY(!model->rows(u"emulation"_s, model->revision()).isEmpty());
+        open(u"emulation"_s);
+        focus(u"microemu.retroarch.savestate_max_keep"_s);
+        QCOMPARE(row(u"microemu.retroarch.savestate_max_keep"_s).value(u"pick"_s).toString(), u"adjust"_s);
+        key(Qt::Key_Return);
+        QVERIFY(adjust()->property("shown").toBool());
+        QCOMPARE(adjustNumber(0), u"10"_s);
+        QCOMPARE(qvariant_cast<QQuickItem *>(adjust()->property("line1"))->property("text").toString(), u"States kept"_s);
+        QCOMPARE(qvariant_cast<QQuickItem *>(adjust()->property("line2"))->property("text").toString(), u"10"_s);
+        key(Qt::Key_Up);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set microemu.retroarch.savestate_max_keep 11"_s});
+        QTRY_COMPARE(adjustNumber(0), u"11"_s);
+        key(Qt::Key_Escape);
+        QTRY_COMPARE(fake->calls(), (QStringList{u"Set microemu.retroarch.savestate_max_keep 11"_s,
+                                                 u"Set microemu.retroarch.savestate_max_keep 10"_s}));
+        QVERIFY(!adjust()->property("shown").toBool());
     }
 
     void boolOpensSheet()

@@ -29,6 +29,7 @@ set(microset_qml
     MicroSet/components/Keyboard.qml
     MicroSet/JumpGrid.qml
     MicroSet/SettingsRow.qml
+    MicroSet/AdjustOverlay.qml
     MicroSet/SettingsPage.qml
     MicroSet/GroupsPage.qml
     MicroSet/SettingsView.qml

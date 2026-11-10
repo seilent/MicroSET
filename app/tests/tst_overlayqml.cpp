@@ -608,6 +608,27 @@ private slots:
         QCOMPARE(m_overlay->hides, 0);
     }
 
+    void menuCancelsAdjust()
+    {
+        QVERIFY(QMetaObject::invokeMethod(m_view, "open", Q_ARG(QString, u"audio"_s)));
+        int index = -1;
+        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index),
+                                          Q_ARG(QString, u"audio.balance.headphones"_s)));
+        page()->setProperty("focusIndex", index);
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QVERIFY(page()->property("editing").toBool());
+        QVERIFY(page()->property("pickerOpen").toBool());
+        QVERIFY(qvariant_cast<QObject *>(page()->property("adjust"))->property("shown").toBool());
+        bool stepped = false;
+        QVERIFY(QMetaObject::invokeMethod(page(), "step", Q_RETURN_ARG(bool, stepped), Q_ARG(int, 1)));
+        QVERIFY(stepped);
+        QCOMPARE(page()->property("focusedRow").toMap().value(u"value"_s).toString(), u"r 0.5 db"_s);
+        m_overlay->openMenu({u"Steam OS"_s}, 0, {QString()});
+        QTRY_VERIFY(!page()->property("pickerOpen").toBool());
+        QCOMPARE(page()->property("focusedRow").toMap().value(u"value"_s).toString(), u"center"_s);
+        QCOMPARE(m_overlay->hides, 0);
+    }
+
     void menuOnlyTogglesStackVisibility()
     {
         QObject *stack = qvariant_cast<QObject *>(m_view->property("stack"));

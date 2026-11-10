@@ -128,8 +128,12 @@ Window {
                 view.toast.show(toast[0], toast[1])
                 view.toast.complete()
             }
-        } else if (root.shotState === "edit-balance") {
+        } else if (root.shotState === "adjust-balance") {
             root.edit("audio", "audio.balance.headphones", 2)
+        } else if (root.shotState === "adjust-balance-end") {
+            root.edit("audio", "audio.balance.headphones", 0)
+        } else if (root.shotState === "adjust-number") {
+            root.edit("emulation", "microemu.retroarch.savestate_max_keep", 0)
         } else if (root.shotState === "hue-edit") {
             root.edit("stick leds", "rgb.hue", 1)
         } else if (root.shotState === "long-value") {

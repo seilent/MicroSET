@@ -15,6 +15,7 @@ Page {
     property var shownValues: ({})
     property var modelRows: page.model === null ? [] : page.model.rows(page.group, page.model.revision)
     readonly property bool valueOpen: d.valueKey !== ""
+    readonly property bool pickerOpen: page.valueOpen || page.editing
     readonly property string draftKey: page.editing && page.draft !== null ? page.editKey
         : page.valueOpen && d.valueDraft && d.moved ? d.valueKey : ""
     readonly property var draftValue: page.editing ? page.draft : page.valueOpen ? d.valueValues[sheet.focusIndex] : null
@@ -33,6 +34,7 @@ Page {
     property alias repeater: repeater
     property alias sheet: sheet
     property alias confirm: confirm
+    property alias adjust: adjust
 
     signal opened(string group)
     signal acted(string key)
@@ -289,6 +291,11 @@ Page {
         page.model.cancelPreview()
     }
 
+    function closePickers(): void {
+        page.cancelValue()
+        page.cancelEdit()
+    }
+
     function cancelLater(): void {
         const session = d.session
         Qt.callLater(() => {
@@ -341,6 +348,11 @@ Page {
         case "right":
             page.step(1)
             return true
+        case "up":
+        case "down":
+            if (adjust.shown && !adjust.balance)
+                page.step(name === "up" ? 1 : -1)
+            return true
         case "a":
             if (!repeat)
                 page.applyEdit()
@@ -379,6 +391,7 @@ Page {
             page.openValue(r.key)
             break
         case "edit":
+        case "adjust":
             page.beginEdit(r.key)
             break
         default:
@@ -419,8 +432,6 @@ Page {
         if (page.editing) {
             if (kind === "header")
                 return "b"
-            if (kind === "row" && index === page.focusIndex)
-                return x < hit.width / 2 ? "left" : "right"
             return "a"
         }
         switch (kind) {
@@ -701,5 +712,12 @@ Page {
             if (index === confirm.acceptIndex)
                 page.acted(action)
         }
+    }
+
+    AdjustOverlay {
+        id: adjust
+
+        anchors.fill: parent
+        page: page
     }
 }
