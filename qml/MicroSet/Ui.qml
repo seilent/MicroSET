@@ -295,6 +295,7 @@ QtObject {
     readonly property real tileL: 116
     readonly property real tileLGutter: 8
     readonly property real letterTileBorder: 1
+    readonly property real dividerTile: 36
     readonly property real letterInsetX: 6
     readonly property real letterInsetBaseline: 8
     readonly property real rowHeight: 40
