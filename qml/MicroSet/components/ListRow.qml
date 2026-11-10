@@ -28,7 +28,7 @@ PressScale {
     readonly property var primaryRole: root.bold ? Ui.listPlaylist : Ui.listPrimary
     readonly property var secondaryRole: root.bold || root.countLine ? Ui.listCount : Ui.listSecondary
     readonly property real primaryAlpha: root.focused ? root.primaryRole.alpha : root.primaryRole.alphaDim
-    readonly property color primaryColor: root.playing ? Ui.accent : Ui.white(root.primaryAlpha)
+    readonly property color primaryColor: root.playing ? Qt.alpha(Ui.accent, root.primaryAlpha) : Ui.white(root.primaryAlpha)
     readonly property real primaryBaseline: primaryText.y + primaryText.baselineOffset
     readonly property real secondaryBaseline: secondaryText.y + secondaryText.baselineOffset
     readonly property Item primaryItem: primaryText
