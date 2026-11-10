@@ -433,9 +433,13 @@ void SettingsModel::refreshStored(const QString &key)
         if (it == m_entries.end() || !errorOf(reply).isEmpty())
             return;
         const QVariant value = coerce(it->type, qdbus_cast<QVariantMap>(reply.arguments().value(0)).value(key));
+        const QVariant before = it->store;
         it->store = value.isValid() ? value : it->defaultValue;
-        if (it->inflight > 0 || it->shown == it->store)
+        if (it->inflight > 0 || it->shown == it->store) {
+            if (it->store != before && m_referenced.contains(key))
+                bump();
             return;
+        }
         it->shown = it->store;
         bump();
         watchPreview(*it);
@@ -718,8 +722,11 @@ QVariantMap SettingsModel::rowOf(const Entry &entry) const
     if (entry.widget == "hue"_L1 && !lockedNow) {
         const int hue = shown.toInt();
         row.insert(u"hue"_s, normalizeHue(hue));
-        if (entry.key == LedHueKey)
-            row.insert(u"swatch"_s, QColor::fromRgb(MicroSet::hueColor(hue, 100)).name());
+        if (entry.key == LedHueKey) {
+            const auto saturation = m_entries.constFind(LedSaturationKey);
+            const int percent = saturation == m_entries.cend() ? 100 : shownOf(*saturation).toInt();
+            row.insert(u"swatch"_s, QColor::fromRgb(MicroSet::hueColor(hue, percent)).name());
+        }
     }
     return row;
 }

@@ -38,6 +38,7 @@ public:
     static inline const QString LsfgGroup = QStringLiteral("lsfg");
     static inline const QString AccentKey = QStringLiteral("microdap.accent_hue");
     static inline const QString LedHueKey = QStringLiteral("rgb.hue");
+    static inline const QString LedSaturationKey = QStringLiteral("rgb.saturation");
     static inline const QString UndervoltKey = QStringLiteral("power.gpu_undervolt");
     static inline const QString UndervoltActiveKey = QStringLiteral("power.gpu_undervolt_active");
     static inline const QString TuningFallbackKey = QStringLiteral("power.gpu_tuning_fallback");

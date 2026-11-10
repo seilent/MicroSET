@@ -423,6 +423,9 @@ private slots:
         QTRY_COMPARE(fake->sets().size(), 1);
         QCOMPARE(fake->sets().at(0).second, QVariant(0u));
         QTRY_COMPARE(rowOf(m->rows(u"stick leds"_s, 0), u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#ff0000"_s);
+        fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.hue"_s, 150u}, {u"rgb.saturation"_s, 60u}});
+        m = model();
+        QCOMPARE(rowOf(m->rows(u"stick leds"_s, 0), u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#66ffb3"_s);
     }
 
     void toastTexts()

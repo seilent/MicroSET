@@ -1026,6 +1026,38 @@ private slots:
                                                     u"ClearOverride rgb.hue"_s}));
     }
 
+    void ledLockFollowsSwitch()
+    {
+        fake->setStored({{u"rgb.enabled"_s, false}});
+        fake->setValues({{u"rgb.enabled"_s, false}});
+        model->load();
+        QTRY_COMPARE(model->rows(u"stick leds"_s, model->revision()).size(), 5);
+        open(u"stick leds"_s);
+        QVERIFY(row(u"rgb.hue"_s).value(u"readOnly"_s).toBool());
+        focus(u"rgb.enabled"_s);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls().last(), u"Set rgb.enabled true"_s);
+        QTRY_VERIFY(!row(u"rgb.hue"_s).value(u"readOnly"_s).toBool());
+        QVERIFY(!row(u"rgb.saturation"_s).value(u"readOnly"_s).toBool());
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls().last(), u"Set rgb.enabled false"_s);
+        QTRY_VERIFY(row(u"rgb.hue"_s).value(u"readOnly"_s).toBool());
+        QCOMPARE(value(u"rgb.hue"_s), u"off"_s);
+    }
+
+    void ledSwatchFollowsSaturation()
+    {
+        fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.hue"_s, 200u}, {u"rgb.saturation"_s, 60u}});
+        fake->setValues({{u"rgb.enabled"_s, true}, {u"rgb.hue"_s, 200u}, {u"rgb.saturation"_s, 60u}});
+        model->load();
+        QTRY_VERIFY(!model->rows(u"stick leds"_s, model->revision()).at(2).toMap().value(u"readOnly"_s).toBool());
+        open(u"stick leds"_s);
+        QTRY_COMPARE(row(u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#66ccff"_s);
+        fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.hue"_s, 200u}, {u"rgb.saturation"_s, 0u}});
+        fake->emitChanged(u"rgb.saturation"_s, 0u);
+        QTRY_COMPARE(row(u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#ffffff"_s);
+    }
+
     void balanceEditsWithDraft()
     {
         open(u"audio"_s);
