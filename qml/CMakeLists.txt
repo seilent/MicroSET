@@ -7,7 +7,6 @@ set(microset_qml
     MicroSet/Motion.qml
     MicroSet/PadRouter.qml
     MicroSet/PressScale.qml
-    MicroSet/FocusBar.qml
     MicroSet/FocusList.qml
     MicroSet/TouchScroll.qml
     MicroSet/Turnstile.qml

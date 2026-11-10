@@ -258,15 +258,4 @@ Page {
             }
         }
     }
-
-    FocusBar {
-        id: focusBar
-
-        visible: page.rows.length > 0
-        x: rowList.x + Ui.px(Ui.hubEdge - Ui.focusBarOffset)
-        rowY: rowList.y + rowList.focusY
-        rowHeight: rowList.rowPitch
-        opacity: page.focusOpacity
-        animated: false
-    }
 }

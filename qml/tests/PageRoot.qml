@@ -11,7 +11,7 @@ Window {
     property int shotHeight: 640
     property string shotState: "top"
     readonly property bool motion: root.shotState === "sheet-motion"
-    readonly property int shotSettle: Math.max(Motion.focusCursor, Motion.focusAlpha)
+    readonly property int shotSettle: Motion.focusAlpha
     readonly property var groupStates: ({
         audio: "audio", display: "display", rgb: "stick leds", "rgb-off": "stick leds", power: "power", system: "system",
         updates: "updates", games: "games", "games-empty": "games",

@@ -14,7 +14,6 @@ Item {
     readonly property bool active: page.stack !== null && page.stack.currentItem === page
     readonly property real dialogFade: page.stack !== null ? page.stack.dialogFade : 0
     readonly property bool dialogUp: page.dialogFade > 0
-    readonly property real focusOpacity: 1 - page.dialogFade
     readonly property bool stackAnimates: page.stack !== null && page.stack.animate === true
     property string touchKind: "page"
 

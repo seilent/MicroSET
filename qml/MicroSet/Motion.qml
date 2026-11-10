@@ -143,7 +143,6 @@ QtObject {
     readonly property int dimDelay: 7000
     readonly property real dimAlpha: 0.6
 
-    readonly property int focusCursor: 100
     readonly property int focusAlpha: 200
     readonly property int scroll: 100
     readonly property int page: 500

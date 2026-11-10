@@ -380,8 +380,6 @@ Window {
         id: apps
 
         launcher: root.launcher
-        overlaySheet: sheet
-        overlayDialog: confirm
         visible: root.launcher !== null && root.launcher.content && root.page === "allapps"
         onSheetRequested: (id, name, flatpak, starred) => root.openAppSheet(id, name, flatpak, starred)
     }

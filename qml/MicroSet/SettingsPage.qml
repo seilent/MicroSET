@@ -27,12 +27,9 @@ Page {
     readonly property var rowTops: page.buildTops(page.rows)
     readonly property real contentHeight: page.rows.length === 0 ? 0 : page.rowTops[page.rows.length - 1] + page.rowHeightOf(page.rows[page.rows.length - 1])
     readonly property var focusedRow: page.rows[page.focusIndex] === undefined ? null : page.rows[page.focusIndex]
-    readonly property real focusY: page.rowTopOf(page.focusIndex) - flick.contentY
-    readonly property real focusHeight: page.focusedRow === null ? 0 : page.rowHeightOf(page.focusedRow)
     readonly property bool scrolling: scrollAnim.running
     property alias header: header
     property alias flick: flick
-    property alias focusBar: focusBar
     property alias repeater: repeater
     property alias sheet: sheet
     property alias confirm: confirm
@@ -649,16 +646,6 @@ Page {
             limit: page.maxContentY
             onMoved: flick.clampFocusToView()
         }
-    }
-
-    FocusBar {
-        id: focusBar
-
-        visible: page.focusedRow !== null
-        rowY: flick.y + page.focusY
-        rowHeight: page.focusHeight
-        opacity: page.focusOpacity * (1 - confirm.scrim.opacity)
-        animated: page.live
     }
 
     CroppedHeader {

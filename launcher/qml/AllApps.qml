@@ -6,15 +6,11 @@ Item {
     id: page
 
     required property QtObject launcher
-    property Item overlaySheet: null
-    property Item overlayDialog: null
     property alias focusIndex: list.focusIndex
     property bool pressed: false
 
     readonly property var rows: page.launcher === null ? [] : page.launcher.allApps
     readonly property var favoriteIds: page.launcher === null ? [] : page.launcher.favoriteIds
-    readonly property real overlayOpacity: (1 - (page.overlaySheet === null ? 0 : page.overlaySheet.scrim.opacity))
-        * (1 - (page.overlayDialog === null ? 0 : page.overlayDialog.scrim.opacity))
     signal sheetRequested(string id, string name, bool flatpak, bool starred)
 
     objectName: "apps"
@@ -224,17 +220,6 @@ Item {
                 pressed: page.pressed && list.focusIndex === row.index
             }
         }
-    }
-
-    FocusBar {
-        id: focusBar
-
-        visible: page.rows.length > 0
-        x: list.x + Ui.px(Ui.hubEdge - Ui.focusBarOffset)
-        rowY: list.y + list.focusY
-        rowHeight: list.rowPitch
-        opacity: page.overlayOpacity
-        animated: false
     }
 
     JumpGrid {

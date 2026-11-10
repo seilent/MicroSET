@@ -22,7 +22,6 @@ Item {
     property alias journal: journal
     property alias dialog: dialog
     property alias toast: toast
-    property alias focusBar: focusBar
 
     function activate(index: int) {
         const a = screen.actions[index]
@@ -208,17 +207,6 @@ Item {
                 }
             }
         }
-    }
-
-    FocusBar {
-        id: focusBar
-
-        visible: list.count > 0
-        x: list.x + Ui.px(Ui.hubEdge - Ui.focusBarOffset)
-        rowY: list.y + list.focusY
-        rowHeight: list.rowPitch
-        opacity: 1 - dialog.scrim.opacity
-        animated: screen.animated
     }
 
     Item {

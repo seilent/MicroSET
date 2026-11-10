@@ -8,3 +8,4 @@ a396d780391c8290427354b29b3cda6d7fb8a83d1e1cab0fe87d2b67fd1d313e  components/Key
 3b2528e018a680383b4d69808d46308e1b979feda417228570a198c4e819e7ee  components/Dialog.qml 83143ca player/qml/MicroDap/components/Dialog.qml
 cada0f75042f8aa38c6417f1bb04dafaecde218864dde8374c3cd330fe7f6838  components/Ring.qml 8fda38e player/qml/MicroDap/components/Ring.qml
 2bd9a8f7cbcafcd46369f6db7a7b1e30ae84ab6f9e9449ceaadd869bedd33074  JumpGrid.qml 83143ca player/qml/MicroDap/screens/JumpGrid.qml
+cf5d127fbd1f3dca9cc691513a4eb82a070b982a797489093ef4d0924c1125a9  Page.qml aa033c1 player/qml/MicroDap/Page.qml

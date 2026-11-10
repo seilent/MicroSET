@@ -252,8 +252,6 @@ QtObject {
         return ui.accentOff && role.style !== "Bold" ? Object.assign({}, role, { style: "Bold" }) : role
     }
     readonly property real focusBorder: 2
-    readonly property real focusBarWidth: 2
-    readonly property real focusBarOffset: 8
 
     function white(alpha: real): color {
         return Qt.rgba(1, 1, 1, alpha)
@@ -459,7 +457,7 @@ QtObject {
     readonly property real kbKey: (Math.min(ui.canvasW, ui.canvasH) - 2 * ui.edge - 3 * ui.qpGutter) / 4
     readonly property int kbRepeatMs: 100
     readonly property real homeMenuXLandscape: 240
-    readonly property real homeBarX: ui.homeTextX - ui.focusBarOffset
+    readonly property real homeBarX: 62
     readonly property real homeBarTop: ui.capHeight * ui.homeItem.size
     readonly property real homeBarH: ui.homeBarTop + ui.homeSubtitleDrop + ui.capHeight * ui.homeSubtitle.size
 }

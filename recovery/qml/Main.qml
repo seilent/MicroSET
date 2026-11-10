@@ -12,7 +12,7 @@ Window {
     property int shotHeight: Screen.height
     property string shotState: "browse"
     property int shotFocus: 0
-    readonly property int shotSettle: Math.max(Motion.focusCursor, Motion.focusAlpha)
+    readonly property int shotSettle: Motion.focusAlpha
 
     width: root.screenshot ? root.shotWidth : Screen.width
     height: root.screenshot ? root.shotHeight : Screen.height

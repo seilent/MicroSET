@@ -12,7 +12,7 @@ Window {
     property int shotWidth: Screen.width
     property int shotHeight: Screen.height
     property string shotState: "top"
-    readonly property int shotSettle: Math.max(Motion.focusCursor, Motion.focusAlpha)
+    readonly property int shotSettle: Motion.focusAlpha
     readonly property bool portraitScreen: root.height > root.width
     readonly property bool following: root.portraitScreen
         && (root.screenshot || root.overlay.shown || root.overlay.hintShown)

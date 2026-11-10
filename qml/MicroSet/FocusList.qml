@@ -9,7 +9,6 @@ ListView {
     readonly property int pageRows: Math.max(1, Math.floor(list.height / list.rowPitch))
     readonly property real pageDistance: list.pageRows * list.rowPitch
     readonly property real maxContentY: Math.max(0, list.contentHeight - list.height)
-    readonly property real focusY: list.focusIndex * list.rowPitch - list.contentY
     readonly property bool scrolling: scrollAnimation.running
     readonly property real scrollTarget: scrollAnimation.to
     readonly property int scrollDuration: scrollAnimation.duration
