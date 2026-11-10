@@ -90,6 +90,7 @@ int main(int argc, char **argv)
         settings.setCoalesceDelay(delay);
     PowerBridge::importState(qEnvironmentVariable("MICROSET_POWER_CONF", u"/var/lib/microos/power.conf"_s), settings);
     settings.moveBtCodec();
+    settings.moveRgbSaturation();
     ProtonProfiles profiles;
     profiles.load(qEnvironmentVariable("MICROSET_PROTON_PROFILES", u"/usr/share/microos/proton/profiles.json"_s),
                   schema);

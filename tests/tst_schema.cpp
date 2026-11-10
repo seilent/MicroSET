@@ -55,7 +55,7 @@ private slots:
                                                u"lsfg.enabled"_s, u"lsfg.flow_scale"_s, u"lsfg.fps_cap"_s, u"lsfg.mode"_s,
                                                u"lsfg.multiplier"_s, u"lsfg.performance_mode"_s, u"lsfg.present_wait_offset"_s,
                                                u"meta.gpu_undervolt_serial"_s, u"meta.imported_power"_s,
-                                               u"meta.moved_bt_codec"_s,
+                                               u"meta.moved_bt_codec"_s, u"meta.moved_rgb_saturation"_s,
                                                u"power.game_floor"_s, u"power.governor"_s, u"power.gpu_clock"_s,
                                                u"power.gpu_level"_s, u"power.gpu_tuning_fallback"_s, u"power.gpu_tuning_trip"_s,
                                                u"power.gpu_undervolt"_s, u"power.gpu_undervolt_active"_s, u"power.gpu_undervolt_levels"_s,
@@ -115,7 +115,7 @@ private slots:
         QCOMPARE(schema.key(u"display.rotation"_s)->enumValues, schema.key(u"display.orientation"_s)->enumValues);
         QCOMPARE(schema.key(u"rgb.enabled"_s)->defaultValue, QVariant(false));
         QCOMPARE(schema.key(u"rgb.hue"_s)->defaultValue, QVariant(0u));
-        QCOMPARE(schema.key(u"rgb.saturation"_s)->defaultValue, QVariant(0u));
+        QCOMPARE(schema.key(u"rgb.saturation"_s)->defaultValue, QVariant(100u));
         QCOMPARE(schema.key(u"rgb.brightness"_s)->defaultValue, QVariant(100u));
         QVERIFY(schema.accepts(*schema.key(u"rgb.hue"_s), 359u));
         QVERIFY(!schema.accepts(*schema.key(u"rgb.hue"_s), 360u));
@@ -153,6 +153,8 @@ private slots:
         QCOMPARE(schema.key(u"audio.bt_codec_headphones"_s)->group, u"audio"_s);
         QVERIFY(!schema.key(u"meta.moved_bt_codec"_s)->writable);
         QCOMPARE(schema.key(u"meta.moved_bt_codec"_s)->defaultValue, QVariant(false));
+        QVERIFY(!schema.key(u"meta.moved_rgb_saturation"_s)->writable);
+        QCOMPARE(schema.key(u"meta.moved_rgb_saturation"_s)->defaultValue, QVariant(false));
         for (const QString &slot : {u"headphones"_s, u"speaker"_s, u"usb"_s, u"bt"_s}) {
             const Key &balance = *schema.key(u"audio.balance."_s + slot);
             QCOMPARE(balance.type, u"i"_s);
@@ -941,7 +943,7 @@ private slots:
         QCOMPARE(clock.value("type"_L1).toString(), u"u"_s);
         QCOMPARE(schema.describe(u"power.tdp"_s).size(), 1);
         QCOMPARE(schema.describe(u"powe"_s).size(), 0);
-        QCOMPARE(schema.describe({}).size(), 80);
+        QCOMPARE(schema.describe({}).size(), 81);
         QCOMPARE(schema.describe(u"audio"_s).size(), 27);
         QVERIFY(schema.describe(u"meta"_s).value("meta.imported_power"_L1).toObject().value("group"_L1).isNull());
     }

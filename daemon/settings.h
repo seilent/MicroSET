@@ -37,6 +37,7 @@ public:
     bool flush();
     void setCoalesceDelay(int ms);
     void moveBtCodec();
+    void moveRgbSaturation();
 
 signals:
     void changed(const QString &key, const QVariant &value);

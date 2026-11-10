@@ -407,7 +407,7 @@ private slots:
         QCOMPARE(hue.value(u"value"_s).toString(), QString());
         QCOMPARE(hue.value(u"swatch"_s).toString(), u"#ff0000"_s);
         QCOMPARE(hue.value(u"hue"_s).toInt(), 0);
-        QCOMPARE(value(m->rows(u"stick leds"_s, 0), u"rgb.saturation"_s), u"0 %"_s);
+        QCOMPARE(value(m->rows(u"stick leds"_s, 0), u"rgb.saturation"_s), u"100 %"_s);
         QCOMPARE(value(m->rows(u"stick leds"_s, 0), u"rgb.brightness"_s), u"100 %"_s);
         fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.hue"_s, 150u}});
         m = model();
@@ -1830,7 +1830,7 @@ private slots:
         QCOMPARE(m->next(u"rgb.brightness"_s, {}, 1), QVariant(100u));
         QCOMPARE(m->next(u"rgb.brightness"_s, {}, -1), QVariant(95u));
         QCOMPARE(m->next(u"rgb.brightness"_s, 0u, -1), QVariant(0u));
-        QCOMPARE(m->next(u"rgb.saturation"_s, {}, 1), QVariant(5u));
+        QCOMPARE(m->next(u"rgb.saturation"_s, 50u, 1), QVariant(55u));
         QCOMPARE(m->next(u"rgb.saturation"_s, 100u, 1), QVariant(100u));
         QCOMPARE(m->next(u"session.default"_s, {}, -1), QVariant(u"microemu"_s));
         QVERIFY(!m->next(u"audio.eq.headphones.name"_s, {}, 1).isValid());

@@ -169,6 +169,24 @@ void Settings::moveBtCodec()
         qInfo("stored %s %s is not a phone codec offer, now auto", qPrintable(receiver), qPrintable(old.toString()));
 }
 
+void Settings::moveRgbSaturation()
+{
+    const QString marker = QStringLiteral("meta.moved_rgb_saturation");
+    const QString saturation = QStringLiteral("rgb.saturation");
+    if (!m_schema.key(marker) || !m_schema.key(saturation) || value(marker).toBool())
+        return;
+    const bool move = stored(saturation) == QVariant(0u);
+    QVariantMap batch{{marker, true}};
+    if (move)
+        batch.insert(saturation, 100u);
+    if (store(batch) == Failed) {
+        qWarning("cannot write the state file, %s not moved", qPrintable(saturation));
+        return;
+    }
+    if (move)
+        qInfo("moved stored %s 0 to 100", qPrintable(saturation));
+}
+
 Settings::Result Settings::store(const QVariantMap &values)
 {
     QVariantMap before;

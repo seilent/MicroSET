@@ -630,7 +630,7 @@ private slots:
         QCOMPARE(set(u"nope.key"_s, true), u"net.seilent.MicroSet1.Error.UnknownKey"_s);
         QCOMPARE(errorOf(h->call(u"Get"_s, {u"nope.key"_s})), u"net.seilent.MicroSet1.Error.UnknownKey"_s);
         QVERIFY(powerd->sets.isEmpty());
-        QCOMPARE(onDisk(), (QJsonObject{{u"meta.moved_bt_codec"_s, true}}));
+        QCOMPARE(onDisk(), (QJsonObject{{u"meta.moved_bt_codec"_s, true}, {u"meta.moved_rgb_saturation"_s, true}}));
     }
 
     void sameValueNoSignal()
@@ -639,7 +639,7 @@ private slots:
         MicroSet::Client client(h->client());
         QSignalSpy spy(&client, &MicroSet::Client::changed);
         QCOMPARE(set(u"session.default"_s, u"steam"_s), QString());
-        QCOMPARE(onDisk(), (QJsonObject{{u"meta.moved_bt_codec"_s, true}}));
+        QCOMPARE(onDisk(), (QJsonObject{{u"meta.moved_bt_codec"_s, true}, {u"meta.moved_rgb_saturation"_s, true}}));
         QCOMPARE(set(u"session.default"_s, u"microdap"_s), QString());
         QTRY_COMPARE(spy.count(), 1);
         QCOMPARE(set(u"session.default"_s, u"microdap"_s), QString());
@@ -653,7 +653,7 @@ private slots:
         h->writeState(R"({"future.key": 1, "power.gpu_clock": 9999, "session.default": "gone"})");
         QVERIFY(up());
         const QVariantMap all = qdbus_cast<QVariantMap>(h->call(u"List"_s, {QString()}).arguments().value(0));
-        QCOMPARE(all.size(), 64);
+        QCOMPARE(all.size(), 65);
         QVERIFY(!all.contains(u"future.key"_s));
         QCOMPARE(all.value(u"power.gpu_clock"_s), QVariant(587u));
         QCOMPARE(all.value(u"session.default"_s), QVariant(u"steam"_s));
@@ -825,7 +825,8 @@ private slots:
         QVERIFY(up());
         QCOMPARE(stored(), (QVariantMap{{u"audio.output"_s, u"usb"_s},
                                         {u"rgb.hue"_s, 255u},
-                                        {u"meta.moved_bt_codec"_s, true}}));
+                                        {u"meta.moved_bt_codec"_s, true},
+                                        {u"meta.moved_rgb_saturation"_s, true}}));
         QCOMPARE(set(u"audio.volume_step"_s, 10u), QString());
         QCOMPARE(set(u"audio.eq.usb.filters"_s, QStringList{u"preamp -3"_s, u"peak 100 2 1"_s}), QString());
         QCOMPARE(stored(u"audio"_s), (QVariantMap{{u"audio.output"_s, u"usb"_s}, {u"audio.volume_step"_s, 10u},
@@ -838,7 +839,7 @@ private slots:
         h->stopDaemon();
         h->writeFile(u"state/settings.json"_s, "{\"version\": 1, \"values\": {");
         QVERIFY(h->startDaemon());
-        QCOMPARE(stored(), (QVariantMap{{u"meta.moved_bt_codec"_s, true}}));
+        QCOMPARE(stored(), (QVariantMap{{u"meta.moved_bt_codec"_s, true}, {u"meta.moved_rgb_saturation"_s, true}}));
         QCOMPARE(get(u"audio.output"_s), QVariant(u"auto"_s));
     }
 
@@ -946,6 +947,20 @@ private slots:
         QVERIFY(!h->daemonLog().contains("moved audio.bt_codec"_L1));
     }
 
+    void rgbSaturationMoved()
+    {
+        h->writeState(R"({"rgb.saturation": 0})");
+        QVERIFY(up());
+        QCOMPARE(get(u"rgb.saturation"_s), QVariant(100u));
+        QCOMPARE(get(u"meta.moved_rgb_saturation"_s), QVariant(true));
+        QVERIFY(h->daemonLog().contains("moved stored rgb.saturation 0 to 100\n"_L1));
+        QCOMPARE(set(u"rgb.saturation"_s, 0u), QString());
+        h->stopDaemon();
+        QVERIFY(h->startDaemon());
+        QCOMPARE(get(u"rgb.saturation"_s), QVariant(0u));
+        QVERIFY(!h->daemonLog().contains("moved stored rgb.saturation"_L1));
+    }
+
     void importOldCodec()
     {
         qDBusRegisterMetaType<QMap<QString, QString>>();
@@ -974,12 +989,12 @@ private slots:
     {
         QVERIFY(up());
         QVariantMap values;
-        for (int i = 0; i < 65; ++i)
+        for (int i = 0; i < 66; ++i)
             values.insert(u"nope.k%1"_s.arg(i), true);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), u"org.freedesktop.DBus.Error.InvalidArgs"_s);
         values.remove(u"nope.k0"_s);
         QCOMPARE(errorOf(h->call(u"Import"_s, {values})), QString());
-        QVERIFY(h->daemonLog().contains("import by uid 0 refused 64 unknown keys\n"_L1));
+        QVERIFY(h->daemonLog().contains("import by uid 0 refused 65 unknown keys\n"_L1));
         QVariantMap games;
         for (int i = 1; i <= 512 * 16 + 1; ++i)
             games.insert(u"app.%1.fex.tso"_s.arg(i), u"off"_s);
@@ -1321,7 +1336,7 @@ private slots:
         const QDBusMessage reply = h->call(u"Import"_s, {QVariantMap{{u"audio.volume_step"_s, 2u}, {u"nope.key"_s, 1u}}});
         QCOMPARE(errorOf(reply), u"org.freedesktop.DBus.Error.Failed"_s);
         QCOMPARE(get(u"audio.volume_step"_s), QVariant(5u));
-        QCOMPARE(stored(), (QVariantMap{{u"meta.moved_bt_codec"_s, true}}));
+        QCOMPARE(stored(), (QVariantMap{{u"meta.moved_bt_codec"_s, true}, {u"meta.moved_rgb_saturation"_s, true}}));
     }
 
     void coalescedBrightness()
@@ -1478,7 +1493,7 @@ private slots:
         h->writeCgroup(QCoreApplication::applicationPid(), Harness::GameCgroup);
         QCOMPARE(override(c, u"rgb.saturation"_s, 20u), u"org.freedesktop.DBus.Error.AccessDenied"_s);
         h->writeCgroup(QCoreApplication::applicationPid(), Harness::RootCgroup);
-        QCOMPARE(get(u"rgb.saturation"_s), QVariant(0u));
+        QCOMPARE(get(u"rgb.saturation"_s), QVariant(100u));
         QCOMPARE(get(u"audio.output"_s), QVariant(u"auto"_s));
         QVERIFY(h->daemonLog().contains("override rgb.saturation by uid 0 refused: called from a game"_L1));
         QDBusConnection::disconnectFromBus(c);

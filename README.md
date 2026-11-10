@@ -195,8 +195,11 @@ node first and is stored only if the write works. A level another process writes
 with the current level. At boot a stored level under the `floor` (10 %) is written and stored as the floor; a restart
 (marker in `RUNTIME_DIRECTORY`) writes the stored level as is. With nothing stored the current level is recorded.
 
-`rgb.enabled`, `rgb.hue`, `rgb.saturation` and `rgb.brightness` (% of the screen brightness) go to the stick LED MCU
-on `/dev/ttyHS2`. The LEDs follow the screen brightness and are off during suspend.
+`rgb.enabled`, `rgb.hue`, `rgb.saturation` and `rgb.brightness` go to the stick LED MCU on `/dev/ttyHS2`.
+`rgb.saturation` is 0 to 100, default 100. A store that holds `rgb.saturation` 0 and no `meta.moved_rgb_saturation`
+gets it moved to 100 once at start, in one write with the marker. The LED level is the screen brightness as a fraction
+of its maximum times the `rgb.brightness` cap: a 50 % screen under a 50 % cap gives 25 %. The LEDs are off during
+suspend.
 
 ## Build
 

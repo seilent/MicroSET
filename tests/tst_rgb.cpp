@@ -205,7 +205,7 @@ private slots:
     {
         Fixture f;
         f.h.writeFile(u"backlight/actual_brightness"_s, "1000\n");
-        f.h.writeState(R"({"rgb.enabled": true})");
+        f.h.writeState(R"({"rgb.enabled": true, "rgb.saturation": 0})");
         f.start();
         f.expect(bytesOf({0xf7, 0x01, 0x3e, 0x3e, 0x3e, 0, 0, 0, 0, 0xbb, 0xed}));
         QCOMPARE(f.settings.store(u"rgb.brightness"_s, 50u), Settings::Changed);
@@ -238,7 +238,7 @@ private slots:
     void panelPowerOff()
     {
         Fixture f;
-        f.h.writeState(R"({"rgb.enabled": true})");
+        f.h.writeState(R"({"rgb.enabled": true, "rgb.saturation": 0})");
         f.start();
         f.expect(RgbApplier::frame(0xffffff));
         QVERIFY(!f.applier->watchingPower());
@@ -282,7 +282,7 @@ private slots:
     {
         Fixture f;
         const QString dir = f.h.path(u"nobacklight"_s);
-        f.h.writeState(R"({"rgb.enabled": true, "rgb.brightness": 50})");
+        f.h.writeState(R"({"rgb.enabled": true, "rgb.saturation": 0, "rgb.brightness": 50})");
         f.start({}, dir);
         f.expect(RgbApplier::frame(0x808080));
         QCOMPARE(f.settings.store(u"rgb.brightness"_s, 100u), Settings::Changed);
@@ -294,7 +294,7 @@ private slots:
     void unreadableScreenRetried()
     {
         Fixture f;
-        f.h.writeState(R"({"rgb.enabled": true})");
+        f.h.writeState(R"({"rgb.enabled": true, "rgb.saturation": 0})");
         f.h.writeFile(u"backlight/actual_brightness"_s, "1000\n");
         f.start();
         const QByteArray dim = bytesOf({0xf7, 0x01, 0x3e, 0x3e, 0x3e, 0, 0, 0, 0, 0xbb, 0xed});
@@ -318,7 +318,6 @@ private slots:
         Fixture f;
         f.start();
         QCOMPARE(f.settings.store(u"rgb.enabled"_s, true), Settings::Changed);
-        QCOMPARE(f.settings.store(u"rgb.saturation"_s, 100u), Settings::Changed);
         const QByteArray red = RgbApplier::frame(0xff0000);
         QTRY_VERIFY(f.received().endsWith(red + red + red));
         QTest::qWait(200);
@@ -405,7 +404,7 @@ private slots:
     {
         bool deferred = false;
         Fixture f;
-        f.h.writeState(R"({"rgb.enabled": true})");
+        f.h.writeState(R"({"rgb.enabled": true, "rgb.saturation": 0})");
         f.start();
         f.expect(RgbApplier::frame(0xffffff));
         QTest::qWait(100);
@@ -429,6 +428,7 @@ private slots:
     void busyWriteRetried()
     {
         Fixture f;
+        f.h.writeState(R"({"rgb.saturation": 0})");
         f.start();
         f.expect(Off);
         QTest::qWait(100);

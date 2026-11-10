@@ -212,6 +212,61 @@ private slots:
         QCOMPARE(settings.value(u"audio.bt_codec_headphones"_s), QVariant(u"ldac"_s));
         QCOMPARE(settings.value(u"audio.bt_codec"_s), QVariant(u"auto"_s));
     }
+
+    void rgbSaturationZeroMovesOnce()
+    {
+        Harness h;
+        Schema schema;
+        schema.addApplier(u"power"_s);
+        schema.addApplier(u"alsa"_s);
+        schema.addApplier(u"rgb"_s);
+        schema.addProvider(u"sessions"_s, [] { return QStringList{u"steam"_s}; });
+        schema.load(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+        h.writeState(R"({"rgb.saturation": 0})");
+        Store store(h.path(u"state"_s));
+        store.load();
+        Settings settings(schema, store);
+        QVERIFY(settings.isStored(u"rgb.saturation"_s));
+        QCOMPARE(settings.value(u"rgb.saturation"_s), QVariant(0u));
+        QTest::ignoreMessage(QtInfoMsg, "moved stored rgb.saturation 0 to 100");
+        settings.moveRgbSaturation();
+        QCOMPARE(settings.value(u"rgb.saturation"_s), QVariant(100u));
+        QVERIFY(settings.value(u"meta.moved_rgb_saturation"_s).toBool());
+        Store reread(h.path(u"state"_s));
+        reread.load();
+        QCOMPARE(reread.value(u"rgb.saturation"_s).toInt(), 100);
+        QVERIFY(reread.value(u"meta.moved_rgb_saturation"_s).toBool());
+        QCOMPARE(settings.store(u"rgb.saturation"_s, 0u), Settings::Changed);
+        settings.moveRgbSaturation();
+        QCOMPARE(settings.value(u"rgb.saturation"_s), QVariant(0u));
+    }
+
+    void rgbSaturationKept()
+    {
+        Harness h;
+        Schema schema;
+        schema.addApplier(u"power"_s);
+        schema.addApplier(u"alsa"_s);
+        schema.addApplier(u"rgb"_s);
+        schema.addProvider(u"sessions"_s, [] { return QStringList{u"steam"_s}; });
+        schema.load(QStringLiteral(MICROSET_SOURCE_DIR) + u"/schema"_s);
+        h.writeState(R"({"rgb.saturation": 40})");
+        Store store(h.path(u"state"_s));
+        store.load();
+        Settings settings(schema, store);
+        settings.moveRgbSaturation();
+        QCOMPARE(settings.value(u"rgb.saturation"_s), QVariant(40u));
+        QVERIFY(settings.value(u"meta.moved_rgb_saturation"_s).toBool());
+
+        Harness empty;
+        Store fresh(empty.path(u"state"_s));
+        fresh.load();
+        Settings unset(schema, fresh);
+        unset.moveRgbSaturation();
+        QVERIFY(unset.value(u"meta.moved_rgb_saturation"_s).toBool());
+        QVERIFY(!unset.isStored(u"rgb.saturation"_s));
+        QCOMPARE(unset.value(u"rgb.saturation"_s), QVariant(100u));
+    }
 };
 
 QTEST_GUILESS_MAIN(SettingsTest)
