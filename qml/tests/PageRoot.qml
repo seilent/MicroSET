@@ -198,12 +198,11 @@ Window {
                 page.focusIndex = page.indexOfKey("game-251150")
                 page.keepFocusVisible()
             })
-        } else if (root.shotState === "flip-before" || root.shotState === "flip-after") {
+        } else if (root.shotState === "sheet-bool") {
             view.open("display")
             const page = view.stack.currentItem
             page.focusIndex = page.indexOfKey("display.auto_rotate")
-            if (root.shotState === "flip-after")
-                page.activate()
+            page.activate()
         }
     }
 

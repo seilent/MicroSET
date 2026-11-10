@@ -45,7 +45,7 @@ const QStringList &states()
         u"undervolt-both"_s, u"sheet-volume-step"_s,
         u"sheet-gpu-clock"_s, u"sheet-power-on"_s, u"sheet-brightness-off-list"_s, u"sheet-saturation-moved"_s,
         u"sheet-game-floor"_s, u"sheet-undervolt"_s, u"sheet-refused"_s, u"sheet-emu-scheme"_s, u"sheet-emu-scheme-end"_s,
-        u"sheet-emu-variant"_s, u"sheet-long-label"_s, u"flip-before"_s, u"flip-after"_s, u"sheet-motion"_s,
+        u"sheet-emu-variant"_s, u"sheet-long-label"_s, u"sheet-bool"_s, u"sheet-motion"_s,
         u"games"_s, u"games-empty"_s, u"games-many"_s, u"games-long"_s, u"games-bottom"_s, u"game-profile"_s,
         u"game-overridden"_s, u"game-profile-off"_s, u"game-preset"_s, u"game-global"_s, u"game-bottom"_s,
         u"game-long"_s, u"sheet-tso"_s, u"sheet-tso-on"_s, u"sheet-preset"_s, u"sheet-profile"_s, u"sheet-smc"_s,

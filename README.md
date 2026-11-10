@@ -62,12 +62,12 @@ read, change and watch them over D-Bus.
 - `MicroSet` QML module: MicroDAP's tokens and components, shared by `microset-recovery` and `microset-settings`. The
   accent follows `microdap.accent_hue` (hue 350 while the key is missing) in the settings page, the launcher, the store
   and recovery, and is white while `microdap.accent_off` is on. The page (`SettingsView`) lists the schema groups and
-  edits their keys over `net.seilent.MicroSet`: A on a list or number row opens a value sheet, on an on/off row flips
-  it. The Stick LED rows are read only while `rgb.enabled` is off and follow it as it changes; the hue row's swatch
-  shows the hue at the stored saturation (white at 0). The `games` group holds `fex.preset`, `wine.sync` and
-  `proton.profiles`, then under a `games` label the games that hold a value of their own and, while `proton.profiles` is
-  `on`, the installed games with an image profile, in library order (`#`, `a` to `z`, the kana rows, kanji), then `Add
-  game`. A row shows the values in force from the game itself or its profile (`TSO off, fsync`,
+  edits their keys over `net.seilent.MicroSet`: A on a list, number or on/off row opens a value sheet. The Stick LED
+  rows are read only while `rgb.enabled` is off and follow it as it changes; the hue row's swatch shows the hue at the
+  stored saturation (white at 0). The `games` group holds `fex.preset`, `wine.sync` and `proton.profiles`, then under a
+  `games` label the games that hold a value of their own and, while `proton.profiles` is `on`, the installed games with
+  an image profile, in library order (`#`, `a` to `z`, the kana rows, kanji), then `Add game`. A row shows the values in
+  force from the game itself or its profile (`TSO off, fsync`,
   `MicroOS profile off`), `default` when none; a game set back to its defaults stays until the page closes. Games come
   from `steamapps/libraryfolders.vdf`, the `appmanifest_<appid>.acf` files of each library and
   `userdata/<id>/config/shortcuts.vdf` (keyed by the 32 bit shortcut id) under `MICROSET_STEAM_DIR`

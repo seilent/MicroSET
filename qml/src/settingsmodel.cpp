@@ -541,7 +541,7 @@ QString SettingsModel::pickOf(const Entry &entry) const
     if (!editable(entry))
         return {};
     if (entry.type == "b"_L1)
-        return u"flip"_s;
+        return u"sheet"_s;
     if (entry.widget == "hue"_L1 || entry.widget == "edit"_L1 || sheetValues(entry).isEmpty())
         return u"edit"_s;
     return u"sheet"_s;
@@ -549,6 +549,8 @@ QString SettingsModel::pickOf(const Entry &entry) const
 
 QVariantList SettingsModel::sheetValues(const Entry &entry) const
 {
+    if (entry.type == "b"_L1)
+        return {false, true};
     QVariantList values = !entry.choices.isEmpty() ? entry.choices : entry.steps;
     if (values.isEmpty() && isNumeric(entry.type) && entry.min && entry.max) {
         const double span = (*entry.max - *entry.min) / entry.step;

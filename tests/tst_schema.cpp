@@ -910,9 +910,9 @@ private slots:
         }
         for (const QString &key : {u"display.orientation"_s, u"session.default"_s, u"audio.output"_s, u"audio.hp_gain"_s,
                                    u"audio.hp_amp"_s, u"audio.speaker_gain"_s, u"audio.max_volume"_s,
-                                   u"audio.power_on_volume"_s, u"audio.bt_codec_headphones"_s, u"power.gpu_undervolt"_s})
+                                   u"audio.power_on_volume"_s, u"audio.bt_codec_headphones"_s, u"power.gpu_undervolt"_s,
+                                   u"display.auto_rotate"_s})
             QCOMPARE(schema.key(key)->ui.value("apply"_L1).toString(), u"confirm"_s);
-        QVERIFY(!schema.key(u"display.auto_rotate"_s)->ui.contains("apply"_L1));
         for (const QString &key : {u"audio.hp_gain"_s, u"audio.hp_amp"_s, u"audio.speaker_gain"_s, u"audio.max_volume"_s,
                                    u"audio.power_on_volume"_s, u"display.brightness"_s})
             QCOMPARE(schema.key(key)->ui.value("bounded"_L1).toBool(), true);

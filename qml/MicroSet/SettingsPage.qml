@@ -323,11 +323,6 @@ Page {
         confirm.focusIndex = confirm.cancelIndex
     }
 
-    function flip(r: var): void {
-        if (!page.model.busy(r.key))
-            page.model.set(r.key, !r.current)
-    }
-
     function holdRise(name: string, repeat: bool): bool {
         if (repeat)
             return true
@@ -382,9 +377,6 @@ Page {
         switch (r.pick) {
         case "sheet":
             page.openValue(r.key)
-            break
-        case "flip":
-            page.flip(r)
             break
         case "edit":
             page.beginEdit(r.key)

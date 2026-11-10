@@ -58,7 +58,7 @@ foreach(size 960x640 640x960)
             undervolt-changed undervolt-reason-focus undervolt-hold undervolt-refused undervolt-busy undervolt-trip
             undervolt-trip-long undervolt-both sheet-volume-step sheet-gpu-clock sheet-power-on
             sheet-brightness-off-list sheet-saturation-moved sheet-game-floor sheet-undervolt sheet-refused
-            sheet-emu-scheme sheet-emu-scheme-end sheet-emu-variant sheet-long-label flip-before flip-after
+            sheet-emu-scheme sheet-emu-scheme-end sheet-emu-variant sheet-long-label sheet-bool
             games games-empty games-many games-long games-bottom game-profile game-overridden game-profile-off
             game-preset game-global game-bottom game-long sheet-tso sheet-tso-on sheet-preset sheet-profile sheet-smc
             sheet-global-preset top-lsfg lsfg lsfg-dialog lsfg-open lsfg-blacklist lsfg-off lsfg-bottom lsfg-status-long

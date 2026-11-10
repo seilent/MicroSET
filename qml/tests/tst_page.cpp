@@ -565,8 +565,11 @@ private slots:
         QTRY_VERIFY(row(u"lsfg-proton"_s).isEmpty());
         focus(u"lsfg.enabled"_s);
         key(Qt::Key_Return);
-        QTRY_COMPARE(value(u"lsfg-games"_s), u"off"_s);
+        QVERIFY(sheetShown());
+        key(Qt::Key_Up);
         QTRY_COMPARE(fake->calls().last(), u"Set lsfg.enabled false"_s);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(value(u"lsfg-games"_s), u"off"_s);
         QCOMPARE(row(u"lsfg-off"_s).value(u"title"_s).toString(), u"Frame generation is off"_s);
         focus(u"lsfg-games"_s);
         key(Qt::Key_Return);
@@ -1036,11 +1039,21 @@ private slots:
         QVERIFY(row(u"rgb.hue"_s).value(u"readOnly"_s).toBool());
         focus(u"rgb.enabled"_s);
         key(Qt::Key_Return);
-        QTRY_COMPARE(fake->calls().last(), u"Set rgb.enabled true"_s);
+        QVERIFY(sheetShown());
+        key(Qt::Key_Down);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Override rgb.enabled true"_s});
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls(), (QStringList{u"Override rgb.enabled true"_s, u"Set rgb.enabled true"_s,
+                                                 u"ClearOverride rgb.enabled"_s}));
         QTRY_VERIFY(!row(u"rgb.hue"_s).value(u"readOnly"_s).toBool());
         QVERIFY(!row(u"rgb.saturation"_s).value(u"readOnly"_s).toBool());
+        QTRY_VERIFY(!model->busy(u"rgb.enabled"_s));
         key(Qt::Key_Return);
-        QTRY_COMPARE(fake->calls().last(), u"Set rgb.enabled false"_s);
+        QVERIFY(sheetShown());
+        key(Qt::Key_Up);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls().mid(3), (QStringList{u"Override rgb.enabled false"_s, u"Set rgb.enabled false"_s,
+                                                        u"ClearOverride rgb.enabled"_s}));
         QTRY_VERIFY(row(u"rgb.hue"_s).value(u"readOnly"_s).toBool());
         QCOMPARE(value(u"rgb.hue"_s), u"off"_s);
     }
@@ -1081,26 +1094,51 @@ private slots:
         QCOMPARE(fake->calls().size(), 1);
     }
 
-    void flipsOnOneA()
+    void boolOpensSheet()
     {
+        QObject *ui = engine->singletonInstance<QObject *>("MicroSet", "Ui");
+        QVERIFY(ui);
         open(u"display"_s);
         focus(u"display.orientation"_s);
         QVERIFY(row(u"display.orientation"_s).value(u"readOnly"_s).toBool());
         key(Qt::Key_Return);
         QVERIFY(!sheetShown());
-        QVERIFY(!page()->property("editing").toBool());
         focus(u"display.auto_rotate"_s);
-        QCOMPARE(row(u"display.auto_rotate"_s).value(u"pick"_s).toString(), u"flip"_s);
+        QCOMPARE(row(u"display.auto_rotate"_s).value(u"pick"_s).toString(), u"sheet"_s);
+        key(Qt::Key_Return);
+        QVERIFY(sheetShown());
+        QCOMPARE(sheet()->property("items").toStringList(), (QStringList{u"off"_s, u"on"_s}));
+        QCOMPARE(sheetFocus(), 1);
+        QCOMPARE(sheet()->property("mark").toInt(), 1);
+        key(Qt::Key_Up);
+        QCOMPARE(sheetFocus(), 0);
+        QTest::qWait(100);
+        QVERIFY(fake->calls().isEmpty());
         key(Qt::Key_Return);
         QVERIFY(!sheetShown());
-        QVERIFY(!page()->property("editing").toBool());
         QTRY_COMPARE(fake->calls(), QStringList{u"Set display.auto_rotate false"_s});
         QTRY_VERIFY(!row(u"display.orientation"_s).value(u"readOnly"_s).toBool());
         QCOMPARE(value(u"display.auto_rotate"_s), u"off"_s);
         open(u"audio"_s);
         focus(u"audio.eq.headphones.on"_s);
         key(Qt::Key_Return);
+        QCOMPARE(sheetFocus(), 0);
+        key(Qt::Key_Down);
         QTRY_COMPARE(fake->calls().size(), 2);
+        QCOMPARE(fake->calls().last(), u"Set audio.eq.headphones.on true"_s);
+        key(Qt::Key_Escape);
+        QVERIFY(!sheetShown());
+        QTRY_COMPARE(fake->calls().size(), 3);
+        QCOMPARE(fake->calls().last(), u"Set audio.eq.headphones.on false"_s);
+        QTRY_VERIFY(!model->busy(u"audio.eq.headphones.on"_s));
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        QTRY_COMPARE(fake->calls().size(), 4);
+        ui->setProperty("turn", 1);
+        QVERIFY(!sheetShown());
+        ui->setProperty("turn", 0);
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 4);
         QCOMPARE(fake->calls().last(), u"Set audio.eq.headphones.on true"_s);
         QTRY_COMPARE(value(u"audio.eq.headphones.on"_s), u"on"_s);
     }

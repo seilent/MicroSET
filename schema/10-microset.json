@@ -427,7 +427,7 @@
       "applier": "ssc",
       "group": "display",
       "label": "Auto rotate",
-      "ui": {"order": 2}
+      "ui": {"order": 2, "apply": "confirm"}
     },
     "display.rotation": {
       "type": "s",

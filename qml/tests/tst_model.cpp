@@ -1099,7 +1099,7 @@ private slots:
         QCOMPARE(install.value(u"ask"_s).toString(), u"lossless scaling"_s);
         QCOMPARE(install.value(u"accept"_s).toString(), u"install"_s);
         QCOMPARE(texts(u"lsfg.enabled"_s), u"Frame generation | on"_s);
-        QCOMPARE(rowOf(rows, u"lsfg.enabled"_s).value(u"pick"_s).toString(), u"flip"_s);
+        QCOMPARE(rowOf(rows, u"lsfg.enabled"_s).value(u"pick"_s).toString(), u"sheet"_s);
         QCOMPARE(texts(u"lsfg.mode"_s), u"Mode | whitelist (picked games)"_s);
         QCOMPARE(texts(u"lsfg-games"_s), u"Games | 0 on"_s);
         QVERIFY(rowOf(rows, u"lsfg-games"_s).value(u"expand"_s).toBool());
@@ -1973,7 +1973,8 @@ private slots:
                 if (row.value(u"readOnly"_s).toBool()) {
                     QVERIFY2(pick.isEmpty(), qPrintable(key));
                 } else if (entry.value("type"_L1).toString() == "b"_L1) {
-                    QCOMPARE(pick, u"flip"_s);
+                    QCOMPARE(pick, u"sheet"_s);
+                    QCOMPARE(words(m->sheet(key)), (QStringList{u"off"_s, u"on"_s}));
                 } else if (edits.contains(key)) {
                     QVERIFY2(pick == "edit"_L1, qPrintable(key));
                     seenEdits << key;
@@ -1992,7 +1993,7 @@ private slots:
         QCOMPARE(words(m->sheet(u"microemu.esde.theme_color_scheme"_s)).size(), 37);
         QCOMPARE(words(m->sheet(u"microemu.retroarch.menu_shader_pipeline"_s)).size(), 7);
         QVERIFY(m->sheet(u"microemu.retroarch.audio_block_frames"_s).isEmpty());
-        QVERIFY(m->sheet(u"audio.eq.headphones.on"_s).isEmpty());
+        QCOMPARE(words(m->sheet(u"audio.eq.headphones.on"_s)), (QStringList{u"off"_s, u"on"_s}));
     }
 
     void sheetOrderAndMarks()
