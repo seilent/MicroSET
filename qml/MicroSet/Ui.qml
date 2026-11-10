@@ -70,9 +70,13 @@ QtObject {
 
     readonly property real tracking: -0.5
     readonly property real trackingHeader: -1.0
+    readonly property real kScale: 272 / 240
 
     readonly property var hubHeader: ({ name: "hubHeader", size: 128, style: "Light", caps: Font.AllLowercase, alpha: 0.4, tracking: -1.0, cropped: true, sample: "music" })
-    readonly property var homeItem: ({ name: "homeItem", size: 34, style: "Light", caps: Font.AllLowercase, alpha: 1.0, alphaDim: 0.6, tracking: -0.5, sample: "music" })
+    readonly property var pageHeader: ({ name: "pageHeader", size: 150 * ui.kScale, style: "Light", caps: Font.AllLowercase, alpha: 0.27, tracking: -1.0, cropped: true, sample: "music" })
+    readonly property real pageHeaderSettingsAlpha: 0.64
+    readonly property var albumHeader: ({ name: "albumHeader", size: 143 * ui.kScale, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5 * 143 / 24.7, cropped: true, sample: "album" })
+    readonly property var homeItem: ({ name: "homeItem", size: 34, style: "Semilight", caps: Font.AllLowercase, alpha: 1.0, alphaDim: 0.6, tracking: -0.5, sample: "music" })
     readonly property var homeSubtitle: ({ name: "homeSubtitle", size: 8, style: "Regular", caps: Font.AllUppercase, alpha: 0.6, tracking: -0.5, sample: "artists albums songs" })
     readonly property var quickplayHeader: ({ name: "quickplayHeader", size: 34, style: "Light", caps: Font.MixedCase, alpha: 0.6, tracking: -0.5, sample: "Pins" })
     readonly property var quickplayHint: ({ name: "quickplayHint", size: 11, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5, sample: "press x on an item" })
@@ -82,13 +86,18 @@ QtObject {
     readonly property var listPrimary: ({ name: "listPrimary", size: 14, style: "Regular", caps: Font.MixedCase, alpha: 1.0, alphaDim: 0.85, tracking: -0.5, sample: "Harmonics vol.2" })
     readonly property var listPlaylist: ({ name: "listPlaylist", size: 14, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, alphaDim: 0.85, tracking: -0.5, sample: "now playing" })
     readonly property var listSecondary: ({ name: "listSecondary", size: 11, style: "Light", caps: Font.MixedCase, alpha: 0.6, tracking: -0.5, sample: "Artist name" })
+    readonly property var listLibSecondary: ({ name: "listLibSecondary", size: 11, style: "Light", caps: Font.MixedCase, alpha: 0.4, tracking: -0.5, sample: "Artist name" })
+    readonly property var listCollection: ({ name: "listCollection", size: 18 * ui.kScale, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5, sample: "artists" })
     readonly property var listCount: ({ name: "listCount", size: 11, style: "Light", caps: Font.AllUppercase, alpha: 0.6, tracking: -0.5, sample: "749 songs" })
     readonly property var detailName: ({ name: "detailName", size: 11, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5, sample: "kid cudi" })
     readonly property var detailTitle: ({ name: "detailTitle", size: 13, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5, sample: "album title" })
     readonly property var detailSub: ({ name: "detailSub", size: 9, style: "Light", caps: Font.AllUppercase, alpha: 0.6, tracking: -0.5, sample: "2024" })
     readonly property var gridCaption: ({ name: "gridCaption", size: 9, style: "Regular", caps: Font.AllUppercase, alpha: 0.6, tracking: -0.5, sample: "album title" })
+    readonly property var boxCaption: ({ name: "boxCaption", size: 14.8 * ui.kScale, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5, sample: "album title" })
+    readonly property var boxCaptionLib: ({ name: "boxCaptionLib", size: 14.8 * ui.kScale, style: "Regular", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5, sample: "album title" })
     readonly property var letterGlyph: ({ name: "letterGlyph", size: 20, style: "Regular", caps: Font.AllLowercase, alpha: 1.0, tracking: -0.5, sample: "a" })
     readonly property var settingsItem: ({ name: "settingsItem", size: 17, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, alphaDim: 0.6, tracking: -0.5, sample: "output" })
+    readonly property var pageRowTitle: ({ name: "pageRowTitle", size: 19 * ui.kScale, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, alphaDim: 0.6, tracking: -0.5, sample: "output" })
     readonly property var settingsValue: ({ name: "settingsValue", size: 11, style: "Light", caps: Font.AllUppercase, alpha: 0.6, tracking: -0.5, sample: "speaker" })
     readonly property var settingsSub: ({ name: "settingsSub", size: 11, style: "Light", caps: Font.MixedCase, alpha: 1.0, alphaDim: 0.6, tracking: -0.5, sample: "/home/micro/Music" })
     readonly property var npArtist: ({ name: "npArtist", size: 20, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5, sample: "artist" })
@@ -99,6 +108,9 @@ QtObject {
     readonly property var time: ({ name: "time", size: 13, style: "Regular", caps: Font.MixedCase, alpha: 0.85, tracking: -0.5, sample: "0:05  -3:48" })
     readonly property var overlayNumber: ({ name: "overlayNumber", size: 48, style: "Light", caps: Font.MixedCase, alpha: 0.6, tracking: -0.5, sample: "13" })
     readonly property var overlayLabel: ({ name: "overlayLabel", size: 7, style: "Bold", caps: Font.AllUppercase, alpha: 0.6, tracking: -0.5, sample: "volume" })
+    readonly property var volNumber: ({ name: "volNumber", size: 82.1 * ui.kScale, style: "Light", caps: Font.MixedCase, alpha: 0.6, tracking: -0.5, sample: "13" })
+    readonly property var volLabel: ({ name: "volLabel", size: 11.5 * ui.kScale, style: "Bold", caps: Font.AllUppercase, alpha: 0.6, tracking: -0.5, sample: "volume" })
+    readonly property var volExit: ({ name: "volExit", size: 12.4 * ui.kScale, style: "Bold", caps: Font.AllUppercase, alpha: 0.6, tracking: -0.5, sample: "exit" })
     readonly property var toastArtist: ({ name: "toastArtist", size: 10, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5, sample: "artist" })
     readonly property var toastTitle: ({ name: "toastTitle", size: 14, style: "Light", caps: Font.MixedCase, alpha: 1.0, tracking: -0.5, sample: "Song title" })
     readonly property var saverClock: ({ name: "saverClock", size: 50, style: "Light", caps: Font.MixedCase, alpha: 1.0, tracking: -0.5, sample: "7:13" })
@@ -106,6 +118,8 @@ QtObject {
     readonly property var saverArtist: ({ name: "saverArtist", size: 20, style: "Light", caps: Font.MixedCase, alpha: 0.85, tracking: -0.5, sample: "Artist" })
     readonly property var saverAlbum: ({ name: "saverAlbum", size: 16, style: "Light", caps: Font.MixedCase, alpha: 0.6, tracking: -0.5, sample: "Album" })
     readonly property var jumpLetter: ({ name: "jumpLetter", size: 120, style: "Light", caps: Font.AllLowercase, alpha: 1.0, tracking: -0.5, sample: "h" })
+    readonly property var jumpExit: ({ name: "jumpExit", size: 11.73 * ui.kScale, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, alphaDim: 0.6, tracking: -0.5, sample: "exit" })
+    readonly property var jumpCell: ({ name: "jumpCell", size: 26.2 * ui.kScale, style: "Bold", caps: Font.AllLowercase, alpha: 1.0, tracking: -0.5, sample: "a" })
     readonly property var dialogTitle: ({ name: "dialogTitle", size: 22, style: "Light", caps: Font.AllLowercase, alpha: 1.0, tracking: -0.5, sample: "power" })
     readonly property var dialogItem: ({ name: "dialogItem", size: 17, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, alphaDim: 0.6, tracking: -0.5, sample: "screen off" })
     readonly property var watermark: ({ name: "watermark", size: 14, style: "Light", caps: Font.AllLowercase, alpha: 0.08, tracking: -0.5, sample: "microset" })
@@ -116,7 +130,9 @@ QtObject {
         ui.detailSub, ui.gridCaption, ui.letterGlyph, ui.settingsItem, ui.settingsValue, ui.settingsSub, ui.npArtist,
         ui.npAlbum, ui.npTitle, ui.npNext, ui.npCount, ui.time, ui.overlayNumber, ui.overlayLabel, ui.toastArtist,
         ui.toastTitle, ui.saverClock, ui.saverTitle, ui.saverArtist, ui.saverAlbum, ui.jumpLetter,
-        ui.dialogTitle, ui.dialogItem, ui.watermark
+        ui.dialogTitle, ui.dialogItem, ui.watermark, ui.pageHeader, ui.albumHeader, ui.pageRowTitle, ui.listCollection,
+        ui.listLibSecondary, ui.boxCaption, ui.boxCaptionLib, ui.jumpExit, ui.jumpCell, ui.volNumber, ui.volLabel,
+        ui.volExit
     ]
 
     function widestDigit(f: font, ready: bool): real {
