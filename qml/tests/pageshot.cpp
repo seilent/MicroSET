@@ -144,7 +144,8 @@ int main(int argc, char *argv[])
     const QCommandLineOption sizeOption(u"size"_s, u"Window size."_s, u"WxH"_s, u"960x640"_s);
     const QCommandLineOption stateOption(u"state"_s, u"Fixture state."_s, u"name"_s, u"top"_s);
     const QCommandLineOption framesOption(u"frames"_s, u"Write f0000.png and on into <dir> every 33 ms."_s, u"dir"_s);
-    parser.addOptions({screenshotOption, sizeOption, stateOption, framesOption});
+    const QCommandLineOption accentOffOption(u"accent-off"_s, u"Draw with microdap.accent_off on."_s);
+    parser.addOptions({screenshotOption, sizeOption, stateOption, framesOption, accentOffOption});
     parser.process(app);
 
     const QString state = parser.value(stateOption);
@@ -156,9 +157,12 @@ int main(int argc, char *argv[])
     if (qEnvironmentVariableIsEmpty("QT_QUICK_BACKEND"))
         QQuickWindow::setGraphicsApi(QSGRendererInterface::Software);
 
+    const bool accentOff = parser.isSet(accentOffOption);
     QStringList files{FakeMicroSetd::shipped()};
     if (state == "long-label"_L1 || state == "merged"_L1 || state == "top-sections"_L1 || state == "sheet-long-label"_L1)
         files << FakeMicroSetd::fixture(u"50-fixture.json"_s) << FakeMicroSetd::fixture(u"60-microdap.json"_s);
+    else if (accentOff)
+        files << FakeMicroSetd::fixture(u"60-microdap.json"_s);
     if (state.startsWith("sheet-emu"_L1))
         files << FakeMicroSetd::fixture(u"50-microemu.json"_s);
     const QMap<QString, QStringList> undervolt{
@@ -203,6 +207,8 @@ int main(int argc, char *argv[])
                        {u"audio.power_on_volume"_s, state == "sheet-power-on"_L1 ? 15u : 0u},
                        {u"microemu.esde.theme_variant"_s, u"gamelist-list-metadata-screenshot-marquee-nh"_s}};
     values.insert(games.stored);
+    if (accentOff)
+        values.insert(u"microdap.accent_off"_s, true);
     SettingsModel model;
     model.updates()->setFixture(u"testing-38784f1"_s, u"none"_s, {});
     model.setFixture(FakeMicroSetd::describe(files), values,

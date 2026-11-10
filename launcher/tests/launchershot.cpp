@@ -47,7 +47,7 @@ const QStringList &states()
     static const QStringList names{
         u"home"_s, u"home-empty"_s, u"home-running"_s, u"home-long"_s, u"allapps"_s, u"allapps-zero"_s,
         u"allapps-many"_s, u"allapps-long"_s, u"allapps-deep"_s, u"sheet"_s, u"sheet-allapps"_s, u"jump"_s,
-        u"power-home"_s, u"power-allapps"_s, u"toast"_s, u"confirm"_s,
+        u"power-home"_s, u"power-allapps"_s, u"toast"_s, u"confirm"_s, u"home-battery-low"_s,
     };
     return names;
 }
@@ -173,7 +173,8 @@ int main(int argc, char *argv[])
     const QCommandLineOption screenshotOption(u"screenshot"_s, u"Render offscreen to <png> and exit."_s, u"png"_s);
     const QCommandLineOption sizeOption(u"size"_s, u"Window size."_s, u"WxH"_s, u"480x320"_s);
     const QCommandLineOption stateOption(u"state"_s, u"Fixture state."_s, u"name"_s, u"home"_s);
-    parser.addOptions({screenshotOption, sizeOption, stateOption});
+    const QCommandLineOption accentOffOption(u"accent-off"_s, u"Draw with the accent off."_s);
+    parser.addOptions({screenshotOption, sizeOption, stateOption, accentOffOption});
     parser.process(app);
 
     const QString state = parser.value(stateOption);
@@ -211,6 +212,8 @@ int main(int argc, char *argv[])
         favoriteIds.clear();
     } else if (state == "home-running"_L1) {
         home.publish(true, windows(3), 1);
+    } else if (state == "home-battery-low"_L1) {
+        launcher.setBattery(true, 5);
     } else if (state == "home-long"_L1) {
         rows = namedEntries({LongName, u"Bluetooth Manager"_s,
                              u"An Extremely Long Application Name That Runs Well Past The Row"_s,
@@ -264,7 +267,10 @@ int main(int argc, char *argv[])
             fail(error.toString());
         warned = true;
     });
-    engine.setInitialProperties({{u"launcher"_s, QVariant::fromValue(static_cast<QObject *>(&launcher))}});
+    engine.setInitialProperties({
+        {u"launcher"_s, QVariant::fromValue(static_cast<QObject *>(&launcher))},
+        {u"shotAccentOff"_s, parser.isSet(accentOffOption)},
+    });
     engine.addImageProvider(u"microset-appicon"_s, new AppIconProvider());
     engine.loadFromModule("MicroSetLauncher", "Home");
     auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));

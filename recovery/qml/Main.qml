@@ -7,6 +7,9 @@ Window {
 
     required property QtObject recovery
     property QtObject pad: null
+    property QtObject accent: null
+    property bool shotAccentOff: false
+    readonly property int accentHue: root.accent !== null && root.accent.hue >= 0 ? root.accent.hue : Ui.accentHueDefault
     property bool screenshot: false
     property int shotWidth: Screen.width
     property int shotHeight: Screen.height
@@ -24,6 +27,9 @@ Window {
     onHeightChanged: Ui.setSurface(root.width, root.height)
 
     Component.onCompleted: {
+        Ui.accentHueColor = Qt.binding(() => Ui.accentForHue(root.accentHue))
+        Ui.accentHueBright = Qt.binding(() => Ui.brightForHue(root.accentHue))
+        Ui.accentOff = Qt.binding(() => root.shotAccentOff || (root.accent !== null && root.accent.off === true))
         Ui.setSurface(root.width, root.height)
         if (!root.screenshot)
             return

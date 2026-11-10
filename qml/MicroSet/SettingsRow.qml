@@ -145,7 +145,7 @@ Item {
         text: item.shownValue
         textFormat: Text.PlainText
         color: item.editing ? Ui.accent : Ui.white(item.valueAlpha)
-        font: Ui.font(Ui.settingsValue)
+        font: Ui.font(item.editing ? Ui.accentBold(Ui.settingsValue) : Ui.settingsValue)
 
         Behavior on color {
             enabled: item.page.live

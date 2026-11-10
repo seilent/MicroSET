@@ -175,7 +175,8 @@ int main(int argc, char *argv[])
     const QCommandLineOption sizeOption(u"size"_s, u"X screen size."_s, u"WxH"_s, u"960x640"_s);
     const QCommandLineOption stateOption(u"state"_s, u"Fixture state."_s, u"name"_s, u"top"_s);
     const QCommandLineOption kindOption(u"hint-kind"_s, u"Hold hint kind."_s, u"format|undervolt"_s, u"format"_s);
-    parser.addOptions({screenshotOption, sizeOption, stateOption, kindOption});
+    const QCommandLineOption accentOffOption(u"accent-off"_s, u"Draw with microdap.accent_off on."_s);
+    parser.addOptions({screenshotOption, sizeOption, stateOption, kindOption, accentOffOption});
     parser.process(app);
 
     const QString state = parser.value(stateOption);
@@ -187,7 +188,7 @@ int main(int argc, char *argv[])
     if (qEnvironmentVariableIsEmpty("QT_QUICK_BACKEND"))
         QQuickWindow::setGraphicsApi(QSGRendererInterface::Software);
 
-    const QVariantMap values{
+    QVariantMap values{
         {u"audio.output"_s, u"speaker"_s},
         {u"audio.eq.headphones.on"_s, true},
         {u"audio.eq.headphones.name"_s, u"Sennheiser HD 600 ParametricEQ"_s},
@@ -198,6 +199,11 @@ int main(int argc, char *argv[])
         {u"power.gpu_undervolt"_s, u"off"_s},
         {u"power.gpu_undervolt_active"_s, u"stock"_s}};
     const QVariantMap stored{{u"rgb.enabled"_s, true}, {u"rgb.hue"_s, 200u}, {u"rgb.saturation"_s, 60u}};
+    QStringList files{FakeMicroSetd::shipped()};
+    if (parser.isSet(accentOffOption)) {
+        files << FakeMicroSetd::fixture(u"60-microdap.json"_s);
+        values.insert(u"microdap.accent_off"_s, true);
+    }
     const bool hold = state == "undervolt-after-sheet"_L1;
     Harness harness;
     if (hold && !harness.startBus()) {
@@ -207,7 +213,7 @@ int main(int argc, char *argv[])
     FakeMicroSetd fake(hold ? harness.address() : QString());
     std::unique_ptr<SettingsModel> model;
     if (hold) {
-        fake.setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped()}));
+        fake.setSchema(FakeMicroSetd::describe(files));
         fake.setValues(values);
         fake.setStored(stored);
         fake.refuse(u"power.gpu_undervolt"_s, u"net.seilent.MicroSet1.Error.HoldPending"_s);
@@ -227,7 +233,7 @@ int main(int argc, char *argv[])
         }
     } else {
         model = std::make_unique<SettingsModel>();
-        model->setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), values, stored);
+        model->setFixture(FakeMicroSetd::describe(files), values, stored);
     }
     QTemporaryDir steam;
     if (state.startsWith("game"_L1)) {

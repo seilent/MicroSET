@@ -30,6 +30,7 @@ class SettingsModel : public QObject
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
     Q_PROPERTY(int revision READ revision NOTIFY revisionChanged)
     Q_PROPERTY(int accentHue READ accentHue NOTIFY revisionChanged)
+    Q_PROPERTY(bool accentOff READ accentOff NOTIFY revisionChanged)
     Q_PROPERTY(QString updatesGroup READ updatesGroup CONSTANT)
 
 public:
@@ -37,6 +38,7 @@ public:
     static inline const QString GamesGroup = QStringLiteral("games");
     static inline const QString LsfgGroup = QStringLiteral("lsfg");
     static inline const QString AccentKey = QStringLiteral("microdap.accent_hue");
+    static inline const QString AccentOffKey = QStringLiteral("microdap.accent_off");
     static inline const QString LedHueKey = QStringLiteral("rgb.hue");
     static inline const QString LedSaturationKey = QStringLiteral("rgb.saturation");
     static inline const QString UndervoltKey = QStringLiteral("power.gpu_undervolt");
@@ -62,6 +64,7 @@ public:
     bool available() const;
     int revision() const;
     int accentHue() const;
+    bool accentOff() const;
     QString updatesGroup() const;
 
     Q_INVOKABLE QVariantList groups(int revision) const;

@@ -47,7 +47,7 @@ const QStringList &states()
     static const QStringList names{
         u"list"_s, u"list-installed"_s, u"list-many"_s, u"list-noicon"_s, u"detail"_s, u"detail-installed"_s,
         u"detail-installing"_s, u"detail-queued"_s, u"detail-long"_s, u"search"_s, u"search-empty"_s, u"offline"_s,
-        u"confirm"_s, u"toast"_s,
+        u"confirm"_s, u"toast"_s, u"search-petal"_s, u"search-shift"_s,
     };
     return names;
 }
@@ -100,7 +100,8 @@ int main(int argc, char *argv[])
     const QCommandLineOption screenshotOption(u"screenshot"_s, u"Render offscreen to <png> and exit."_s, u"png"_s);
     const QCommandLineOption sizeOption(u"size"_s, u"Window size."_s, u"WxH"_s, u"480x320"_s);
     const QCommandLineOption stateOption(u"state"_s, u"Fixture state."_s, u"name"_s, u"list"_s);
-    parser.addOptions({screenshotOption, sizeOption, stateOption});
+    const QCommandLineOption accentOffOption(u"accent-off"_s, u"Draw with the accent off."_s);
+    parser.addOptions({screenshotOption, sizeOption, stateOption, accentOffOption});
     parser.process(app);
 
     const QString state = parser.value(stateOption);
@@ -189,6 +190,7 @@ int main(int argc, char *argv[])
     engine.setInitialProperties({
         {u"store"_s, QVariant::fromValue(static_cast<QObject *>(&store))},
         {u"animate"_s, false},
+        {u"shotAccentOff"_s, parser.isSet(accentOffOption)},
     });
     engine.loadFromModule("MicroSetStore", "Store");
     auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
@@ -217,14 +219,23 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (state == "search"_L1 || state == "search-empty"_L1) {
-        store.setSearch(state == "search"_L1 ? u"a"_s : u"zzz"_s);
-        if (state == "search"_L1) {
-            QQuickItem *keyboard = find(u"keyboard"_s);
-            const QVariantMap request{{u"title"_s, u"search"_s}, {u"text"_s, store.search()}, {u"kind"_s, u"text"_s}};
-            if (keyboard != nullptr) {
-                QMetaObject::invokeMethod(keyboard, "open", Q_ARG(QVariant, QVariant::fromValue(request)));
-                QMetaObject::invokeMethod(keyboard, "complete");
+    if (state.startsWith(u"search"_s)) {
+        store.setSearch(state == "search-empty"_L1 ? u"zzz"_s : u"a"_s);
+        QQuickItem *keyboard = state == "search-empty"_L1 ? nullptr : find(u"keyboard"_s);
+        const QVariantMap request{{u"title"_s, u"search"_s}, {u"text"_s, store.search()}, {u"kind"_s, u"text"_s}};
+        if (keyboard != nullptr) {
+            QMetaObject::invokeMethod(keyboard, "open", Q_ARG(QVariant, QVariant::fromValue(request)));
+            QMetaObject::invokeMethod(keyboard, "complete");
+            const QMap<QString, QPair<QString, QStringList>> keys{
+                {u"search-petal"_s, {u"2"_s, {u"a"_s, u"right"_s}}},
+                {u"search-shift"_s, {u"shift"_s, {u"a"_s, u"a"_s}}},
+            };
+            if (keys.contains(state)) {
+                keyboard->setProperty("focusCode", keys.value(state).first);
+                bool handled = false;
+                for (const QString &action : keys.value(state).second)
+                    QMetaObject::invokeMethod(keyboard, "handleAction", Q_RETURN_ARG(bool, handled),
+                                              Q_ARG(QString, action), Q_ARG(bool, false));
             }
         }
     }

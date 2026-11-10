@@ -42,7 +42,7 @@ if(NOT MICROSET_TEST_FONT_DIR)
 endif()
 
 set(store_shot_states list list-installed list-many list-noicon detail detail-installed detail-installing detail-queued
-    detail-long search search-empty offline confirm toast)
+    detail-long search search-empty offline confirm toast search-petal search-shift)
 foreach(size 480x320 320x480)
     foreach(state IN LISTS store_shot_states)
         add_test(NAME store-shot-${state}-${size}

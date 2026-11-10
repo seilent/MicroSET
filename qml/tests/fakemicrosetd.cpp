@@ -418,6 +418,14 @@ void FakeMicroSetd::answer(const QDBusMessage &message)
     } else if (message.member() == "Profiles"_L1 && !m_files.isEmpty()) {
         const QJsonObject out = profiles(m_files, m_profiles);
         bus.send(message.createReply(QString::fromUtf8(QJsonDocument(out).toJson(QJsonDocument::Compact))));
+    } else if (message.member() == "Get"_L1 && !m_schema.isEmpty() && !m_schema.contains(key)) {
+        bus.send(message.createErrorReply(u"net.seilent.MicroSet1.Error.UnknownKey"_s, key));
+    } else if (message.member() == "Get"_L1 && !m_schema.isEmpty() && !m_values.contains(key)) {
+        const QJsonObject described = m_schema.value(key).toObject();
+        const QString type = described.value("type"_L1).toString();
+        const QVariant fallback = described.value("default"_L1).toVariant();
+        const QVariant value = type == "u"_L1 ? QVariant(fallback.toUInt()) : type == "i"_L1 ? QVariant(fallback.toInt()) : fallback;
+        bus.send(message.createReply(QVariant::fromValue(QDBusVariant(value))));
     } else if (message.member() == "Get"_L1) {
         bus.send(message.createReply(QVariant::fromValue(QDBusVariant(m_values.value(key)))));
     } else if (message.member() == "Subscribe"_L1 || message.member() == "Unsubscribe"_L1) {

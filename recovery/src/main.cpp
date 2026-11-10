@@ -1,3 +1,4 @@
+#include "accentwatch.h"
 #include "dbuspad.h"
 #include "gamescope.h"
 #include "recovery.h"
@@ -158,7 +159,8 @@ int main(int argc, char *argv[])
                                          u"name"_s, u"browse"_s);
     const QCommandLineOption focusOption(u"focus"_s, u"Focused action index for --screenshot."_s, u"index"_s,
                                          u"0"_s);
-    parser.addOptions({screenshotOption, sizeOption, stateOption, focusOption});
+    const QCommandLineOption accentOffOption(u"accent-off"_s, u"Draw --screenshot with the accent off."_s);
+    parser.addOptions({screenshotOption, sizeOption, stateOption, focusOption, accentOffOption});
     parser.process(app);
 
     const bool screenshot = parser.isSet(screenshotOption);
@@ -180,8 +182,11 @@ int main(int argc, char *argv[])
     }
 
     std::unique_ptr<DbusPad> pad;
-    if (!screenshot)
+    std::unique_ptr<AccentWatch> accent;
+    if (!screenshot) {
         pad = std::make_unique<DbusPad>(QDBusConnection::sessionBus(), QDBusConnection::systemBus());
+        accent = std::make_unique<AccentWatch>(QDBusConnection::systemBus());
+    }
 
     QQmlApplicationEngine engine;
     bool warned = false;
@@ -193,7 +198,9 @@ int main(int argc, char *argv[])
     engine.setInitialProperties({
         {u"recovery"_s, QVariant::fromValue(static_cast<QObject *>(&recovery))},
         {u"pad"_s, QVariant::fromValue(static_cast<QObject *>(pad.get()))},
+        {u"accent"_s, QVariant::fromValue(static_cast<QObject *>(accent.get()))},
         {u"screenshot"_s, screenshot},
+        {u"shotAccentOff"_s, parser.isSet(accentOffOption)},
         {u"shotWidth"_s, width},
         {u"shotHeight"_s, height},
         {u"shotState"_s, parser.value(stateOption)},

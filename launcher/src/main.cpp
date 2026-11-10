@@ -1,3 +1,4 @@
+#include "accentwatch.h"
 #include "appmodel.h"
 #include "battery.h"
 #include "clock.h"
@@ -121,6 +122,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    AccentWatch accent(system);
     QQmlApplicationEngine engine;
     engine.addImageProvider(u"microset-appicon"_s, new AppIconProvider());
     QObject::connect(&engine, &QQmlApplicationEngine::warnings, &engine, [](const QList<QQmlError> &list) {
@@ -130,6 +132,7 @@ int main(int argc, char *argv[])
     engine.setInitialProperties({
         {u"launcher"_s, QVariant::fromValue(static_cast<QObject *>(&launcher))},
         {u"pad"_s, QVariant::fromValue(static_cast<QObject *>(&pad))},
+        {u"accent"_s, QVariant::fromValue(static_cast<QObject *>(&accent))},
     });
     engine.loadFromModule("MicroSetLauncher", "Home");
     auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));

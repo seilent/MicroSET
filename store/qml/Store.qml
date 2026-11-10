@@ -7,6 +7,9 @@ Window {
 
     required property QtObject store
     property QtObject pad: null
+    property QtObject accent: null
+    property bool shotAccentOff: false
+    readonly property int accentHue: root.accent !== null && root.accent.hue >= 0 ? root.accent.hue : Ui.accentHueDefault
     property bool animate: true
 
     readonly property bool shown: root.store !== null && root.store.shown
@@ -58,6 +61,9 @@ Window {
     onHeightChanged: root.syncSurface()
 
     Component.onCompleted: {
+        Ui.accentHueColor = Qt.binding(() => Ui.accentForHue(root.accentHue))
+        Ui.accentHueBright = Qt.binding(() => Ui.brightForHue(root.accentHue))
+        Ui.accentOff = Qt.binding(() => root.shotAccentOff || (root.accent !== null && root.accent.off === true))
         root.syncSurface()
         root.openList()
     }

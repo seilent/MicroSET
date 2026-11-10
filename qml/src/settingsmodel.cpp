@@ -230,6 +230,11 @@ int SettingsModel::accentHue() const
     return it == m_entries.cend() ? -1 : normalizeHue(it->shown.toInt());
 }
 
+bool SettingsModel::accentOff() const
+{
+    return m_values.value(AccentOffKey).toBool();
+}
+
 QString SettingsModel::updatesGroup() const
 {
     return UpdatesGroup;
@@ -397,6 +402,7 @@ void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, 
     m_entries = entries;
     m_groupLabels = groupLabels;
     m_live = live;
+    referenced << AccentOffKey;
     m_referenced = referenced;
     m_lsfgDefaults = lsfgDefaults;
 }
@@ -722,6 +728,8 @@ QVariantMap SettingsModel::rowOf(const Entry &entry) const
     if (entry.widget == "hue"_L1 && !lockedNow) {
         const int hue = shown.toInt();
         row.insert(u"hue"_s, normalizeHue(hue));
+        if (entry.key == AccentKey && accentOff())
+            row.insert(u"swatch"_s, u"#ffffff"_s);
         if (entry.key == LedHueKey) {
             const auto saturation = m_entries.constFind(LedSaturationKey);
             const int percent = saturation == m_entries.cend() ? 100 : shownOf(*saturation).toInt();

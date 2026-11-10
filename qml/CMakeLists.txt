@@ -46,7 +46,7 @@ qt_add_qml_module(microset_ui
     RESOURCE_PREFIX /qt/qml
     OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/imports/MicroSet
     QML_FILES ${microset_qml}
-    SOURCES src/env.cpp src/env.h src/settingsmodel.cpp src/settingsmodel.h src/steamlibrary.cpp src/steamlibrary.h
+    SOURCES src/accentwatch.cpp src/accentwatch.h src/env.cpp src/env.h src/settingsmodel.cpp src/settingsmodel.h src/steamlibrary.cpp src/steamlibrary.h
         src/updateinfo.cpp src/updateinfo.h src/lsfgstate.cpp src/lsfgstate.h
         src/KeyboardModel.cpp src/KeyboardModel.h src/SectionKey.cpp src/SectionKey.h src/gamerows.cpp src/gamerows.h
 )

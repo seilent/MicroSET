@@ -1,3 +1,4 @@
+#include "accentwatch.h"
 #include "activator.h"
 #include "appmodel.h"
 #include "desktophome.h"
@@ -12,6 +13,7 @@
 #include "storeworker.h"
 #endif
 
+#include <QColor>
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusVirtualObject>
@@ -352,6 +354,24 @@ class LayoutTest : public QObject
 
 private slots:
     void cleanup() { reset(); }
+
+    void accentFollowsWatch()
+    {
+        load(480, 320, entries(2));
+        QObject *ui = engine->singletonInstance<QObject *>("MicroSet", "Ui");
+        QVERIFY(ui);
+        QColor hue;
+        QVERIFY(QMetaObject::invokeMethod(ui, "accentForHue", Q_RETURN_ARG(QColor, hue), Q_ARG(int, 120)));
+        auto *accent = new AccentWatch(window);
+        accent->setFixture(120, true);
+        window->setProperty("accent", QVariant::fromValue(static_cast<QObject *>(accent)));
+        QTRY_VERIFY(ui->property("accentOff").toBool());
+        QCOMPARE(ui->property("accent").value<QColor>(), QColor(Qt::white));
+        QCOMPARE(ui->property("accentHueColor").value<QColor>(), hue);
+        accent->setFixture(120, false);
+        QTRY_VERIFY(!ui->property("accentOff").toBool());
+        QCOMPARE(ui->property("accent").value<QColor>(), hue);
+    }
 
     void homeClientTurnsThePadOverTheBus()
     {

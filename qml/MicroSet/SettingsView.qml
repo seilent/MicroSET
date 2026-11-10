@@ -26,6 +26,7 @@ Item {
     Component.onCompleted: {
         Ui.accentHueColor = Qt.binding(() => Ui.accentForHue(view.accentHue))
         Ui.accentHueBright = Qt.binding(() => Ui.brightForHue(view.accentHue))
+        Ui.accentOff = Qt.binding(() => view.model !== null && view.model.accentOff === true)
         stack.push(groupsPage, { model: view.model, animated: view.animated, overlay: view.overlay })
     }
 

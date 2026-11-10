@@ -1,3 +1,4 @@
+#include "accentwatch.h"
 #include "fakemicrosetd.h"
 #include "gamerows.h"
 #include "harness.h"
@@ -1759,7 +1760,54 @@ private slots:
     {
         const auto m = model();
         QCOMPARE(m->accentHue(), -1);
+        QVERIFY(!m->accentOff());
         QVERIFY(!keysOf(m->groups(0)).contains(u"label-microdap"_s));
+    }
+
+    void accentOff()
+    {
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"60-microdap.json"_s)}));
+        fake->setValues({{u"microdap.accent_hue"_s, 120u}, {u"microdap.accent_off"_s, true}});
+        const auto m = model();
+        QVERIFY(m->accentOff());
+        QCOMPARE(m->accentHue(), 120);
+        QCOMPARE(rowOf(m->rows(u"display"_s, 0), u"microdap.accent_hue"_s).value(u"swatch"_s).toString(), u"#ffffff"_s);
+        const int revision = m->revision();
+        fake->emitChanged(u"microdap.accent_off"_s, false);
+        QTRY_VERIFY(!m->accentOff());
+        QTRY_VERIFY(m->revision() > revision);
+        QCOMPARE(rowOf(m->rows(u"display"_s, m->revision()), u"microdap.accent_hue"_s).value(u"swatch"_s).toString(),
+                 QString());
+        QVERIFY(!fake->subscriptions().join(u'\n').contains(u"accent_off"_s));
+    }
+
+    void accentWatch()
+    {
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"60-microdap.json"_s)}));
+        fake->setValues({{u"microdap.accent_hue"_s, 120u}, {u"microdap.accent_off"_s, true}});
+        AccentWatch watch(h->client());
+        QTRY_COMPARE(watch.hue(), 120);
+        QTRY_VERIFY(watch.off());
+        fake->emitChanged(u"microdap.accent_off"_s, false);
+        QTRY_VERIFY(!watch.off());
+        fake->stop();
+        fake->setValues({{u"microdap.accent_hue"_s, 30u}, {u"microdap.accent_off"_s, true}});
+        QVERIFY(fake->start());
+        QTRY_COMPARE(watch.hue(), 30);
+        QTRY_VERIFY(watch.off());
+        fake->setValues({});
+        AccentWatch defaults(h->client());
+        QTRY_COMPARE(defaults.hue(), 350);
+        QVERIFY(!defaults.off());
+        QJsonObject withoutHue = FakeMicroSetd::describe({FakeMicroSetd::shipped()});
+        withoutHue.insert(u"microdap.accent_off"_s, FakeMicroSetd::describe({FakeMicroSetd::shipped(),
+                                                                             FakeMicroSetd::fixture(u"60-microdap.json"_s)})
+                                                       .value(u"microdap.accent_off"_s));
+        fake->setSchema(withoutHue);
+        fake->setValues({{u"microdap.accent_off"_s, true}});
+        AccentWatch shipped(h->client());
+        QTRY_VERIFY(shipped.off());
+        QCOMPARE(shipped.hue(), -1);
     }
 
     void updates()

@@ -9,6 +9,14 @@
       "group": "microdap_display",
       "label": "Accent",
       "ui": {"order": 0, "widget": "hue", "step": 10}
+    },
+    "microdap.accent_off": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": "microdap_display",
+      "label": "Accent off",
+      "ui": {"widget": "none"}
     }
   },
   "groups": {

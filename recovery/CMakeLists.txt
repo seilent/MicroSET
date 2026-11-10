@@ -26,8 +26,8 @@ qt_add_qml_module(microset_recovery_ui
 target_link_libraries(microset_recovery_ui PUBLIC microset_uiplugin Qt6::Gui Qt6::Qml Qt6::Quick)
 
 qt_add_executable(microset-recovery src/main.cpp)
-target_link_libraries(microset-recovery PRIVATE microset_recovery_core microset_recovery_uiplugin microset_gamescope Qt6::Gui
-    Qt6::Qml Qt6::Quick)
+target_link_libraries(microset-recovery PRIVATE microset_recovery_core microset_recovery_uiplugin microset_ui microset_gamescope
+    Qt6::Gui Qt6::Qml Qt6::Quick)
 
 install(TARGETS microset-recovery DESTINATION ${CMAKE_INSTALL_BINDIR})
 

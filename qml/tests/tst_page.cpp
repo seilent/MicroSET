@@ -1252,6 +1252,22 @@ private slots:
         QVERIFY(qAbs(scrim.alphaF() - 0.96) < 1.0 / 255);
     }
 
+    void accentOffBindsUi()
+    {
+        QObject *ui = engine->singletonInstance<QObject *>("MicroSet", "Ui");
+        QVERIFY(ui);
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"60-microdap.json"_s)}));
+        fake->setValues({{u"microdap.accent_hue"_s, 120u}, {u"microdap.accent_off"_s, true}});
+        model->load();
+        QTRY_VERIFY(ui->property("accentOff").toBool());
+        QCOMPARE(ui->property("accent").value<QColor>(), QColor(Qt::white));
+        fake->emitChanged(u"microdap.accent_off"_s, false);
+        QTRY_VERIFY(!ui->property("accentOff").toBool());
+        QColor hue;
+        QVERIFY(QMetaObject::invokeMethod(ui, "accentForHue", Q_RETURN_ARG(QColor, hue), Q_ARG(int, 120)));
+        QCOMPARE(ui->property("accent").value<QColor>(), hue);
+    }
+
     void copiedComponentsLoad()
     {
         QTest::failOnWarning(QRegularExpression(u"Setting initial properties failed|Could not set initial property"_s));

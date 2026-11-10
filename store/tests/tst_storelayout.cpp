@@ -1,3 +1,4 @@
+#include "accentwatch.h"
 #include "fakebackend.h"
 #include "idlepulse.h"
 #include "storejob.h"
@@ -304,6 +305,24 @@ private slots:
     void cleanup() { reset(); }
 
     void cleanupTestCase() { stopBus(); }
+
+    void accentFollowsWatch()
+    {
+        load({});
+        QObject *ui = engine->singletonInstance<QObject *>("MicroSet", "Ui");
+        QVERIFY(ui);
+        QColor hue;
+        QVERIFY(QMetaObject::invokeMethod(ui, "accentForHue", Q_RETURN_ARG(QColor, hue), Q_ARG(int, 120)));
+        auto *accent = new AccentWatch(window);
+        accent->setFixture(120, true);
+        window->setProperty("accent", QVariant::fromValue(static_cast<QObject *>(accent)));
+        QTRY_VERIFY(ui->property("accentOff").toBool());
+        QCOMPARE(ui->property("accent").value<QColor>(), QColor(Qt::white));
+        QCOMPARE(ui->property("accentHueColor").value<QColor>(), hue);
+        accent->setFixture(120, false);
+        QTRY_VERIFY(!ui->property("accentOff").toBool());
+        QCOMPARE(ui->property("accent").value<QColor>(), hue);
+    }
 
     void desktopIdComesFromTheExportsDir()
     {

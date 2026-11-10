@@ -1,3 +1,4 @@
+#include "accentwatch.h"
 #include "battery.h"
 #include "clock.h"
 #include "dbuspad.h"
@@ -113,6 +114,7 @@ int main(int argc, char *argv[])
                      [&wifi, &store] { store.setWifi(wifi.connected(), wifi.ssid()); });
     clock.start();
 
+    AccentWatch accent(system);
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::warnings, &engine, [](const QList<QQmlError> &list) {
         for (const QQmlError &error : list)
@@ -121,6 +123,7 @@ int main(int argc, char *argv[])
     engine.setInitialProperties({
         {u"store"_s, QVariant::fromValue(static_cast<QObject *>(&store))},
         {u"pad"_s, QVariant::fromValue(static_cast<QObject *>(&pad))},
+        {u"accent"_s, QVariant::fromValue(static_cast<QObject *>(&accent))},
     });
     engine.loadFromModule("MicroSetStore", "Store");
     auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
