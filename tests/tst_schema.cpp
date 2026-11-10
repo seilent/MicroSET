@@ -51,6 +51,7 @@ private slots:
                                                u"audio.speaker_gain"_s, u"audio.volume_step"_s, u"display.auto_rotate"_s, u"display.brightness"_s,
                                                u"display.orientation"_s, u"display.rotation"_s, u"fex.preset"_s,
                                                u"launcher.favorites"_s,
+                                               u"lsfg.android_app"_s, u"lsfg.android_fps"_s, u"lsfg.android_state"_s,
                                                u"lsfg.enabled"_s, u"lsfg.flow_scale"_s, u"lsfg.fps_cap"_s, u"lsfg.mode"_s,
                                                u"lsfg.multiplier"_s, u"lsfg.performance_mode"_s, u"lsfg.present_wait_offset"_s,
                                                u"meta.gpu_undervolt_serial"_s, u"meta.imported_power"_s,
@@ -466,7 +467,10 @@ private slots:
             QVERIFY(!schema.key(key)->perApp);
             QCOMPARE(schema.key(key)->group, u"games"_s);
         }
-        const QMap<QString, QVariant> lsfg{{u"lsfg.enabled"_s, true},
+        const QMap<QString, QVariant> lsfg{{u"lsfg.android_app"_s, QString()},
+                                           {u"lsfg.android_fps"_s, 0u},
+                                           {u"lsfg.android_state"_s, false},
+                                           {u"lsfg.enabled"_s, true},
                                            {u"lsfg.mode"_s, u"whitelist"_s},
                                            {u"lsfg.multiplier"_s, 2u},
                                            {u"lsfg.fps_cap"_s, u"auto"_s},
@@ -484,6 +488,10 @@ private slots:
         QCOMPARE(schema.key(u"lsfg.fps_cap"_s)->enumValues, (QVariantList{u"auto"_s, u"20"_s, u"30"_s, u"off"_s}));
         QVERIFY(!schema.accepts(*schema.key(u"lsfg.multiplier"_s), 4u));
         QVERIFY(!schema.accepts(*schema.key(u"lsfg.present_wait_offset"_s), 9u));
+        QVERIFY(schema.accepts(*schema.key(u"lsfg.android_app"_s), QString(128, u'a')));
+        QVERIFY(!schema.accepts(*schema.key(u"lsfg.android_app"_s), QString(129, u'a')));
+        QVERIFY(schema.accepts(*schema.key(u"lsfg.android_fps"_s), 60u));
+        QVERIFY(!schema.accepts(*schema.key(u"lsfg.android_fps"_s), 61u));
         QVERIFY(schema.key(u"lsfg.performance_mode"_s)->group.isEmpty());
         QVERIFY(schema.key(u"lsfg.present_wait_offset"_s)->group.isEmpty());
         QVERIFY(schema.preset(u"default"_s) && schema.preset(u"compatibility"_s) && schema.preset(u"performance"_s));
@@ -933,7 +941,7 @@ private slots:
         QCOMPARE(clock.value("type"_L1).toString(), u"u"_s);
         QCOMPARE(schema.describe(u"power.tdp"_s).size(), 1);
         QCOMPARE(schema.describe(u"powe"_s).size(), 0);
-        QCOMPARE(schema.describe({}).size(), 77);
+        QCOMPARE(schema.describe({}).size(), 80);
         QCOMPARE(schema.describe(u"audio"_s).size(), 27);
         QVERIFY(schema.describe(u"meta"_s).value("meta.imported_power"_L1).toObject().value("group"_L1).isNull());
     }

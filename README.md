@@ -123,7 +123,8 @@ default removes the key, at most 512 games hold values (`Failed`, "too many game
 `Subscribe`. The global keys are `fex.preset` (`default` or `compatibility`), `wine.sync` (`fsync` or `ntsync`) and
 `proton.profiles` (`on` or `off`); the FEX presets are under `presets` in `10-microset.json`. Frame generation keys:
 `lsfg.enabled`, `lsfg.mode` (`whitelist` or `blacklist`), `lsfg.multiplier` (2 or 3), `lsfg.fps_cap` (`auto`, `20`,
-`30` or `off`), `lsfg.flow_scale` (25 to 100 %), `lsfg.performance_mode` and `lsfg.present_wait_offset` (0 to 8).
+`30` or `off`), `lsfg.flow_scale` (25 to 100 %), `lsfg.performance_mode`, `lsfg.present_wait_offset` (0 to 8),
+`lsfg.android_app` (package name, up to 128 characters), `lsfg.android_state` and `lsfg.android_fps` (0 to 60).
 
 Proton profiles come from `/usr/share/microos/proton/profiles.json` (`MICROSET_PROTON_PROFILES`):
 `{"version": 1, "profiles": {"<appid>": {"tool": "<Proton version prefix>", "set": {"<per game key>": "<value>"}}}}`.

@@ -561,6 +561,30 @@
       "group": null,
       "label": "Present wait offset"
     },
+    "lsfg.android_app": {
+      "type": "s",
+      "default": "",
+      "max_len": 128,
+      "applier": null,
+      "group": null,
+      "label": "Android frame generation app"
+    },
+    "lsfg.android_state": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": null,
+      "label": "Android frame generation"
+    },
+    "lsfg.android_fps": {
+      "type": "u",
+      "default": 0,
+      "min": 0,
+      "max": 60,
+      "applier": null,
+      "group": null,
+      "label": "Android frame limit"
+    },
     "app.profile": {
       "type": "s",
       "default": "on",

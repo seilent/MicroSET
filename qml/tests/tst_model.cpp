@@ -1047,6 +1047,10 @@ private slots:
         QTRY_VERIFY(keysOf(m->groups(0)).contains(group));
         fake->emitChanged(u"lsfg.flow_scale"_s, 25u);
         QTRY_VERIFY(!keysOf(m->groups(0)).contains(group));
+        fake->emitChanged(u"lsfg.android_state"_s, true);
+        fake->emitChanged(u"lsfg.android_app"_s, u"com.example.game"_s);
+        QTest::qWait(100);
+        QVERIFY(!keysOf(m->groups(0)).contains(group));
         fake->emitChanged(u"app.5.lsfg.state"_s, u"off"_s);
         QTRY_VERIFY(keysOf(m->groups(0)).contains(group));
         fake->emitChanged(u"app.5.lsfg.state"_s, u"auto"_s);

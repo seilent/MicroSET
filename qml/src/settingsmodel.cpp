@@ -366,7 +366,7 @@ void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, 
     QVariantMap lsfgDefaults;
     for (auto it = schema.begin(); it != schema.end(); ++it) {
         const QJsonObject object = it.value().toObject();
-        if (it.key().startsWith("lsfg."_L1))
+        if (it.key().startsWith("lsfg."_L1) && !it.key().startsWith("lsfg.android_"_L1))
             lsfgDefaults.insert(it.key(),
                                 coerce(object.value("type"_L1).toString(), object.value("default"_L1).toVariant()));
         if (object.value("per_app"_L1).toBool() && it.key().startsWith(AppPrefix)) {
