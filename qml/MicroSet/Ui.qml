@@ -252,6 +252,7 @@ QtObject {
         return ui.accentOff && role.style !== "Bold" ? Object.assign({}, role, { style: "Bold" }) : role
     }
     readonly property real focusBorder: 2
+    readonly property real focusGap: 2
 
     function white(alpha: real): color {
         return Qt.rgba(1, 1, 1, alpha)

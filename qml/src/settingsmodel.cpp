@@ -240,6 +240,11 @@ QString SettingsModel::updatesGroup() const
     return UpdatesGroup;
 }
 
+QString SettingsModel::accentKey() const
+{
+    return AccentKey;
+}
+
 int SettingsModel::normalizeHue(int hue)
 {
     const int stepped = qRound(hue / 10.0) * 10;
@@ -404,6 +409,7 @@ void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, 
     m_live = live;
     referenced << AccentOffKey;
     m_referenced = referenced;
+    m_accentOffKnown = schema.contains(AccentOffKey);
     m_lsfgDefaults = lsfgDefaults;
 }
 
@@ -543,7 +549,7 @@ QString SettingsModel::pickOf(const Entry &entry) const
     if (entry.type == "b"_L1)
         return u"sheet"_s;
     if (entry.widget == "hue"_L1)
-        return u"edit"_s;
+        return u"swatch"_s;
     if (isNumeric(entry.type) && (entry.widget == "edit"_L1 || sheetValues(entry).isEmpty()))
         return u"adjust"_s;
     return u"sheet"_s;
@@ -1349,7 +1355,7 @@ bool SettingsModel::beginEdit(const QString &key)
         return false;
     }
     endPreviews();
-    m_preview = Preview{key, it->shown, {}, it->overridable, it->confirm, {it->shown}};
+    m_preview = Preview{key, it->shown, {}, it->overridable, it->confirm || key == AccentKey, {it->shown}};
     return true;
 }
 
@@ -1362,7 +1368,29 @@ bool SettingsModel::busy(const QString &key) const
 QVariantMap SettingsModel::sheet(const QString &key) const
 {
     const auto it = m_entries.constFind(key);
-    if (it == m_entries.cend() || pickOf(*it) != "sheet"_L1)
+    const QString pick = it == m_entries.cend() ? QString() : pickOf(*it);
+    const bool draft = it != m_entries.cend() && (it->confirm || key == AccentKey);
+    if (pick == "swatch"_L1) {
+        const bool off = key == AccentKey && m_accentOffKnown;
+        QVariantList values;
+        QStringList words;
+        QStringList swatches;
+        if (off)
+            values << -1;
+        const auto saturation = m_entries.constFind(LedSaturationKey);
+        const int percent = saturation == m_entries.cend() ? 100 : shownOf(*saturation).toInt();
+        for (int hue = 0; hue < 360; hue += 10) {
+            values << hue;
+            if (key == LedHueKey)
+                swatches << QColor::fromRgb(MicroSet::hueColor(hue, percent)).name();
+        }
+        for (qsizetype i = 0; i < values.size(); ++i)
+            words << QString();
+        const int focus = off && accentOff() ? 0 : normalizeHue(shownOf(*it).toInt()) / 10 + (off ? 1 : 0);
+        return {{u"values"_s, values}, {u"words"_s, words}, {u"leads"_s, words}, {u"swatches"_s, swatches},
+                {u"focus"_s, focus}, {u"mark"_s, -1}, {u"wrap"_s, true}, {u"draft"_s, draft}};
+    }
+    if (pick != "sheet"_L1)
         return {};
     const QVariantList values = sheetValues(*it);
     QStringList words;
@@ -1375,7 +1403,7 @@ QVariantMap SettingsModel::sheet(const QString &key) const
     const qsizetype mark = values.indexOf(shown);
     const qsizetype focus = mark >= 0 ? mark : isNumeric(it->type) ? nearest(values, shown) : 0;
     return {{u"values"_s, values}, {u"words"_s, words}, {u"leads"_s, leads}, {u"focus"_s, int(focus)}, {u"mark"_s, int(mark)},
-            {u"wrap"_s, !it->bounded}};
+            {u"wrap"_s, !it->bounded}, {u"draft"_s, draft}};
 }
 
 bool SettingsModel::preview(const QVariant &value)
@@ -1548,6 +1576,41 @@ bool SettingsModel::set(const QString &key, const QVariant &value)
 {
     const auto it = m_entries.constFind(key);
     return it != m_entries.cend() && editable(*it) && write(key, value);
+}
+
+void SettingsModel::pickAccent(int hue)
+{
+    if (m_preview && m_preview->key == AccentKey)
+        cancelPreview();
+    if (!m_fixture && !m_available) {
+        const auto accent = m_entries.constFind(AccentKey);
+        emit refused(accent == m_entries.cend() ? AccentKey : accent->title, NotAvailable);
+        return;
+    }
+    if (hue < 0) {
+        writeHidden(AccentOffKey, true);
+        return;
+    }
+    if (accentOff())
+        writeHidden(AccentOffKey, false);
+    set(AccentKey, hue);
+}
+
+void SettingsModel::writeHidden(const QString &key, const QVariant &value)
+{
+    const QVariant old = m_values.value(key);
+    m_values.insert(key, value);
+    bump();
+    if (!m_client)
+        return;
+    m_client->set(key, value, [this, key, old](const MicroSet::Error &error) {
+        if (error.ok())
+            return;
+        m_values.insert(key, old);
+        bump();
+        const auto accent = m_entries.constFind(AccentKey);
+        emit refused(accent == m_entries.cend() ? key : accent->title, toastText(error.name));
+    });
 }
 
 bool SettingsModel::write(const QString &key, const QVariant &value)

@@ -18,10 +18,10 @@ Page {
     readonly property bool pickerOpen: page.valueOpen || page.editing
     readonly property string draftKey: page.editing && page.draft !== null ? page.editKey
         : page.valueOpen && d.valueDraft && d.moved ? d.valueKey : ""
-    readonly property var draftValue: page.editing ? page.draft : page.valueOpen ? d.valueValues[sheet.focusIndex] : null
+    readonly property var draftValue: page.editing ? page.draft : page.valueOpen ? d.valueValues[d.valueSheet.focusIndex] : null
     readonly property var rows: page.withDraft(page.modelRows, page.draftKey, page.draftValue)
     readonly property string valueItems: page.valueOpen && page.model !== null
-        ? JSON.stringify(page.wordsOf(d.valueKey, page.model.revision)) : ""
+        ? page.itemsOf(page.model.sheet(d.valueKey), page.model.revision) : ""
 
     readonly property bool live: page.animated && !page.screenOff
     readonly property bool arriving: !page.arrived && page.live && page.stackAnimates
@@ -33,6 +33,7 @@ Page {
     property alias flick: flick
     property alias repeater: repeater
     property alias sheet: sheet
+    property alias swatchSheet: swatchSheet
     property alias confirm: confirm
     property alias adjust: adjust
 
@@ -186,9 +187,9 @@ Page {
         return list.map((r) => r.key === key ? Object.assign({}, r, { value: page.model.text(key, draft), current: draft }) : r)
     }
 
-    function wordsOf(key: string, revision: int): var {
-        const values = page.model.sheet(key)
-        return values.words === undefined ? [] : values.words
+    function itemsOf(values: var, revision: int): string {
+        return JSON.stringify([values.words === undefined ? [] : values.words,
+            values.swatches === undefined ? [] : values.swatches])
     }
 
     function step(delta: int): bool {
@@ -202,8 +203,6 @@ Page {
             page.draft = next
             return true
         }
-        if (r.widget === "hue")
-            return page.model.preview(Ui.stepHue(r.hue < 0 ? Ui.accentHueDefault : r.hue, delta))
         return page.model.preview(page.model.next(r.key, r.current, delta))
     }
 
@@ -246,19 +245,26 @@ Page {
             page.model.cancelPreview()
             return
         }
+        const swatch = r.pick === "swatch"
         d.valueValues = values.values
         d.valueLeads = values.leads
-        d.valueDraft = r.confirm
-        d.valueItems = JSON.stringify(values.words)
+        d.valueDraft = values.draft
+        d.valueItems = page.itemsOf(values, 0)
         d.valueKey = key
+        d.swatch = swatch
         d.riseKept = ""
         d.session++
-        sheet.title = r.title
-        sheet.items = values.words
-        sheet.open()
-        sheet.mark = values.mark
-        sheet.wrap = values.wrap
-        sheet.focusIndex = values.focus
+        const target = d.valueSheet
+        target.title = r.title
+        if (swatch)
+            swatchSheet.colors = values.swatches.length > 0 ? values.swatches
+                : values.values.map((v) => v < 0 ? Ui.textFull : Ui.accentForHue(v))
+        else
+            sheet.items = values.words
+        target.open()
+        target.mark = values.mark
+        target.wrap = values.wrap
+        target.focusIndex = values.focus
         d.moved = false
     }
 
@@ -269,6 +275,8 @@ Page {
         d.moved = false
         if (sheet.shown)
             sheet.close()
+        if (swatchSheet.shown)
+            swatchSheet.close()
     }
 
     function previewValue(index: int): void {
@@ -279,8 +287,13 @@ Page {
 
     function acceptValue(index: int): void {
         const value = d.valueValues[index]
+        const key = d.valueKey
         page.endValue()
-        if (value !== undefined)
+        if (value === undefined)
+            return
+        if (key === page.model.accentKey)
+            page.model.pickAccent(value)
+        else
             page.model.endPreview(value)
     }
 
@@ -388,9 +401,9 @@ Page {
             return true
         switch (r.pick) {
         case "sheet":
+        case "swatch":
             page.openValue(r.key)
             break
-        case "edit":
         case "adjust":
             page.beginEdit(r.key)
             break
@@ -454,10 +467,10 @@ Page {
     function handleAction(name: string, repeat: bool): bool {
         if (confirm.shown)
             return confirm.handleAction(name, repeat)
-        if (sheet.shown && page.valueOpen && sheet.animating)
+        if (d.valueSheet.shown && page.valueOpen && d.valueSheet.animating)
             return page.holdRise(name, repeat)
-        if (sheet.shown)
-            return sheet.handleAction(name, repeat)
+        if (d.valueSheet.shown)
+            return d.valueSheet.handleAction(name, repeat)
         if (page.editing)
             return page.handleEdit(name, repeat)
         switch (name) {
@@ -577,6 +590,8 @@ Page {
         property var valueValues: []
         property var valueLeads: []
         property bool valueDraft: false
+        property bool swatch: false
+        readonly property Item valueSheet: d.swatch ? swatchSheet : sheet
         property string valueItems: ""
         property bool moved: false
         property int session: 0
@@ -693,6 +708,31 @@ Page {
             Qt.callLater(() => {
                 if (sheet.shown && page.valueOpen)
                     sheet.handleAction(kept, false)
+            })
+        }
+    }
+
+    SwatchSheet {
+        id: swatchSheet
+
+        anchors.fill: parent
+        screenOff: page.screenOff
+        animated: page.live
+        onAccepted: (index) => page.acceptValue(index)
+        onRejected: page.cancelValue()
+        onFocusMoved: (index) => page.previewValue(index)
+        onFocusIndexChanged: {
+            if (page.valueOpen)
+                d.moved = true
+        }
+        onAnimatingChanged: {
+            if (swatchSheet.animating || d.riseKept === "")
+                return
+            const kept = d.riseKept
+            d.riseKept = ""
+            Qt.callLater(() => {
+                if (swatchSheet.shown && page.valueOpen)
+                    swatchSheet.handleAction(kept, false)
             })
         }
     }

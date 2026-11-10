@@ -38,14 +38,15 @@ const QStringList &states()
 {
     static const QStringList names{
         u"top"_s,     u"audio"_s, u"display"_s,  u"rgb"_s,  u"rgb-off"_s,  u"power"_s,  u"system"_s,  u"updates"_s,
-        u"adjust-balance"_s, u"adjust-balance-end"_s, u"adjust-number"_s, u"hue-edit"_s, u"toast"_s, u"long-label"_s, u"long-value"_s, u"merged"_s,
+        u"adjust-balance"_s, u"adjust-balance-end"_s, u"adjust-number"_s, u"toast"_s, u"long-label"_s, u"long-value"_s, u"merged"_s,
         u"top-sections"_s, u"undervolt-off"_s, u"undervolt"_s, u"undervolt-next"_s, u"undervolt-waiting"_s, u"undervolt-fallback"_s,
         u"undervolt-long"_s, u"undervolt-changed"_s, u"undervolt-reason-focus"_s, u"undervolt-hold"_s,
         u"undervolt-refused"_s, u"undervolt-busy"_s, u"undervolt-trip"_s, u"undervolt-trip-long"_s,
         u"undervolt-both"_s, u"sheet-volume-step"_s,
         u"sheet-gpu-clock"_s, u"sheet-power-on"_s, u"sheet-brightness-off-list"_s, u"sheet-saturation-moved"_s,
         u"sheet-game-floor"_s, u"sheet-undervolt"_s, u"sheet-refused"_s, u"sheet-emu-scheme"_s, u"sheet-emu-scheme-end"_s,
-        u"sheet-emu-variant"_s, u"sheet-long-label"_s, u"sheet-bool"_s, u"sheet-motion"_s,
+        u"sheet-emu-variant"_s, u"sheet-long-label"_s, u"sheet-bool"_s, u"sheet-hue"_s, u"sheet-hue-white"_s,
+        u"sheet-accent"_s, u"sheet-accent-off"_s, u"sheet-accent-end"_s, u"sheet-motion"_s,
         u"games"_s, u"games-empty"_s, u"games-many"_s, u"games-long"_s, u"games-bottom"_s, u"game-profile"_s,
         u"game-overridden"_s, u"game-profile-off"_s, u"game-preset"_s, u"game-global"_s, u"game-bottom"_s,
         u"game-long"_s, u"sheet-tso"_s, u"sheet-tso-on"_s, u"sheet-preset"_s, u"sheet-profile"_s, u"sheet-smc"_s,
@@ -157,11 +158,11 @@ int main(int argc, char *argv[])
     if (qEnvironmentVariableIsEmpty("QT_QUICK_BACKEND"))
         QQuickWindow::setGraphicsApi(QSGRendererInterface::Software);
 
-    const bool accentOff = parser.isSet(accentOffOption);
+    const bool accentOff = parser.isSet(accentOffOption) || state == "sheet-accent-off"_L1;
     QStringList files{FakeMicroSetd::shipped()};
     if (state == "long-label"_L1 || state == "merged"_L1 || state == "top-sections"_L1 || state == "sheet-long-label"_L1)
         files << FakeMicroSetd::fixture(u"50-fixture.json"_s) << FakeMicroSetd::fixture(u"60-microdap.json"_s);
-    else if (accentOff)
+    else if (accentOff || state.startsWith("sheet-accent"_L1))
         files << FakeMicroSetd::fixture(u"60-microdap.json"_s);
     if (state.startsWith("sheet-emu"_L1) || state == "adjust-number"_L1)
         files << FakeMicroSetd::fixture(u"50-microemu.json"_s);
@@ -213,7 +214,8 @@ int main(int argc, char *argv[])
     SettingsModel model;
     model.updates()->setFixture(u"testing-38784f1"_s, u"none"_s, {});
     model.setFixture(FakeMicroSetd::describe(files), values,
-                     {{u"rgb.enabled"_s, state != "rgb-off"_L1}, {u"rgb.hue"_s, 200u}, {u"rgb.saturation"_s, 60u}});
+                     {{u"rgb.enabled"_s, state != "rgb-off"_L1}, {u"rgb.hue"_s, 200u},
+                      {u"rgb.saturation"_s, state == "sheet-hue-white"_L1 ? 0u : 60u}});
     model.setProtonFixture(effective, FakeMicroSetd::profiles(files, FakeMicroSetd::Profiles));
     if (lsfgState(state)) {
         const QStringList none{u"lsfg"_s, u"lsfg-dialog"_s, u"top-lsfg"_s, u"lsfg-install-focus"_s, u"lsfg-dialog-motion"_s,

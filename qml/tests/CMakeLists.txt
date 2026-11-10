@@ -54,12 +54,13 @@ set_tests_properties(page-fit PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;
 
 foreach(size 960x640 640x960)
     foreach(state top audio display rgb rgb-off power system updates adjust-balance adjust-balance-end adjust-number
-            hue-edit toast long-label long-value merged
+            toast long-label long-value merged
             top-sections undervolt-off undervolt undervolt-next undervolt-waiting undervolt-fallback undervolt-long
             undervolt-changed undervolt-reason-focus undervolt-hold undervolt-refused undervolt-busy undervolt-trip
             undervolt-trip-long undervolt-both sheet-volume-step sheet-gpu-clock sheet-power-on
             sheet-brightness-off-list sheet-saturation-moved sheet-game-floor sheet-undervolt sheet-refused
-            sheet-emu-scheme sheet-emu-scheme-end sheet-emu-variant sheet-long-label sheet-bool
+            sheet-emu-scheme sheet-emu-scheme-end sheet-emu-variant sheet-long-label sheet-bool sheet-hue
+            sheet-hue-white sheet-accent sheet-accent-off sheet-accent-end
             games games-empty games-many games-long games-bottom game-profile game-overridden game-profile-off
             game-preset game-global game-bottom game-long sheet-tso sheet-tso-on sheet-preset sheet-profile sheet-smc
             sheet-global-preset top-lsfg lsfg lsfg-dialog lsfg-open lsfg-blacklist lsfg-off lsfg-bottom lsfg-status-long

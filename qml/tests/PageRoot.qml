@@ -31,6 +31,11 @@ Window {
         "sheet-motion": ["audio", "audio.volume_step", 0],
         "sheet-emu-variant": ["emulation", "microemu.esde.theme_variant", 0],
         "sheet-long-label": ["group with a long title", "fixture.long", 0],
+        "sheet-hue": ["stick leds", "rgb.hue", 0],
+        "sheet-hue-white": ["stick leds", "rgb.hue", 0],
+        "sheet-accent": ["display", "microdap.accent_hue", 0],
+        "sheet-accent-off": ["display", "microdap.accent_hue", 0],
+        "sheet-accent-end": ["display", "microdap.accent_hue", 15],
         "sheet-tso": ["app.292120", "app.292120.fex.tso", 2],
         "sheet-tso-on": ["app.292120", "app.292120.fex.tso", 1],
         "sheet-preset": ["app.2238900", "app.2238900.fex.preset", 0],
@@ -134,8 +139,6 @@ Window {
             root.edit("audio", "audio.balance.headphones", 0)
         } else if (root.shotState === "adjust-number") {
             root.edit("emulation", "microemu.retroarch.savestate_max_keep", 0)
-        } else if (root.shotState === "hue-edit") {
-            root.edit("stick leds", "rgb.hue", 1)
         } else if (root.shotState === "long-value") {
             view.open("audio")
             const page = view.stack.currentItem

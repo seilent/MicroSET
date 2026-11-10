@@ -629,6 +629,30 @@ private slots:
         QCOMPARE(m_overlay->hides, 0);
     }
 
+    void menuCancelsSwatch()
+    {
+        m_model->setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {{u"rgb.enabled"_s, true}});
+        QVERIFY(QMetaObject::invokeMethod(m_view, "open", Q_ARG(QString, u"stick leds"_s)));
+        int index = -1;
+        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, u"rgb.hue"_s)));
+        page()->setProperty("focusIndex", index);
+        QTRY_VERIFY(!page()->property("focusedRow").toMap().value(u"readOnly"_s).toBool());
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QObject *swatches = qvariant_cast<QObject *>(page()->property("swatchSheet"));
+        QVERIFY(swatches->property("shown").toBool());
+        QVERIFY(page()->property("pickerOpen").toBool());
+        QCOMPARE(page()->property("focusedRow").toMap().value(u"swatch"_s).toString(), u"#ff0000"_s);
+        bool handled = false;
+        QVERIFY(QMetaObject::invokeMethod(page(), "handleAction", Q_RETURN_ARG(bool, handled), Q_ARG(QString, u"down"_s),
+                                          Q_ARG(bool, false)));
+        QTRY_COMPARE(page()->property("focusedRow").toMap().value(u"swatch"_s).toString(), u"#ff2b00"_s);
+        m_overlay->openMenu({u"Steam OS"_s}, 0, {QString()});
+        QTRY_VERIFY(!page()->property("pickerOpen").toBool());
+        QVERIFY(!swatches->property("shown").toBool());
+        QTRY_COMPARE(page()->property("focusedRow").toMap().value(u"swatch"_s).toString(), u"#ff0000"_s);
+        QCOMPARE(m_overlay->hides, 0);
+    }
+
     void menuOnlyTogglesStackVisibility()
     {
         QObject *stack = qvariant_cast<QObject *>(m_view->property("stack"));

@@ -1022,7 +1022,12 @@ private slots:
         key(Qt::Key_Return);
     }
 
-    void hueEditsThroughOverride()
+    QObject *swatchSheet() const
+    {
+        return qvariant_cast<QObject *>(page()->property("swatchSheet"));
+    }
+
+    void ledHueSheet()
     {
         fake->setStored({{u"rgb.enabled"_s, true}});
         model->load();
@@ -1031,25 +1036,143 @@ private slots:
         open(u"stick leds"_s);
         focus(u"rgb.hue"_s);
         QCOMPARE(row(u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#ff0000"_s);
+        QCOMPARE(row(u"rgb.hue"_s).value(u"pick"_s).toString(), u"swatch"_s);
         key(Qt::Key_Return);
-        QVERIFY(page()->property("editing").toBool());
+        QVERIFY(swatchSheet()->property("shown").toBool());
         QVERIFY(!sheetShown());
-        key(Qt::Key_Right);
+        QVERIFY(!page()->property("editing").toBool());
+        const QStringList colors = swatchSheet()->property("colors").toStringList();
+        QCOMPARE(colors.size(), 36);
+        QCOMPARE(colors.first(), u"#ff0000"_s);
+        QCOMPARE(swatchSheet()->property("focusIndex").toInt(), 0);
+        key(Qt::Key_Down);
         QTRY_COMPARE(fake->calls(), QStringList{u"Override rgb.hue 10"_s});
         QTRY_COMPARE(row(u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#ff2b00"_s);
-        key(Qt::Key_Right);
-        QTRY_COMPARE(fake->calls().size(), 2);
-        QCOMPARE(fake->calls().at(1), u"Override rgb.hue 20"_s);
         key(Qt::Key_Escape);
-        QTRY_COMPARE(fake->calls().size(), 3);
-        QCOMPARE(fake->calls().at(2), u"ClearOverride rgb.hue"_s);
+        QVERIFY(!swatchSheet()->property("shown").toBool());
+        QTRY_COMPARE(fake->calls().size(), 2);
+        QCOMPARE(fake->calls().at(1), u"ClearOverride rgb.hue"_s);
         QTRY_COMPARE(row(u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#ff0000"_s);
         key(Qt::Key_Return);
-        key(Qt::Key_Right);
+        key(Qt::Key_Down);
         key(Qt::Key_Return);
-        QTRY_COMPARE(fake->calls().size(), 6);
-        QCOMPARE(fake->calls().mid(3), (QStringList{u"Override rgb.hue 10"_s, u"Set rgb.hue 10"_s,
+        QTRY_COMPARE(fake->calls().size(), 5);
+        QCOMPARE(fake->calls().mid(2), (QStringList{u"Override rgb.hue 10"_s, u"Set rgb.hue 10"_s,
                                                     u"ClearOverride rgb.hue"_s}));
+    }
+
+    void accentSheet()
+    {
+        QObject *ui = engine->singletonInstance<QObject *>("MicroSet", "Ui");
+        QVERIFY(ui);
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"60-microdap.json"_s)}));
+        fake->setValues({{u"microdap.accent_hue"_s, 120u}});
+        model->load();
+        QTRY_COMPARE(model->accentHue(), 120);
+        QColor h120;
+        QVERIFY(QMetaObject::invokeMethod(ui, "accentForHue", Q_RETURN_ARG(QColor, h120), Q_ARG(int, 120)));
+        QTRY_COMPARE(ui->property("accent").value<QColor>(), h120);
+        open(u"display"_s);
+        focus(u"microdap.accent_hue"_s);
+        key(Qt::Key_Return);
+        QVERIFY(swatchSheet()->property("shown").toBool());
+        QCOMPARE(swatchSheet()->property("colors").toList().size(), 37);
+        QCOMPARE(swatchSheet()->property("focusIndex").toInt(), 13);
+        key(Qt::Key_Down);
+        QCOMPARE(swatchSheet()->property("focusIndex").toInt(), 14);
+        QTest::qWait(100);
+        QVERIFY(fake->calls().isEmpty());
+        QCOMPARE(ui->property("accent").value<QColor>(), h120);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set microdap.accent_hue 130"_s});
+        QTRY_COMPARE(model->accentHue(), 130);
+        key(Qt::Key_Return);
+        QCOMPARE(swatchSheet()->property("focusIndex").toInt(), 14);
+        for (int i = 0; i < 23; ++i)
+            key(Qt::Key_Down);
+        QCOMPARE(swatchSheet()->property("focusIndex").toInt(), 0);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls(), (QStringList{u"Set microdap.accent_hue 130"_s, u"Set microdap.accent_off true"_s}));
+        model->load();
+        QTRY_VERIFY(model->accentOff());
+        QTRY_VERIFY(ui->property("accentOff").toBool());
+        QCOMPARE(model->accentHue(), 130);
+        QTRY_COMPARE(row(u"microdap.accent_hue"_s).value(u"swatch"_s).toString(), u"#ffffff"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(swatchSheet()->property("focusIndex").toInt(), 0);
+        key(Qt::Key_Down);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls().size(), 4);
+        QCOMPARE(fake->calls().mid(2), (QStringList{u"Set microdap.accent_off false"_s, u"Set microdap.accent_hue 0"_s}));
+        QTRY_VERIFY(!ui->property("accentOff").toBool());
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        key(Qt::Key_Escape);
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 4);
+    }
+
+    void accentOffRefused()
+    {
+        QObject *ui = engine->singletonInstance<QObject *>("MicroSet", "Ui");
+        QVERIFY(ui);
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"60-microdap.json"_s)}));
+        fake->setValues({{u"microdap.accent_hue"_s, 120u}});
+        fake->refuse(u"microdap.accent_off"_s, u"net.seilent.MicroSet1.Error.InvalidValue"_s);
+        model->load();
+        QTRY_COMPARE(model->accentHue(), 120);
+        open(u"display"_s);
+        focus(u"microdap.accent_hue"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(swatchSheet()->property("focusIndex").toInt(), 13);
+        for (int i = 0; i < 13; ++i)
+            key(Qt::Key_Up);
+        QCOMPARE(swatchSheet()->property("focusIndex").toInt(), 0);
+        QSignalSpy flips(ui, SIGNAL(accentOffChanged()));
+        key(Qt::Key_Return);
+        QTRY_VERIFY(toast()->property("shown").toBool());
+        QCOMPARE(toast()->property("artist").toString(), u"Accent"_s);
+        QCOMPARE(toast()->property("title").toString(), u"set failed"_s);
+        QTRY_COMPARE(flips.count(), 2);
+        QCOMPARE(fake->calls(), QStringList{u"Set microdap.accent_off true"_s});
+        QTRY_VERIFY(!model->accentOff());
+        QTRY_VERIFY(!ui->property("accentOff").toBool());
+        QTRY_COMPARE(row(u"microdap.accent_hue"_s).value(u"swatch"_s).toString(), QString());
+        QCOMPARE(model->accentHue(), 120);
+    }
+
+    void accentPickWithoutDaemon()
+    {
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"60-microdap.json"_s)}));
+        fake->setValues({{u"microdap.accent_hue"_s, 120u}});
+        model->load();
+        QTRY_COMPARE(model->accentHue(), 120);
+        fake->stop();
+        QTRY_VERIFY(!model->available());
+        const qsizetype calls = fake->calls().size();
+        QVERIFY(QMetaObject::invokeMethod(model.get(), "pickAccent", Q_ARG(int, -1)));
+        QTRY_VERIFY(toast()->property("shown").toBool());
+        QCOMPARE(toast()->property("artist").toString(), u"Accent"_s);
+        QCOMPARE(toast()->property("title").toString(), u"not available"_s);
+        QVERIFY(!model->accentOff());
+        QCOMPARE(model->accentHue(), 120);
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), calls);
+    }
+
+    void accentSheetWithoutOffKey()
+    {
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"50-microdap.json"_s)}));
+        fake->setValues({{u"microdap.accent_hue"_s, 120u}});
+        model->load();
+        QTRY_COMPARE(model->accentHue(), 120);
+        open(u"display"_s);
+        focus(u"microdap.accent_hue"_s);
+        key(Qt::Key_Return);
+        QVERIFY(swatchSheet()->property("shown").toBool());
+        QCOMPARE(swatchSheet()->property("colors").toList().size(), 36);
+        QCOMPARE(swatchSheet()->property("focusIndex").toInt(), 12);
+        key(Qt::Key_Escape);
     }
 
     void ledLockFollowsSwitch()

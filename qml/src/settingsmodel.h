@@ -32,6 +32,7 @@ class SettingsModel : public QObject
     Q_PROPERTY(int accentHue READ accentHue NOTIFY revisionChanged)
     Q_PROPERTY(bool accentOff READ accentOff NOTIFY revisionChanged)
     Q_PROPERTY(QString updatesGroup READ updatesGroup CONSTANT)
+    Q_PROPERTY(QString accentKey READ accentKey CONSTANT)
 
 public:
     static inline const QString UpdatesGroup = QStringLiteral("updates");
@@ -66,6 +67,7 @@ public:
     int accentHue() const;
     bool accentOff() const;
     QString updatesGroup() const;
+    QString accentKey() const;
 
     Q_INVOKABLE QVariantList groups(int revision) const;
     Q_INVOKABLE QVariantList rows(const QString &group, int revision) const;
@@ -80,6 +82,7 @@ public:
     Q_INVOKABLE QVariant next(const QString &key, const QVariant &from, int delta) const;
     Q_INVOKABLE QString text(const QString &key, const QVariant &value) const;
     Q_INVOKABLE bool set(const QString &key, const QVariant &value);
+    Q_INVOKABLE void pickAccent(int hue);
     Q_INVOKABLE void reloadUpdates();
     Q_INVOKABLE void enter(const QString &group);
     Q_INVOKABLE void leave(const QString &group);
@@ -171,6 +174,7 @@ private:
     QVariantList sheetValues(const Entry &entry) const;
     QVariant shownOf(const Entry &entry) const;
     bool write(const QString &key, const QVariant &value);
+    void writeHidden(const QString &key, const QVariant &value);
     bool overrideTo(const QString &key, const QVariant &value);
     void clearOverride(const QString &key);
     void closePreview(const QString &key);
@@ -260,6 +264,7 @@ private:
     QVariantMap m_values;
     QSet<QString> m_live;
     QSet<QString> m_referenced;
+    bool m_accentOffKnown = false;
     QMap<QString, int> m_watching;
     std::optional<Preview> m_preview;
     bool m_available = false;

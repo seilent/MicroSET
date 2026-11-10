@@ -427,6 +427,12 @@ private slots:
         fake->setStored({{u"rgb.enabled"_s, true}, {u"rgb.hue"_s, 150u}, {u"rgb.saturation"_s, 60u}});
         m = model();
         QCOMPARE(rowOf(m->rows(u"stick leds"_s, 0), u"rgb.hue"_s).value(u"swatch"_s).toString(), u"#66ffb3"_s);
+        const QVariantMap hues = m->sheet(u"rgb.hue"_s);
+        QCOMPARE(hues.value(u"values"_s).toList().size(), 36);
+        QCOMPARE(hues.value(u"swatches"_s).toStringList().value(0), u"#ff6666"_s);
+        QCOMPARE(hues.value(u"swatches"_s).toStringList().value(15), u"#66ffb3"_s);
+        QCOMPARE(hues.value(u"focus"_s).toInt(), 15);
+        QVERIFY(!hues.value(u"draft"_s).toBool());
     }
 
     void toastTexts()
@@ -1977,7 +1983,7 @@ private slots:
                     QCOMPARE(words(m->sheet(key)), (QStringList{u"off"_s, u"on"_s}));
                 } else if (edits.contains(key)) {
                     const bool hue = key == "rgb.hue"_L1 || key == "microdap.accent_hue"_L1;
-                    QVERIFY2(pick == (hue ? "edit"_L1 : "adjust"_L1), qPrintable(key + u' ' + pick));
+                    QVERIFY2(pick == (hue ? "swatch"_L1 : "adjust"_L1), qPrintable(key + u' ' + pick));
                     seenEdits << key;
                 } else {
                     QVERIFY2(pick == "sheet"_L1, qPrintable(key + u' ' + pick));

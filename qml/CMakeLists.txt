@@ -30,6 +30,7 @@ set(microset_qml
     MicroSet/JumpGrid.qml
     MicroSet/SettingsRow.qml
     MicroSet/AdjustOverlay.qml
+    MicroSet/SwatchSheet.qml
     MicroSet/SettingsPage.qml
     MicroSet/GroupsPage.qml
     MicroSet/SettingsView.qml
