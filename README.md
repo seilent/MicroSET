@@ -13,9 +13,9 @@ read, change and watch them over D-Bus.
   Pad input comes from InputPlumber's D-Bus target while the MicroOS intercept arbiter (`net.seilent.MicroOs.Intercept`)
   holds it for the app; arrow keys, Return and Escape work too. `--screenshot <png> --state <name>` renders a fixture
   (960x640 by default). Look and components from MicroDAP, font Selawik (OFL 1.1, `MICROSET_FONT_DIR`).
-- `microset-settings --overlay`: the settings page as a gamescope overlay in the steam, microdap and microemu sessions
-  (`microset-overlay@<session>.service`). RC toggles it (`hotkeys.d/<session>.conf.d/60-microset.conf` rows for MicroOS
-  hotkeyd), B on the first page closes it. D-Bus `net.seilent.MicroSet.Overlay` on the session bus, object
+- `microset-settings --overlay`: the settings page as a gamescope overlay in the steam, microdap, microemu and android
+  sessions (`microset-overlay@<session>.service`). RC toggles it (`hotkeys.d/<session>.conf.d/60-microset.conf` rows for
+  MicroOS hotkeyd), B on the first page closes it. D-Bus `net.seilent.MicroSet.Overlay` on the session bus, object
   `/net/seilent/MicroSet/Overlay`, interface `net.seilent.MicroSet.Overlay1` with `Toggle`, `Show`, `Hide` and the
   `Shown` property; refused from a game. While shown it holds the pad through the MicroOS intercept arbiter, and it
   gives way to another overlay that takes the arbiter until it is on top again. Shows "Hold A to format" while
