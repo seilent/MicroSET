@@ -210,7 +210,6 @@ Item {
         }
         discard.open()
         discard.focusIndex = 1
-        discard.barIndex = 1
     }
 
     function finish(): void {

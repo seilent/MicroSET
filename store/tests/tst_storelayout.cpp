@@ -671,7 +671,6 @@ private slots:
                  QStringList({u"uninstall app 0"_s, u"keep app 0"_s}));
         QCOMPARE(confirm->property("title").toString(), u"uninstall app 0?"_s);
         QCOMPARE(confirm->property("focusIndex").toInt(), 1);
-        QCOMPARE(confirm->property("barIndex").toReal(), 1.0);
         QCOMPARE(depth(), 2);
         tap(u"b"_s);
         QTest::qWait(100);

@@ -34,7 +34,6 @@ Window {
         confirm.items = ["uninstall " + name, "keep " + name]
         confirm.open()
         confirm.focusIndex = 1
-        confirm.barIndex = 1
     }
 
     function confirmPicked(index: int): void {

@@ -17,7 +17,6 @@ Item {
     property bool lines: false
     property int plainIndex: -1
     property int firstRow: 0
-    property real barIndex: 0
     property real progress: 0
     property var stack: []
     readonly property int depth: root.stack.length
@@ -36,7 +35,6 @@ Item {
     readonly property int lastFirstRow: Math.max(0, root.items.length - root.shownRows)
     property alias scrim: scrim
     property alias panel: panel
-    property alias bar: bar
     property alias list: list
     property alias window: window
     property alias leadItem: leadText
@@ -181,16 +179,6 @@ Item {
                 }
             }
 
-            FocusBar {
-                id: bar
-
-                x: root.edge - Ui.px(Ui.focusBarOffset)
-                rowY: list.y + root.barIndex * root.pitch
-                rowHeight: root.pitch
-                visible: root.items.length > 0 && !root.lines
-                animated: false
-            }
-
             TouchScroll {
                 id: touchScroller
 
@@ -251,7 +239,6 @@ Item {
         root.plainIndex = -1
         root.focusIndex = 0
         root.firstRow = 0
-        root.barIndex = 0
     }
 
     function pop(): bool {
@@ -268,7 +255,6 @@ Item {
         root.plainIndex = top.plainIndex
         root.firstRow = top.firstRow
         root.focusIndex = top.focusIndex
-        root.barIndex = top.focusIndex
         return true
     }
 
@@ -320,8 +306,6 @@ Item {
     }
 
     function complete() {
-        if (barAnim.running)
-            barAnim.complete()
         if (progressAnim.running)
             progressAnim.complete()
     }
@@ -389,30 +373,7 @@ Item {
             root.complete()
     }
 
-    NumberAnimation {
-        id: barAnim
-
-        target: root
-        property: "barIndex"
-        duration: Motion.focusCursor
-        easing.type: Motion.sine
-    }
-
-    function moveBar(): void {
-        barAnim.stop()
-        if (!root.animated || !root.shown || root.animating) {
-            root.barIndex = root.focusIndex
-            return
-        }
-        barAnim.from = root.barIndex
-        barAnim.to = root.focusIndex
-        barAnim.start()
-    }
-
-    onFocusIndexChanged: {
-        root.keepFocusShown()
-        root.moveBar()
-    }
+    onFocusIndexChanged: root.keepFocusShown()
 
     onShownRowsChanged: root.keepFocusShown()
 

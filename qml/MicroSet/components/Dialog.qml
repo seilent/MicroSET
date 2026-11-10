@@ -10,7 +10,6 @@ Item {
     property var items: []
     property int focusIndex: 0
     property bool pressed: false
-    property real barIndex: 0
     readonly property bool animating: openAnim.running || closeAnim.running
     readonly property int duration: Motion.dialog
     readonly property int hideDuration: Motion.dialogHide
@@ -22,7 +21,6 @@ Item {
     property alias scrim: scrim
     property alias body: body
     property alias titleText: titleText
-    property alias bar: bar
     property alias list: list
     property alias openAnimation: openAnim
     property alias closeAnimation: closeAnim
@@ -118,16 +116,6 @@ Item {
                 }
             }
         }
-
-        FocusBar {
-            id: bar
-
-            x: root.edge - Ui.px(Ui.focusBarOffset)
-            rowY: list.y + root.barIndex * root.pitch
-            rowHeight: root.pitch
-            visible: root.items.length > 0
-            animated: false
-        }
     }
 
     ParallelAnimation {
@@ -207,8 +195,6 @@ Item {
     }
 
     function complete() {
-        if (barAnim.running)
-            barAnim.complete()
         if (openAnim.running)
             openAnim.complete()
         if (closeAnim.running)
@@ -252,26 +238,4 @@ Item {
         if (root.screenOff)
             root.complete()
     }
-
-    NumberAnimation {
-        id: barAnim
-
-        target: root
-        property: "barIndex"
-        duration: Motion.focusCursor
-        easing.type: Motion.sine
-    }
-
-    function moveBar(): void {
-        barAnim.stop()
-        if (root.screenOff || !root.shown || root.animating) {
-            root.barIndex = root.focusIndex
-            return
-        }
-        barAnim.from = root.barIndex
-        barAnim.to = root.focusIndex
-        barAnim.start()
-    }
-
-    onFocusIndexChanged: root.moveBar()
 }

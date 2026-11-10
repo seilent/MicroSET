@@ -32,7 +32,6 @@ Item {
     readonly property int exitIndex: -1
     readonly property bool exitFocused: root.shown && root.focusIndex === root.exitIndex
     property alias exitText: exitText
-    property alias exitBar: exitBar
     property alias cells: cells
     property alias swivel: swivel
     readonly property string touchKind: "block"
@@ -235,17 +234,6 @@ Item {
             text: "exit"
             color: Ui.white(root.exitFocused ? Ui.alphaFull : Ui.overlayLabel.alpha)
             font: Ui.font(Ui.overlayLabel)
-        }
-
-        Rectangle {
-            id: exitBar
-
-            x: root.gridX - Ui.px(Ui.focusBarOffset)
-            y: root.gridY
-            width: Ui.px(Ui.focusBarWidth)
-            height: root.tile
-            color: Ui.white(Ui.alphaFull)
-            opacity: root.exitFocused ? 1 : 0
         }
 
         Repeater {

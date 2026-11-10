@@ -1280,7 +1280,6 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
         QVERIFY(QMetaObject::invokeMethod(dialog, "complete"));
         dialog->setProperty("focusIndex", 1);
-        QTRY_COMPARE(dialog->property("barIndex").toReal(), 1.0);
 
         QQuickItem *keyboard = make("Keyboard", full);
         QVERIFY2(keyboard, qPrintable(error));
@@ -1302,7 +1301,6 @@ private slots:
         QVERIFY(discard);
         QVERIFY(discard->property("shown").toBool());
         QCOMPARE(discard->property("focusIndex").toInt(), 1);
-        QCOMPARE(discard->property("barIndex").toReal(), 1.0);
     }
 };
 
