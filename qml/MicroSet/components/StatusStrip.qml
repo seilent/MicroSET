@@ -14,6 +14,7 @@ Item {
     readonly property real glyphSize: Ui.px(Ui.statusHeight)
     readonly property real stripTop: Ui.px(Ui.statusTop)
     readonly property bool batteryLow: root.battery < Ui.batteryLowPercent
+    readonly property bool offLow: Ui.accentOff && root.batteryLow && root.battery >= 0
     readonly property color batteryColor: root.batteryLow ? Ui.accent : Ui.textFull
     property alias row: row
     property alias clockText: clockText
@@ -65,7 +66,7 @@ Item {
             id: percentText
 
             anchors.verticalCenter: parent.verticalCenter
-            visible: root.percent && root.batteryPresent && root.battery >= 0
+            visible: (root.percent || root.offLow) && root.batteryPresent && root.battery >= 0
             text: root.battery + "%"
             color: Ui.white(Ui.time.alpha)
             font: Ui.font(Ui.time)
@@ -75,7 +76,7 @@ Item {
             id: batteryGlyph
 
             size: Ui.statusHeight
-            visible: root.batteryPresent
+            visible: root.batteryPresent && !root.offLow
             name: "battery"
             level: root.battery / 100
             color: root.batteryColor

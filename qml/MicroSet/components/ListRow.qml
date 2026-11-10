@@ -94,7 +94,7 @@ PressScale {
         text: root.primary
         textFormat: Text.PlainText
         color: root.primaryColor
-        font: Ui.font(root.primaryRole)
+        font: Ui.font(root.playing ? Ui.accentBold(root.primaryRole) : root.primaryRole)
         clip: true
 
         Behavior on color {

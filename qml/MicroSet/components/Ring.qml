@@ -20,6 +20,7 @@ PressScale {
     readonly property bool lit: root.toggle ? root.on : root.focused
     readonly property real ringAlpha: root.lit ? Ui.alphaFull : Ui.alphaMid
     readonly property color ringColor: Ui.white(root.ringAlpha)
+    readonly property real borderAlpha: Ui.accentOff && root.arcSweep > 0 ? Ui.overlayDim : root.ringAlpha
 
     property bool completed: false
     property string shownGlyph: ""
@@ -53,7 +54,7 @@ PressScale {
         radius: width / 2
         color: "transparent"
         border.width: root.strokeWidth
-        border.color: root.ringColor
+        border.color: Ui.white(root.borderAlpha)
 
         Behavior on border.color {
             enabled: root.animated

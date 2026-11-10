@@ -38,6 +38,8 @@ Item {
     property alias panel: panel
     property alias field: field
     property alias discard: discard
+    property alias keyRepeater: keyRepeater
+    property alias petalRepeater: petalRepeater
 
     signal done(string text)
     signal canceled()
@@ -520,6 +522,8 @@ Item {
         }
 
         Repeater {
+            id: keyRepeater
+
             model: root.keys
 
             delegate: Rectangle {
@@ -547,7 +551,7 @@ Item {
                     text: entry.labels[cell.code] ?? ""
                     color: cell.locked ? Ui.accent
                         : Ui.white(cell.code === "done" && !entry.ready ? Ui.alphaLow : Ui.alphaFull)
-                    font: root.roleFont(Ui.listPrimary, Font.MixedCase)
+                    font: root.roleFont(cell.locked ? Ui.accentBold(Ui.listPrimary) : Ui.listPrimary, Font.MixedCase)
                 }
 
                 Text {
@@ -586,18 +590,23 @@ Item {
         }
 
         Repeater {
+            id: petalRepeater
+
             model: root.cells
 
             delegate: Rectangle {
                 id: petalCell
 
                 required property var modelData
+                readonly property bool picked: petalCell.modelData.dir === root.pick
 
                 x: petalCell.modelData.x
                 y: petalCell.modelData.y
                 width: petalCell.modelData.w
                 height: petalCell.modelData.h
-                color: petalCell.modelData.dir === root.pick ? Ui.accent : Ui.tilePressed
+                color: petalCell.picked ? (Ui.accentOff ? Ui.bg : Ui.accent) : Ui.tilePressed
+                border.width: petalCell.picked && Ui.accentOff ? Ui.px(Ui.focusBorder) : 0
+                border.color: Ui.textFull
 
                 Text {
                     anchors.centerIn: parent

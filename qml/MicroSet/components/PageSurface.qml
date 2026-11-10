@@ -4,7 +4,7 @@ import QtQuick
 Item {
     id: root
 
-    readonly property real topAlpha: Ui.backdropStops[0][1]
+    readonly property real topAlpha: Ui.accentOff ? 0 : Ui.backdropStops[0][1]
     property alias shade: shade
 
     Rectangle {
