@@ -6,6 +6,7 @@
 #include <QFile>
 #include <QFont>
 #include <QHash>
+#include <QJSValue>
 #include <QJsonDocument>
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
@@ -1184,6 +1185,39 @@ private slots:
             }
         }
         QVERIFY(found > 0);
+    }
+
+    void accentOffTokens()
+    {
+        QObject *ui = engine->singletonInstance<QObject *>("MicroSet", "Ui");
+        QVERIFY(ui);
+        const auto color = [ui](const char *name) { return ui->property(name).value<QColor>(); };
+        QCOMPARE(ui->property("accentOff").toBool(), false);
+        QCOMPARE(color("accent"), QColor(u"#fa2a4d"_s));
+        ui->setProperty("accentOff", true);
+        QCOMPARE(color("accent"), QColor(Qt::white));
+        QCOMPARE(color("accentBright"), QColor(Qt::white));
+        QCOMPARE(color("accentHueColor"), QColor(u"#fa2a4d"_s));
+        const auto mapOf = [](const QVariant &role) {
+            return role.metaType() == QMetaType::fromType<QJSValue>() ? role.value<QJSValue>().toVariant().toMap()
+                                                                      : role.toMap();
+        };
+        QVariant value;
+        QVERIFY(QMetaObject::invokeMethod(ui, "accentBold", Q_RETURN_ARG(QVariant, value),
+                                          Q_ARG(QVariant, ui->property("settingsValue"))));
+        QCOMPARE(mapOf(value).value(u"style"_s).toString(), u"Bold"_s);
+        QCOMPARE(mapOf(value).value(u"size"_s).toInt(), 11);
+        QCOMPARE(ui->property("settingsValue").toMap().value(u"style"_s).toString(), u"Light"_s);
+        const QVariant item = ui->property("dialogItem");
+        QVERIFY(QMetaObject::invokeMethod(ui, "accentBold", Q_RETURN_ARG(QVariant, value), Q_ARG(QVariant, item)));
+        QCOMPARE(mapOf(value), item.toMap());
+        ui->setProperty("accentOff", false);
+        QCOMPARE(color("accent"), QColor(u"#fa2a4d"_s));
+        const QColor scrim = color("scrimDialog");
+        QCOMPARE(scrim.red(), 17);
+        QCOMPARE(scrim.green(), 17);
+        QCOMPARE(scrim.blue(), 17);
+        QVERIFY(qAbs(scrim.alphaF() - 0.96) < 1.0 / 255);
     }
 
     void copiedComponentsLoad()

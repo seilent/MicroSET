@@ -24,8 +24,8 @@ Item {
     }
 
     Component.onCompleted: {
-        Ui.accent = Qt.binding(() => Ui.accentForHue(view.accentHue))
-        Ui.accentBright = Qt.binding(() => Ui.brightForHue(view.accentHue))
+        Ui.accentHueColor = Qt.binding(() => Ui.accentForHue(view.accentHue))
+        Ui.accentHueBright = Qt.binding(() => Ui.brightForHue(view.accentHue))
         stack.push(groupsPage, { model: view.model, animated: view.animated, overlay: view.overlay })
     }
 

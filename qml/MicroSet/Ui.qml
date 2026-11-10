@@ -162,6 +162,7 @@ QtObject {
     readonly property color textFaint: Qt.rgba(1, 1, 1, 0.08)
     readonly property color scrimSheet: Qt.rgba(17 / 255, 17 / 255, 17 / 255, 0.55)
     readonly property color scrimOverlay: Qt.rgba(0, 0, 0, 0.8)
+    readonly property color scrimDialog: Qt.rgba(17 / 255, 17 / 255, 17 / 255, 0.96)
     readonly property color black: "#000000"
     readonly property real dimAlpha: 0.6
     readonly property var backdropStops: [[0.0, 0.15], [0.55, 0.35], [1.0, 0.75]]
@@ -173,8 +174,11 @@ QtObject {
     readonly property int accentSatMin: 40
     readonly property real accentLumFloor: 0.149
     readonly property real accentBrightSat: 0.84
-    property color accent: ui.accentForHue(ui.accentHueDefault)
-    property color accentBright: ui.brightForHue(ui.accentHueDefault)
+    property bool accentOff: false
+    property color accentHueColor: ui.accentForHue(ui.accentHueDefault)
+    property color accentHueBright: ui.brightForHue(ui.accentHueDefault)
+    readonly property color accent: ui.accentOff ? ui.textFull : ui.accentHueColor
+    readonly property color accentBright: ui.accentOff ? ui.textFull : ui.accentHueBright
 
     function hueOnGrid(h: real): int {
         const n = Math.round(Number(h) / ui.accentHueStep) % ui.accentHueCount
@@ -226,6 +230,10 @@ QtObject {
     function brightForHue(h: int): color {
         const hue = ui.hueOnGrid(h)
         return ui.channelsColor(ui.hsvChannels(hue, ui.accentBrightSat * ui.accentSaturation(hue), 1.0))
+    }
+
+    function accentBold(role: var): var {
+        return ui.accentOff && role.style !== "Bold" ? Object.assign({}, role, { style: "Bold" }) : role
     }
     readonly property real focusBorder: 2
     readonly property real focusBarWidth: 2
