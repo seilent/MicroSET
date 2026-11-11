@@ -31,6 +31,7 @@ set(microset_qml
     MicroSet/SettingsRow.qml
     MicroSet/AdjustOverlay.qml
     MicroSet/SwatchSheet.qml
+    MicroSet/RowSheet.qml
     MicroSet/SettingsPage.qml
     MicroSet/GroupsPage.qml
     MicroSet/SettingsView.qml

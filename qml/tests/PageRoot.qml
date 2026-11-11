@@ -63,10 +63,13 @@ Window {
         "lsfg-no-client": "lsfg-status", "lsfg-game-running": "lsfg-status", "lsfg-microsd": "lsfg-status",
         "lsfg-unknown": "lsfg-status", "lsfg-old-layer": "lsfg-status", "lsfg-install-focus": "lsfg-install",
         "lsfg-open-empty": "lsfg-proton", "lsfg-gone-long": "lsfg-game-251150", "lsfg-open-top": "lsfg-games",
-        "lsfg-games-motion": "lsfg-games", "lsfg-dialog-motion": "lsfg-install"
+        "lsfg-games-motion": "lsfg-games", "lsfg-dialog-motion": "lsfg-install", "lsfg-sheet-game": "lsfg-games"
     })
-    readonly property var lsfgOpen: ["lsfg-open", "lsfg-blacklist", "lsfg-bottom", "lsfg-open-empty", "lsfg-gone-long",
-        "lsfg-open-top"]
+    readonly property var lsfgSheet: ({
+        "lsfg-open": "lsfg-game-2238900", "lsfg-blacklist": "lsfg-game-2050650", "lsfg-gone-long": "lsfg-game-251150",
+        "lsfg-open-empty": "lsfg-add", "lsfg-bottom": "last", "lsfg-open-top": "first",
+        "lsfg-sheet-game": "lsfg-game-2238900"
+    })
     property alias view: view
 
     width: root.shotWidth
@@ -163,13 +166,19 @@ Window {
         } else if (root.lsfgStates[root.shotState] !== undefined) {
             view.open("Frame generation")
             const page = view.stack.currentItem
-            if (root.lsfgOpen.indexOf(root.shotState) >= 0)
-                root.model.toggle("lsfg-games")
             Qt.callLater(() => {
-                page.focusIndex = page.indexOfKey(root.lsfgStates[root.shotState])
-                if (root.shotState === "lsfg-bottom") {
-                    root.bottom()
-                } else if (root.shotState === "lsfg-open-top" || root.shotState === "lsfg-games-motion") {
+                const inSheet = root.lsfgSheet[root.shotState]
+                page.focusIndex = page.indexOfKey(inSheet === undefined ? root.lsfgStates[root.shotState] : "lsfg-games")
+                if (inSheet !== undefined) {
+                    page.keepFocusVisible()
+                    page.activate()
+                    const entries = page.rowSheet.entries
+                    const at = inSheet === "first" ? 0 : inSheet === "last" ? entries.length - 1
+                        : entries.findIndex((e) => e.key === inSheet)
+                    page.rowSheet.focusIndex = Math.max(0, at)
+                    if (root.shotState === "lsfg-sheet-game")
+                        page.handleAction("a", false)
+                } else if (root.shotState === "lsfg-games-motion") {
                     page.completeScroll()
                     page.flick.contentY = Math.min(page.maxContentY(), page.rowTopOf(page.focusIndex))
                 } else {

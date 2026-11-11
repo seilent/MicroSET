@@ -145,6 +145,46 @@ class FitTest : public QObject
         QVERIFY(QMetaObject::invokeMethod(page, "back"));
     }
 
+    static void checkRowSheet(QObject *view, SettingsModel &model, const QString &group, const QString &key, Count &count,
+                              const QMap<QString, QStringList> &extra)
+    {
+        QVERIFY(QMetaObject::invokeMethod(view, "open", Q_ARG(QString, group)));
+        QObject *page = qvariant_cast<QObject *>(qvariant_cast<QObject *>(view->property("stack"))->property("currentItem"));
+        QTRY_COMPARE(json(page->property("modelRows").toList()), json(model.rows(group, model.revision())));
+        int index = -1;
+        QVERIFY(QMetaObject::invokeMethod(page, "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, key)));
+        page->setProperty("focusIndex", index);
+        QVERIFY(QMetaObject::invokeMethod(page, "activate"));
+        auto *sheet = qvariant_cast<QQuickItem *>(page->property("rowSheet"));
+        QVERIFY(sheet->property("shown").toBool());
+        auto *cells = qvariant_cast<QObject *>(sheet->property("cells"));
+        const int rows = cells->property("count").toInt();
+        QVERIFY(rows > 0);
+        for (int i = 0; i < rows; ++i) {
+            QQuickItem *item = nullptr;
+            QVERIFY(QMetaObject::invokeMethod(cells, "itemAt", Q_RETURN_ARG(QQuickItem *, item), Q_ARG(int, i)));
+            const QVariantMap row = item->property("modelData").toMap();
+            auto *title = qvariant_cast<QQuickItem *>(item->property("titleItem"));
+            auto *value = qvariant_cast<QQuickItem *>(item->property("valueItem"));
+            QTRY_COMPARE(item->width(), 640.0);
+            QStringList values{row.value(u"value"_s).toString()};
+            values << extra.value(row.value(u"key"_s).toString());
+            for (const QString &text : std::as_const(values)) {
+                value->setProperty("text", text);
+                const qreal room = item->width() - 2 * sheet->property("edge").toReal();
+                if (title->width() < title->implicitWidth() || value->implicitWidth() > room)
+                    count.misses << u"%1: %2 %3 beside %4 %5 > %6"_s.arg(row.value(u"key"_s).toString(), text,
+                                                                         QString::number(value->implicitWidth()),
+                                                                         title->property("text").toString(),
+                                                                         QString::number(title->implicitWidth()),
+                                                                         QString::number(room));
+                ++count.rows;
+            }
+        }
+        QVERIFY(QMetaObject::invokeMethod(page, "closePickers"));
+        QVERIFY(QMetaObject::invokeMethod(page, "back"));
+    }
+
 private slots:
     void sheetWordsFitAt640()
     {
@@ -230,7 +270,6 @@ private slots:
         Count count;
         check(view, model, lsfg, count);
         const int words = count.words;
-        model.toggle(u"lsfg-games"_s);
         const QMap<QString, QStringList> extra{
             {u"*"_s, {}},
             {u"lsfg-status"_s,
@@ -242,6 +281,7 @@ private slots:
             {u"lsfg.enabled"_s, {u"on"_s, u"off"_s}},
         };
         checkRows(view, model, lsfg, count, extra);
+        checkRowSheet(view, model, lsfg, u"lsfg-games"_s, count, extra);
         for (const QString &appid : {u"292120"_s, u"2238900"_s}) {
             check(view, model, u"app."_s + appid, count);
             checkRows(view, model, u"app."_s + appid, count);

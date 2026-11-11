@@ -96,10 +96,11 @@ read, change and watch them over D-Bus.
   `MICROSET_LSFG_STATE`, watched) reports it owned or installed, or while a frame generation value is set: the install
   state (`install sent` for 20 minutes after a send in the same boot), `Install Lossless Scaling` (in the Steam session
   only, from `/run/microos/session-current`; asks first, then starts `microos-lsfg-send@manual.service`), `Frame
-  generation`, `Mode`, `Games` (how many games get frame generation, from one `Resolve` call; A opens the list of games
-  with a frame generation value of their own or from their profile, each with its state, then `Add game`; A on a game
-  flips it with one `Set`, on a game that is not installed clears its values), `Multiplier`, `Real frame cap`, `Flow
-  scale` and a note on Steam's frame limit. Game pages then add `Frame generation`, `Multiplier` and `Real frame cap`.
+  generation`, `Mode`, `Games` (how many games get frame generation, from one `Resolve` call; A opens the games sheet:
+  the games with a frame generation value of their own or from their profile, each with its state, then `Add game`; A on
+  a game opens its off/on sheet and a pick writes one `Set`, A on a game that is not installed clears its values),
+  `Multiplier`, `Real frame cap`, `Flow scale` and a note on Steam's frame limit. Game pages then add `Frame
+  generation`, `Multiplier` and `Real frame cap`.
 - Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other file
   only keys under its owner name (`microdap.*`, `microemu.*`). A key can carry `ui` hints for the page (`order`,
   `widget` `none`, `hue` (a swatch sheet) or `edit` (the adjust overlay instead of a sheet), `step` or a `steps` list (a

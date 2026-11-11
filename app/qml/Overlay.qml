@@ -204,8 +204,13 @@ Window {
         }
 
         function onShownChanged() {
-            if (!root.overlay.shown && root.model !== null)
+            if (root.overlay.shown)
+                return
+            if (root.model !== null)
                 root.model.endPreviews()
+            const page = view.stack.currentItem
+            if (page !== null && page !== undefined && typeof page.closeRows === "function")
+                page.closeRows()
         }
 
         function onHintShownChanged() {

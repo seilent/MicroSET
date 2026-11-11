@@ -91,6 +91,7 @@ public:
     Q_INVOKABLE void drop(const QString &key);
     Q_INVOKABLE void act(const QString &key);
     Q_INVOKABLE void toggle(const QString &key);
+    Q_INVOKABLE QVariantList subRows(const QString &key, int revision) const;
     Q_INVOKABLE void beginVisit(const QString &group);
     Q_INVOKABLE void endVisit(const QString &group);
     Q_INVOKABLE QVariantList pickable(const QString &caller);
@@ -232,7 +233,6 @@ private:
     QDBusConnection m_bus;
     UpdateInfo m_updates;
     LsfgState m_lsfg;
-    bool m_lsfgOpen = false;
     QVariantMap m_lsfgDefaults;
     QMap<QString, Entry> m_entries;
     QMap<QString, QJsonObject> m_templates;

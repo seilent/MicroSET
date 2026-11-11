@@ -10,12 +10,11 @@ Item {
     readonly property bool isFocused: item.page.focusIndex === item.index
     readonly property bool editing: item.page.editing && item.page.editKey === item.modelData.key
     readonly property bool label: item.modelData.kind === "label"
-    readonly property bool sub: item.modelData.kind === "sub"
     readonly property bool info: item.modelData.kind === "info"
     readonly property bool hasSwatch: item.modelData.widget === "hue"
-    readonly property string touchKind: item.label || item.info ? "" : item.sub ? "sub" : "row"
+    readonly property string touchKind: item.label || item.info ? "" : "row"
     readonly property int touchIndex: item.index
-    readonly property var titleRole: item.label ? Ui.sectionLabel : item.sub ? Ui.settingsSub : item.info ? Ui.settingsValue : Ui.settingsItem
+    readonly property var titleRole: item.label ? Ui.sectionLabel : item.info ? Ui.settingsValue : Ui.settingsItem
     readonly property real titleAlpha: item.label ? Ui.sectionLabel.alpha
         : item.isFocused ? Ui.settingsItem.alpha : Ui.settingsItem.alphaDim
     readonly property real valueAlpha: item.isFocused ? Ui.settingsValueFocused : Ui.settingsValueDim

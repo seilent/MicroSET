@@ -56,7 +56,7 @@ const QStringList &states()
         u"lsfg-sent"_s, u"lsfg-no-client"_s, u"lsfg-game-running"_s, u"lsfg-microsd"_s, u"lsfg-unknown"_s,
         u"lsfg-old-layer"_s, u"lsfg-install-focus"_s, u"lsfg-open-empty"_s, u"lsfg-gone-long"_s, u"lsfg-open-top"_s,
         u"game-lsfg-blacklist"_s, u"game-lsfg-disabled"_s, u"game-lsfg-cap-off"_s, u"sheet-game-lsfg-multiplier"_s,
-        u"sheet-game-lsfg-cap"_s, u"lsfg-games-motion"_s, u"lsfg-dialog-motion"_s,
+        u"sheet-game-lsfg-cap"_s, u"lsfg-games-motion"_s, u"lsfg-dialog-motion"_s, u"lsfg-sheet-game"_s,
     };
     return names;
 }
@@ -80,7 +80,9 @@ Games gamesOf(const QString &state)
 {
     Games out;
     if (lsfgState(state)) {
-        if (state != "lsfg-open-empty"_L1)
+        if (state == "lsfg-open-empty"_L1)
+            out.library = {{u"292120"_s, u"FINAL FANTASY XIII"_s}};
+        else
             out.library = {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"STAR OCEAN THE SECOND STORY R"_s},
                            {u"2161700"_s, u"Persona 3 Reload"_s}, {u"1621310"_s, u"Atelier Sophie 2: The Alchemist of the Mysterious Dream"_s},
                            {u"2050650"_s, u"Resident Evil 4"_s}};
@@ -89,6 +91,7 @@ Games gamesOf(const QString &state)
         const QMap<QString, QVariantMap> lsfg{
             {u"lsfg-open"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.2161700.lsfg.state"_s, u"on"_s}}},
             {u"lsfg-open-top"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.2161700.lsfg.state"_s, u"on"_s}}},
+            {u"lsfg-sheet-game"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.2161700.lsfg.state"_s, u"on"_s}}},
             {u"lsfg-games-motion"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.2161700.lsfg.state"_s, u"on"_s}}},
             {u"lsfg-bottom"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}}},
             {u"lsfg-blacklist"_s, {{u"lsfg.mode"_s, u"blacklist"_s}, {u"app.2050650.lsfg.state"_s, u"off"_s}}},

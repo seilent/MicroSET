@@ -1091,23 +1091,28 @@ QVariantList SettingsModel::lsfgGames() const
         row.insert(u"expand"_s, true);
     QVariantList out{row};
     if (!on)
-        return out << infoRow(u"lsfg-off"_s, LsfgOffText, QString());
-    if (!m_lsfgOpen)
-        return out;
-    out << infoRow(u"lsfg-proton"_s, u"Proton games only"_s, QString());
+        out << infoRow(u"lsfg-off"_s, LsfgOffText, QString());
+    return out;
+}
+
+QVariantList SettingsModel::subRows(const QString &key, int) const
+{
+    if (key != LsfgGamesKey || !lsfgOn())
+        return {};
+    QVariantList out{infoRow(u"lsfg-proton"_s, u"Proton games only"_s, QString())};
     const QSet<QString> shown = listed(LsfgGroup);
-    const auto sub = [](const QString &appid, const QString &title, const QString &value) {
+    const auto sub = [](const QString &appid, const QString &title, const QString &value, bool present) {
         QVariantMap item = infoRow(LsfgGamePrefix + appid, title, value);
-        item.insert(u"kind"_s, u"sub"_s);
+        item.insert({{u"kind"_s, u"sub"_s}, {u"installed"_s, present}});
         return item;
     };
     for (const SteamLibrary::Game &game : shownGames(shown)) {
         const QJsonObject state = m_resolved.value(game.appid).toObject().value(LsfgStateOption).toObject();
         if (!state.isEmpty() && !m_lsfgJoining.contains(game.appid))
-            out << sub(game.appid, game.name, state.value("value"_L1).toString());
+            out << sub(game.appid, game.name, state.value("value"_L1).toString(), true);
     }
     for (const QString &appid : missingApps(shown))
-        out << sub(appid, m_names.value(appid, appid), u"not installed"_s);
+        out << sub(appid, m_names.value(appid, appid), u"not installed"_s, false);
     if (!pickableNow(LsfgGroup).isEmpty())
         out << addRow(LsfgGroup);
     return out;
@@ -1188,15 +1193,8 @@ void SettingsModel::act(const QString &key)
 
 void SettingsModel::toggle(const QString &key)
 {
-    if (key.startsWith(LsfgGamePrefix)) {
+    if (key.startsWith(LsfgGamePrefix))
         flipLsfg(key.mid(LsfgGamePrefix.size()));
-        return;
-    }
-    const auto enabled = m_entries.constFind(LsfgEnabledKey);
-    if (key != LsfgGamesKey || enabled == m_entries.cend() || !enabled->shown.toBool())
-        return;
-    m_lsfgOpen = !m_lsfgOpen;
-    bump();
 }
 
 void SettingsModel::fetchEffective(const QString &appid)
@@ -1746,7 +1744,6 @@ void SettingsModel::endVisit(const QString &group)
     m_visits.erase(it);
     m_kept.remove(list);
     if (list == LsfgGroup) {
-        m_lsfgOpen = false;
         m_lsfgAdds.clear();
         m_lsfgJoining.clear();
         m_resolveQueued = false;

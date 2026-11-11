@@ -1175,6 +1175,8 @@ private slots:
         m->enter(Lsfg);
         const auto rows = [&] { return m->rows(Lsfg, 0); };
         const auto shown = [&](const QString &key) { return value(rows(), key); };
+        const auto sheet = [&] { return m->subRows(u"lsfg-games"_s, 0); };
+        const auto listed = [&](const QString &key) { return value(sheet(), key); };
         const QStringList library{u"292120"_s, u"2763258687"_s, u"2161700"_s, u"2399050"_s, u"2238900"_s};
         const auto expected = [&](const QString &appid) {
             const QJsonObject view = FakeMicroSetd::effective(files, stored, table, appid);
@@ -1191,21 +1193,20 @@ private slots:
         QCOMPARE(QSet<QString>(fake->resolves().first().cbegin(), fake->resolves().first().cend()),
                  QSet<QString>(library.cbegin(), library.cend()));
         QVERIFY(!keysOf(rows()).contains(u"lsfg-proton"_s));
-        m->toggle(u"lsfg-games"_s);
         const QStringList subs{u"lsfg-proton"_s, u"lsfg-game-2161700"_s, u"lsfg-game-2399050"_s, u"lsfg-game-2238900"_s,
                                u"lsfg-game-77"_s, u"lsfg-add"_s};
+        QCOMPARE(keysOf(sheet()), subs);
         QStringList keys = keysOf(rows());
-        QCOMPARE(keys.mid(keys.indexOf(u"lsfg-games"_s) + 1, subs.size()), subs);
-        QCOMPARE(keys.at(keys.indexOf(u"lsfg-add"_s) + 1), u"lsfg.multiplier"_s);
+        QCOMPARE(keys.at(keys.indexOf(u"lsfg-games"_s) + 1), u"lsfg.multiplier"_s);
         for (const QString &appid : {u"2161700"_s, u"2399050"_s, u"2238900"_s})
-            QCOMPARE(shown(u"lsfg-game-"_s + appid), expected(appid));
-        QCOMPARE(shown(u"lsfg-game-2161700"_s), u"on"_s);
-        QCOMPARE(rowOf(rows(), u"lsfg-game-2399050"_s).value(u"title"_s).toString(),
+            QCOMPARE(listed(u"lsfg-game-"_s + appid), expected(appid));
+        QCOMPARE(listed(u"lsfg-game-2161700"_s), u"on"_s);
+        QCOMPARE(rowOf(sheet(), u"lsfg-game-2399050"_s).value(u"title"_s).toString(),
                  u"Pocket Mirror ~ GoldenerTraum Official Soundtrack"_s);
-        QCOMPARE(rowOf(rows(), u"lsfg-game-2238900"_s).value(u"kind"_s).toString(), u"sub"_s);
-        QCOMPARE(rowOf(rows(), u"lsfg-game-77"_s).value(u"title"_s).toString(), u"77"_s);
-        QCOMPARE(shown(u"lsfg-game-77"_s), u"not installed"_s);
-        const QVariantMap add = rowOf(rows(), u"lsfg-add"_s);
+        QCOMPARE(rowOf(sheet(), u"lsfg-game-2238900"_s).value(u"kind"_s).toString(), u"sub"_s);
+        QCOMPARE(rowOf(sheet(), u"lsfg-game-77"_s).value(u"title"_s).toString(), u"77"_s);
+        QCOMPARE(listed(u"lsfg-game-77"_s), u"not installed"_s);
+        const QVariantMap add = rowOf(sheet(), u"lsfg-add"_s);
         QCOMPARE(add.value(u"kind"_s).toString(), u"sub"_s);
         QCOMPARE(add.value(u"title"_s).toString(), u"Add game"_s);
         QCOMPARE(add.value(u"picker"_s).toString(), u"lsfg"_s);
@@ -1217,20 +1218,20 @@ private slots:
         stored.insert(u"app.2238900.lsfg.state"_s, u"on"_s);
         fake->setStored(stored);
         fake->emitChanged(u"app.2238900.lsfg.state"_s, u"on"_s);
-        QTRY_COMPARE(shown(u"lsfg-game-2238900"_s), u"on"_s);
+        QTRY_COMPARE(listed(u"lsfg-game-2238900"_s), u"on"_s);
         QCOMPARE(shown(u"lsfg-games"_s), u"3 on"_s);
         stored.insert(u"lsfg.mode"_s, u"blacklist"_s);
         fake->setStored(stored);
         fake->emitChanged(u"lsfg.mode"_s, u"blacklist"_s);
         QTRY_COMPARE(shown(u"lsfg-games"_s), count());
         QCOMPARE(shown(u"lsfg-games"_s), u"5 on"_s);
-        QCOMPARE(shown(u"lsfg-game-2238900"_s), u"on"_s);
+        QCOMPARE(listed(u"lsfg-game-2238900"_s), u"on"_s);
         stored.insert(u"lsfg.mode"_s, u"whitelist"_s);
         fake->setStored(stored);
         fake->emitChanged(u"lsfg.mode"_s, u"whitelist"_s);
         QTRY_COMPARE(shown(u"lsfg-games"_s), count());
         QCOMPARE(shown(u"lsfg-games"_s), u"3 on"_s);
-        QCOMPARE(shown(u"lsfg-game-2238900"_s), u"on"_s);
+        QCOMPARE(listed(u"lsfg-game-2238900"_s), u"on"_s);
         QCOMPARE(fake->resolves().size(), 4);
 
         m->leave(Lsfg);
@@ -1240,7 +1241,7 @@ private slots:
         m->enter(Lsfg);
         QTRY_COMPARE(fake->resolves().size(), 5);
         QCOMPARE(fake->effectives(), QStringList{u"2238900"_s});
-        QVERIFY(keysOf(rows()).contains(u"lsfg-proton"_s));
+        QVERIFY(keysOf(sheet()).contains(u"lsfg-game-2238900"_s));
 
         stored.insert(u"lsfg.enabled"_s, false);
         fake->setStored(stored);
@@ -1251,6 +1252,7 @@ private slots:
         QCOMPARE(keys.at(keys.indexOf(u"lsfg-games"_s) + 1), u"lsfg-off"_s);
         QCOMPARE(rowOf(rows(), u"lsfg-off"_s).value(u"title"_s).toString(), u"Frame generation is off"_s);
         QCOMPARE(rowOf(rows(), u"lsfg-off"_s).value(u"kind"_s).toString(), u"info"_s);
+        QVERIFY(sheet().isEmpty());
         const int sets = fake->calls().size();
         m->toggle(u"lsfg-game-2238900"_s);
         QVERIFY(!m->busy(u"app.2238900.lsfg.state"_s));
@@ -1272,20 +1274,19 @@ private slots:
         const auto m = model();
         m->beginVisit(Lsfg);
         m->enter(Lsfg);
-        m->toggle(u"lsfg-games"_s);
         QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"0 on"_s);
-        QVERIFY(!keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-game-2161700"_s));
+        QVERIFY(!keysOf(m->subRows(u"lsfg-games"_s, 0)).contains(u"lsfg-game-2161700"_s));
         fake->holdCalls(u"Resolve"_s, true);
         fake->setStored({{u"app.2161700.lsfg.state"_s, u"on"_s}});
         fake->emitChanged(u"app.2161700.lsfg.state"_s, u"on"_s);
         QTRY_COMPARE(fake->resolves().size(), 2);
-        QVERIFY(!keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-game-2161700"_s));
+        QVERIFY(!keysOf(m->subRows(u"lsfg-games"_s, 0)).contains(u"lsfg-game-2161700"_s));
         fake->holdCalls(u"Resolve"_s, false);
-        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-2161700"_s), u"on"_s);
+        QTRY_COMPARE(value(m->subRows(u"lsfg-games"_s, 0), u"lsfg-game-2161700"_s), u"on"_s);
         QCOMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"1 on"_s);
         m->toggle(u"lsfg-game-2161700"_s);
         QTRY_COMPARE(fake->calls(), QStringList{u"Set app.2161700.lsfg.state auto"_s});
-        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-2161700"_s), u"off"_s);
+        QTRY_COMPARE(value(m->subRows(u"lsfg-games"_s, 0), u"lsfg-game-2161700"_s), u"off"_s);
         QCOMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"0 on"_s);
         QVERIFY(fake->effectives().isEmpty());
         m->endVisit(Lsfg);
@@ -1334,11 +1335,10 @@ private slots:
         const auto m = model();
         m->beginVisit(Lsfg);
         m->enter(Lsfg);
-        m->toggle(u"lsfg-games"_s);
-        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-"_s + appid), before);
+        QTRY_COMPARE(value(m->subRows(u"lsfg-games"_s, 0), u"lsfg-game-"_s + appid), before);
         m->toggle(u"lsfg-game-"_s + appid);
         QTRY_COMPARE(fake->calls(), QStringList{u"Set app.%1.lsfg.state %2"_s.arg(appid, written)});
-        QTRY_VERIFY(value(m->rows(Lsfg, 0), u"lsfg-game-"_s + appid) != before);
+        QTRY_VERIFY(value(m->subRows(u"lsfg-games"_s, 0), u"lsfg-game-"_s + appid) != before);
         m->endVisit(Lsfg);
         qunsetenv("MICROSET_STEAM_DIR");
     }
@@ -1431,26 +1431,24 @@ private slots:
         const auto m = model();
         m->beginVisit(Lsfg);
         m->enter(Lsfg);
-        m->toggle(u"lsfg-games"_s);
-        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-2238900"_s), u"on"_s);
+        const auto sheet = [&] { return m->subRows(u"lsfg-games"_s, 0); };
+        QTRY_COMPARE(value(sheet(), u"lsfg-game-2238900"_s), u"on"_s);
         m->toggle(u"lsfg-game-2238900"_s);
-        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-2238900"_s), u"off"_s);
+        QTRY_COMPARE(value(sheet(), u"lsfg-game-2238900"_s), u"off"_s);
         m->toggle(u"lsfg-game-77"_s);
         QTRY_COMPARE(fake->calls(), (QStringList{u"Set app.2238900.lsfg.state auto"_s, u"Set app.77.lsfg.state auto"_s}));
         QTRY_COMPARE(m->value(u"app.77.lsfg.state"_s, 0).toString(), u"auto"_s);
-        QCOMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-77"_s), u"not installed"_s);
+        QCOMPARE(value(sheet(), u"lsfg-game-77"_s), u"not installed"_s);
         m->leave(Lsfg);
         m->enter(u"app.292120"_s);
         m->leave(u"app.292120"_s);
         m->enter(Lsfg);
-        QStringList keys = keysOf(m->rows(Lsfg, 0));
+        QStringList keys = keysOf(sheet());
         for (const QString &key : {u"lsfg-game-2238900"_s, u"lsfg-game-77"_s, u"lsfg-proton"_s})
             QVERIFY2(keys.contains(key), qPrintable(key));
         m->endVisit(Lsfg);
-        QVERIFY(!keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-proton"_s));
         m->beginVisit(Lsfg);
-        m->toggle(u"lsfg-games"_s);
-        keys = keysOf(m->rows(Lsfg, 0));
+        keys = keysOf(sheet());
         QVERIFY(!keys.contains(u"lsfg-game-2238900"_s) && !keys.contains(u"lsfg-game-77"_s));
         m->endVisit(Lsfg);
         qunsetenv("MICROSET_STEAM_DIR");
@@ -1482,15 +1480,14 @@ private slots:
         QTRY_VERIFY(!keysOf(m->rows(u"games"_s, 0)).contains(u"games-add"_s));
         QVERIFY(m->pickable(u"games"_s).isEmpty());
         m->enter(Lsfg);
-        m->toggle(u"lsfg-games"_s);
         QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"0 on"_s);
-        QVERIFY(keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-add"_s));
+        QVERIFY(keysOf(m->subRows(u"lsfg-games"_s, 0)).contains(u"lsfg-add"_s));
         QCOMPARE(m->pickable(u"lsfg"_s), (QVariantList{QVariantMap{{u"appid"_s, u"2238900"_s}, {u"title"_s, u"SO2R"_s}}}));
         fake->emitChanged(u"app.2238900.lsfg.state"_s, u"on"_s);
-        QTRY_VERIFY(!keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-add"_s));
+        QTRY_VERIFY(!keysOf(m->subRows(u"lsfg-games"_s, 0)).contains(u"lsfg-add"_s));
         QVERIFY(m->pickable(u"lsfg"_s).isEmpty());
         fake->emitChanged(u"app.509.fex.tso"_s, u"auto"_s);
-        QTRY_VERIFY(keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-add"_s));
+        QTRY_VERIFY(keysOf(m->subRows(u"lsfg-games"_s, 0)).contains(u"lsfg-add"_s));
         QCOMPARE(m->pickable(u"lsfg"_s).size(), 2);
         m->endVisit(Lsfg);
         m->endVisit(u"games"_s);
@@ -1513,11 +1510,10 @@ private slots:
         QTRY_COMPARE(value(m->rows(u"games"_s, 0), u"game-292120"_s), u"TSO off, fsync"_s);
         QVERIFY(!keysOf(m->rows(u"games"_s, 0)).contains(u"games-add"_s));
         m->enter(Lsfg);
-        m->toggle(u"lsfg-games"_s);
         QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"0 on"_s);
-        QVERIFY(keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-add"_s));
+        QVERIFY(keysOf(m->subRows(u"lsfg-games"_s, 0)).contains(u"lsfg-add"_s));
         fake->emitChanged(u"app.292120.lsfg.multiplier"_s, u"3"_s);
-        QTRY_VERIFY(!keysOf(m->rows(Lsfg, 0)).contains(u"lsfg-add"_s));
+        QTRY_VERIFY(!keysOf(m->subRows(u"lsfg-games"_s, 0)).contains(u"lsfg-add"_s));
         FakeMicroSetd::writeSteam(m_empty.path(), {});
         qputenv("MICROSET_STEAM_DIR", m_empty.path().toUtf8());
         m->enter(u"games"_s);
@@ -1570,11 +1566,10 @@ private slots:
         QSignalSpy refused(m.get(), &SettingsModel::refused);
         m->beginVisit(Lsfg);
         m->enter(Lsfg);
-        m->toggle(u"lsfg-games"_s);
         QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"0 on"_s);
         m->addLsfg(u"2238900"_s);
         QTRY_COMPARE(fake->calls(), QStringList{u"Set app.2238900.lsfg.state on"_s});
-        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-2238900"_s), u"on"_s);
+        QTRY_COMPARE(value(m->subRows(u"lsfg-games"_s, 0), u"lsfg-game-2238900"_s), u"on"_s);
         m->addLsfg(u"2238900"_s);
         QVERIFY(!m->busy(u"app.2238900.lsfg.state"_s));
         QCOMPARE(fake->calls().size(), 1);
@@ -1583,7 +1578,7 @@ private slots:
         QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"3 on"_s);
         m->addLsfg(u"2161700"_s);
         QTRY_COMPARE(fake->calls().last(), u"Set app.2161700.lsfg.state off"_s);
-        QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-game-2161700"_s), u"off"_s);
+        QTRY_COMPARE(value(m->subRows(u"lsfg-games"_s, 0), u"lsfg-game-2161700"_s), u"off"_s);
         fake->emitChanged(u"lsfg.enabled"_s, false);
         QTRY_COMPARE(value(m->rows(Lsfg, 0), u"lsfg-games"_s), u"off"_s);
         m->addLsfg(u"292120"_s);
@@ -1652,9 +1647,8 @@ private slots:
         QCOMPARE(value(games, u"game-2238900"_s), u"Frame generation on"_s);
         fixture.beginVisit(Lsfg);
         fixture.enter(Lsfg);
-        fixture.toggle(u"lsfg-games"_s);
-        const QVariantList lsfg = fixture.rows(Lsfg, 0);
-        QCOMPARE(value(lsfg, u"lsfg-games"_s), u"1 on"_s);
+        const QVariantList lsfg = fixture.subRows(u"lsfg-games"_s, 0);
+        QCOMPARE(value(fixture.rows(Lsfg, 0), u"lsfg-games"_s), u"1 on"_s);
         QCOMPARE(value(lsfg, u"lsfg-game-2238900"_s), u"on"_s);
         QVERIFY(!keysOf(lsfg).contains(u"lsfg-game-292120"_s));
         QVERIFY(keysOf(lsfg).contains(u"lsfg-add"_s));
@@ -1685,11 +1679,11 @@ private slots:
         m->beginVisit(Lsfg);
         m->enter(Lsfg);
         const auto rows = [&] { return m->rows(Lsfg, 0); };
-        m->toggle(u"lsfg-games"_s);
+        const auto sheet = [&] { return m->subRows(u"lsfg-games"_s, 0); };
         for (const QString &key : {u"lsfg-game-77"_s, u"lsfg-game-78"_s, u"lsfg-game-79"_s})
-            QTRY_COMPARE(value(rows(), key), u"not installed"_s);
+            QTRY_COMPARE(value(sheet(), key), u"not installed"_s);
         QTRY_COMPARE(value(rows(), u"lsfg-games"_s), u"1 on"_s);
-        QVERIFY(!keysOf(rows()).contains(u"lsfg-game-292120"_s));
+        QVERIFY(!keysOf(sheet()).contains(u"lsfg-game-292120"_s));
         m->toggle(u"lsfg-game-77"_s);
         QTRY_COMPARE(m->value(u"app.77.lsfg.state"_s, 0).toString(), u"auto"_s);
         m->toggle(u"lsfg-game-78"_s);
@@ -1699,12 +1693,11 @@ private slots:
         QCOMPARE(fake->calls(), (QStringList{u"Set app.77.lsfg.state auto"_s, u"Set app.78.lsfg.fps_cap auto"_s,
                                              u"Set app.78.lsfg.state auto"_s, u"Set app.79.lsfg.multiplier auto"_s}));
         for (const QString &key : {u"lsfg-game-77"_s, u"lsfg-game-78"_s, u"lsfg-game-79"_s})
-            QCOMPARE(value(rows(), key), u"not installed"_s);
+            QCOMPARE(value(sheet(), key), u"not installed"_s);
         m->endVisit(Lsfg);
         m->beginVisit(Lsfg);
-        m->toggle(u"lsfg-games"_s);
         for (const QString &key : {u"lsfg-game-77"_s, u"lsfg-game-78"_s, u"lsfg-game-79"_s})
-            QVERIFY(!keysOf(rows()).contains(key));
+            QVERIFY(!keysOf(sheet()).contains(key));
         m->endVisit(Lsfg);
         qunsetenv("MICROSET_STEAM_DIR");
     }

@@ -543,7 +543,33 @@ private slots:
         qputenv("PATH", path);
     }
 
-    void lsfgListFlipsOnA()
+    QObject *rowSheet() const
+    {
+        return qvariant_cast<QObject *>(page()->property("rowSheet"));
+    }
+
+    QObject *gameSheet() const
+    {
+        return qvariant_cast<QObject *>(page()->property("gameSheet"));
+    }
+
+    QStringList entryKeys() const
+    {
+        QStringList out;
+        for (const QVariant &entry : rowSheet()->property("entries").toList())
+            out << entry.toMap().value(u"key"_s).toString();
+        return out;
+    }
+
+    QString entryValue(const QString &key) const
+    {
+        for (const QVariant &entry : rowSheet()->property("entries").toList())
+            if (entry.toMap().value(u"key"_s).toString() == key)
+                return entry.toMap().value(u"value"_s).toString();
+        return {};
+    }
+
+    void lsfgSheet()
     {
         QTemporaryDir steam;
         qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
@@ -557,35 +583,52 @@ private slots:
         openLsfg();
         QTRY_COMPARE(value(u"lsfg-games"_s), u"0 on"_s);
         QCOMPARE(value(u"lsfg-status"_s), u"installed"_s);
-        focus(u"lsfg.mode"_s);
-        key(Qt::Key_Down);
-        reachable(u"lsfg-games"_s);
-        key(Qt::Key_Return);
-        QTRY_VERIFY(!row(u"lsfg-proton"_s).isEmpty());
-        key(Qt::Key_Down);
-        reachable(u"lsfg-proton"_s);
-        key(Qt::Key_Return);
-        QVERIFY(fake->calls().isEmpty());
-        key(Qt::Key_Down);
-        reachable(u"lsfg-game-292120"_s);
-        QTRY_COMPARE(value(u"lsfg-game-292120"_s), u"off"_s);
-        QCOMPARE(row(u"lsfg-game-292120"_s).value(u"title"_s).toString(), u"FINAL FANTASY XIII"_s);
-        key(Qt::Key_Return);
-        QTRY_COMPARE(value(u"lsfg-game-292120"_s), u"on"_s);
-        QCOMPARE(fake->calls(), QStringList{u"Set app.292120.lsfg.state on"_s});
-        QTRY_COMPARE(value(u"lsfg-games"_s), u"1 on"_s);
-        key(Qt::Key_Return);
-        QTRY_COMPARE(value(u"lsfg-game-292120"_s), u"off"_s);
-        QCOMPARE(fake->calls(), (QStringList{u"Set app.292120.lsfg.state on"_s, u"Set app.292120.lsfg.state auto"_s}));
-        key(Qt::Key_Down);
-        reachable(u"lsfg-add"_s);
-        QCOMPARE(row(u"lsfg-add"_s).value(u"title"_s).toString(), u"Add game"_s);
-        key(Qt::Key_Return);
-        QCOMPARE(page()->property("group").toString(), Lsfg);
-        QCOMPARE(fake->calls().size(), 2);
+        QVERIFY(row(u"lsfg-proton"_s).isEmpty());
         focus(u"lsfg-games"_s);
         key(Qt::Key_Return);
-        QTRY_VERIFY(row(u"lsfg-proton"_s).isEmpty());
+        QVERIFY(rowSheet()->property("shown").toBool());
+        QCOMPARE(rowSheet()->property("title").toString(), u"Games"_s);
+        QCOMPARE(qvariant_cast<QObject *>(rowSheet()->property("leadLine"))->property("text").toString(),
+                 u"Proton games only"_s);
+        QTRY_COMPARE(entryKeys(), (QStringList{u"lsfg-game-292120"_s, u"lsfg-add"_s}));
+        QCOMPARE(entryValue(u"lsfg-game-292120"_s), u"off"_s);
+        QCOMPARE(rowSheet()->property("focusIndex").toInt(), 0);
+        key(Qt::Key_Return);
+        QVERIFY(gameSheet()->property("shown").toBool());
+        QCOMPARE(gameSheet()->property("title").toString(), u"FINAL FANTASY XIII"_s);
+        QCOMPARE(gameSheet()->property("items").toStringList(), (QStringList{u"off"_s, u"on"_s}));
+        QCOMPARE(gameSheet()->property("focusIndex").toInt(), 0);
+        QCOMPARE(gameSheet()->property("mark").toInt(), 0);
+        QVERIFY(rowSheet()->property("covered").toBool());
+        QCOMPARE(rowSheet()->property("opacity").toReal(), 0.0);
+        QVERIFY(fake->calls().isEmpty());
+        key(Qt::Key_Down);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set app.292120.lsfg.state on"_s});
+        QVERIFY(!gameSheet()->property("shown").toBool());
+        QVERIFY(!rowSheet()->property("covered").toBool());
+        QVERIFY(rowSheet()->property("shown").toBool());
+        QTRY_COMPARE(entryValue(u"lsfg-game-292120"_s), u"on"_s);
+        QCOMPARE(rowSheet()->property("focusIndex").toInt(), 0);
+        QTRY_COMPARE(value(u"lsfg-games"_s), u"1 on"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(gameSheet()->property("focusIndex").toInt(), 1);
+        key(Qt::Key_Up);
+        key(Qt::Key_Return);
+        QTRY_COMPARE(fake->calls(), (QStringList{u"Set app.292120.lsfg.state on"_s, u"Set app.292120.lsfg.state auto"_s}));
+        QTRY_COMPARE(entryValue(u"lsfg-game-292120"_s), u"off"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Return);
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 2);
+        key(Qt::Key_Down);
+        QCOMPARE(rowSheet()->property("focusIndex").toInt(), 1);
+        key(Qt::Key_Return);
+        QVERIFY(!gameSheet()->property("shown").toBool());
+        QCOMPARE(fake->calls().size(), 2);
+        key(Qt::Key_Escape);
+        QVERIFY(!rowSheet()->property("shown").toBool());
+        QCOMPARE(page()->property("group").toString(), Lsfg);
         focus(u"lsfg.enabled"_s);
         key(Qt::Key_Return);
         QVERIFY(sheetShown());
@@ -596,54 +639,49 @@ private slots:
         QCOMPARE(row(u"lsfg-off"_s).value(u"title"_s).toString(), u"Frame generation is off"_s);
         focus(u"lsfg-games"_s);
         key(Qt::Key_Return);
-        QVERIFY(row(u"lsfg-proton"_s).isEmpty());
+        QVERIFY(!rowSheet()->property("shown").toBool());
         QCOMPARE(page()->property("group").toString(), Lsfg);
         qunsetenv("MICROSET_STEAM_DIR");
     }
 
-    void lsfgListMoves()
+    void lsfgSheetFollowsList()
     {
         QTemporaryDir steam;
         qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
-        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s}});
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s},
+                                                 {u"1621310"_s, u"Atelier Sophie 2"_s}});
         fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
-        fake->setValues({{u"app.292120.lsfg.state"_s, u"off"_s}});
-        fake->setStored({{u"app.292120.lsfg.state"_s, u"off"_s}});
+        QVariantMap stored{{u"app.2238900.lsfg.state"_s, u"off"_s}};
+        fake->setValues(stored);
+        fake->setStored(stored);
         model->load();
-        QTRY_COMPARE(model->value(u"app.292120.lsfg.state"_s, model->revision()).toString(), u"off"_s);
+        QTRY_COMPARE(model->value(u"app.2238900.lsfg.state"_s, model->revision()).toString(), u"off"_s);
         writeLsfg(R"({"version": 1, "owned": "yes", "install": "installed"})");
         openLsfg();
         QTRY_COMPARE(value(u"lsfg-games"_s), u"0 on"_s);
-        QSignalSpy entrance(page(), SIGNAL(entrance(double,int,int,int,bool,int)));
         focus(u"lsfg-games"_s);
         key(Qt::Key_Return);
-        QTRY_VERIFY(!row(u"lsfg-proton"_s).isEmpty());
+        QTRY_COMPARE(entryKeys(), (QStringList{u"lsfg-game-2238900"_s, u"lsfg-add"_s}));
         key(Qt::Key_Return);
-        QTRY_VERIFY(row(u"lsfg-proton"_s).isEmpty());
-        QTest::qWait(100);
-        QCOMPARE(entrance.count(), 0);
-        page()->setProperty("animated", true);
-        key(Qt::Key_Return);
-        QTRY_VERIFY(!row(u"lsfg-proton"_s).isEmpty());
-        QTRY_COMPARE(entrance.count(), 1);
-        int games = -1;
-        int first = -1;
-        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, games), Q_ARG(QString, u"lsfg-games"_s)));
-        QVERIFY(QMetaObject::invokeMethod(page(), "firstVisible", Q_RETURN_ARG(int, first)));
-        QCOMPARE(entrance.first(), (QVariantList{-5.0, 50, 10, 220, false, std::max(games + 1, first)}));
-        key(Qt::Key_Down);
-        reachable(u"lsfg-proton"_s);
-        key(Qt::Key_Down);
-        reachable(u"lsfg-game-292120"_s);
-        QTRY_COMPARE(value(u"lsfg-game-292120"_s), u"off"_s);
-        key(Qt::Key_Return);
-        QTRY_COMPARE(value(u"lsfg-game-292120"_s), u"on"_s);
-        QTest::qWait(100);
-        QCOMPARE(entrance.count(), 1);
-        focus(u"lsfg-games"_s);
-        key(Qt::Key_Return);
-        QTRY_COMPARE(entrance.count(), 2);
-        QVERIFY(row(u"lsfg-proton"_s).isEmpty());
+        QVERIFY(gameSheet()->property("shown").toBool());
+        key(Qt::Key_Escape);
+        QVERIFY(!gameSheet()->property("shown").toBool());
+        QVERIFY(rowSheet()->property("shown").toBool());
+        QVERIFY(!rowSheet()->property("covered").toBool());
+        QCOMPARE(rowSheet()->property("focusIndex").toInt(), 0);
+        QVERIFY(fake->calls().isEmpty());
+        stored.insert(u"app.1621310.lsfg.state"_s, u"on"_s);
+        fake->setStored(stored);
+        fake->emitChanged(u"app.1621310.lsfg.state"_s, u"on"_s);
+        QTRY_COMPARE(entryKeys().size(), 3);
+        QCOMPARE(entryKeys().first(), u"lsfg-game-1621310"_s);
+        QCOMPARE(rowSheet()->property("focusIndex").toInt(), 1);
+        QCOMPARE(entryKeys().at(1), u"lsfg-game-2238900"_s);
+        stored.insert(u"lsfg.enabled"_s, false);
+        fake->setStored(stored);
+        fake->emitChanged(u"lsfg.enabled"_s, false);
+        QTRY_VERIFY(!rowSheet()->property("shown").toBool());
+        QVERIFY(!gameSheet()->property("shown").toBool());
         qunsetenv("MICROSET_STEAM_DIR");
     }
 

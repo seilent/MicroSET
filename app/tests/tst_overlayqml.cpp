@@ -6,11 +6,13 @@
 #include "uirelease.h"
 
 #include <QElapsedTimer>
+#include <QJsonObject>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QScopeGuard>
+#include <QTemporaryDir>
 #include <QRegularExpression>
 #include <QTest>
 #include <QtQml/qqmlextensionplugin.h>
@@ -213,6 +215,31 @@ class OverlayQmlTest : public QObject
             return {};
         const auto *v = static_cast<const uint32_t *>(xcb_get_property_value(reply));
         return {int(v[0] & minMaxSize), int(v[5]), int(v[6]), int(v[7]), int(v[8])};
+    }
+
+    void openRowSheet(const QTemporaryDir &steam)
+    {
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}});
+        const QStringList files{FakeMicroSetd::shipped()};
+        const QVariantMap stored{{u"app.292120.lsfg.state"_s, u"on"_s}};
+        m_model->setFixture(FakeMicroSetd::describe(files), stored, {});
+        m_model->setProtonFixture({{u"292120"_s, FakeMicroSetd::effective(files, stored, FakeMicroSetd::Profiles, u"292120"_s)}},
+                                  FakeMicroSetd::profiles(files, FakeMicroSetd::Profiles));
+        m_model->lsfg()->setFixture(QJsonObject{{u"owned"_s, u"yes"_s}, {u"install"_s, u"installed"_s}}, true, u"steam"_s);
+        QVERIFY(QMetaObject::invokeMethod(m_view, "open", Q_ARG(QString, u"Frame generation"_s)));
+        int index = -1;
+        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, u"lsfg-games"_s)));
+        page()->setProperty("focusIndex", index);
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QObject *rows = qvariant_cast<QObject *>(page()->property("rowSheet"));
+        QObject *game = qvariant_cast<QObject *>(page()->property("gameSheet"));
+        QVERIFY(rows->property("shown").toBool());
+        QTRY_VERIFY(!rows->property("entries").toList().isEmpty());
+        bool handled = false;
+        QVERIFY(QMetaObject::invokeMethod(page(), "handleAction", Q_RETURN_ARG(bool, handled), Q_ARG(QString, u"a"_s),
+                                          Q_ARG(bool, false)));
+        QVERIFY(game->property("shown").toBool());
+        QVERIFY(page()->property("pickerOpen").toBool());
     }
 
 private slots:
@@ -651,6 +678,40 @@ private slots:
         QVERIFY(!swatches->property("shown").toBool());
         QTRY_COMPARE(page()->property("focusedRow").toMap().value(u"swatch"_s).toString(), u"#ff0000"_s);
         QCOMPARE(m_overlay->hides, 0);
+    }
+
+    void menuCancelsRowSheet()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        openRowSheet(steam);
+        if (QTest::currentTestFailed())
+            return;
+        QObject *rows = qvariant_cast<QObject *>(page()->property("rowSheet"));
+        QObject *game = qvariant_cast<QObject *>(page()->property("gameSheet"));
+        m_overlay->openMenu({u"Steam OS"_s}, 0, {QString()});
+        QTRY_VERIFY(!page()->property("pickerOpen").toBool());
+        QVERIFY(!rows->property("shown").toBool());
+        QVERIFY(!game->property("shown").toBool());
+        QCOMPARE(m_overlay->hides, 0);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void hideClosesRowSheet()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        openRowSheet(steam);
+        if (QTest::currentTestFailed())
+            return;
+        QObject *rows = qvariant_cast<QObject *>(page()->property("rowSheet"));
+        QObject *game = qvariant_cast<QObject *>(page()->property("gameSheet"));
+        m_overlay->setShown(false);
+        QTRY_VERIFY(!page()->property("pickerOpen").toBool());
+        QVERIFY(!rows->property("shown").toBool());
+        QVERIFY(!game->property("shown").toBool());
+        QTRY_VERIFY(rows->property("entries").toList().isEmpty());
+        qunsetenv("MICROSET_STEAM_DIR");
     }
 
     void menuOnlyTogglesStackVisibility()

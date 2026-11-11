@@ -15,7 +15,7 @@ Page {
     property var shownValues: ({})
     property var modelRows: page.model === null ? [] : page.model.rows(page.group, page.model.revision)
     readonly property bool valueOpen: d.valueKey !== ""
-    readonly property bool pickerOpen: page.valueOpen || page.editing
+    readonly property bool pickerOpen: page.valueOpen || page.editing || rowSheet.shown || gameSheet.shown
     readonly property string draftKey: page.editing && page.draft !== null ? page.editKey
         : page.valueOpen && d.valueDraft && d.moved ? d.valueKey : ""
     readonly property var draftValue: page.editing ? page.draft : page.valueOpen ? d.valueValues[d.valueSheet.focusIndex] : null
@@ -34,6 +34,8 @@ Page {
     property alias repeater: repeater
     property alias sheet: sheet
     property alias swatchSheet: swatchSheet
+    property alias rowSheet: rowSheet
+    property alias gameSheet: gameSheet
     property alias confirm: confirm
     property alias adjust: adjust
 
@@ -48,22 +50,6 @@ Page {
 
     function feather(): void {
         page.entrance(Motion.pivotShift, Motion.pivotRowStagger, Motion.pivotRowCap, Motion.pivotRows, true, page.firstVisible())
-    }
-
-    function refreshFrom(index: int): void {
-        if (!page.live)
-            return
-        d.pendingFrom = d.pendingFrom < 0 ? index : Math.min(d.pendingFrom, index)
-        Qt.callLater(page.runRefresh)
-    }
-
-    function runRefresh(): void {
-        const from = d.pendingFrom
-        d.pendingFrom = -1
-        if (from < 0 || !page.live)
-            return
-        page.entrance(Motion.listChangeShift, Motion.listChangeStagger, Motion.listChangeCap, Motion.listChange, false,
-            Math.max(from, page.firstVisible()))
     }
 
     function rowHeightOf(r: var): real {
@@ -307,6 +293,86 @@ Page {
     function closePickers(): void {
         page.cancelValue()
         page.cancelEdit()
+        page.closeRows()
+    }
+
+    function openRows(r: var): void {
+        if (page.model === null)
+            return
+        d.rowKey = r.key
+        rowSheet.title = r.title
+        rowSheet.rows = Qt.binding(() => page.model === null ? [] : page.model.subRows(d.rowKey, page.model.revision))
+        rowSheet.covered = false
+        rowSheet.open()
+        d.rowFocusKey = rowSheet.entries.length > 0 ? rowSheet.entries[0].key : ""
+    }
+
+    function closeRows(): void {
+        page.closeGame(false)
+        if (rowSheet.shown)
+            rowSheet.close()
+    }
+
+    function pickRow(index: int): void {
+        const r = rowSheet.entries[index]
+        if (r === undefined || r.installed === undefined)
+            return
+        if (r.installed !== true) {
+            page.model.toggle(r.key)
+            return
+        }
+        const at = r.value === "on" ? 1 : 0
+        d.gameKey = r.key
+        d.gameValue = r.value
+        gameSheet.title = r.title
+        gameSheet.items = ["off", "on"]
+        gameSheet.open()
+        gameSheet.mark = at
+        gameSheet.focusIndex = at
+        rowSheet.covered = true
+    }
+
+    function pickGame(index: int): void {
+        const key = d.gameKey
+        const flip = (index === 1) !== (d.gameValue === "on")
+        page.closeGame(true)
+        if (flip)
+            page.model.toggle(key)
+    }
+
+    function closeGame(rise: bool): void {
+        if (d.gameKey === "")
+            return
+        const key = d.gameKey
+        d.gameKey = ""
+        d.gameValue = ""
+        if (gameSheet.shown)
+            gameSheet.close()
+        rowSheet.covered = false
+        if (!rise || !rowSheet.shown)
+            return
+        rowSheet.rise()
+        const at = rowSheet.entries.findIndex((e) => e.key === key)
+        if (at >= 0)
+            rowSheet.focusIndex = at
+    }
+
+    function followRows(): void {
+        if (!rowSheet.shown)
+            return
+        if (rowSheet.rows.length === 0) {
+            page.closeGame(false)
+            rowSheet.close()
+            return
+        }
+        const entries = rowSheet.entries
+        const at = entries.findIndex((e) => e.key === d.rowFocusKey)
+        rowSheet.focusIndex = at >= 0 ? at : Math.max(0, Math.min(rowSheet.focusIndex, entries.length - 1))
+        if (d.gameKey === "")
+            return
+        const game = entries.find((e) => e.key === d.gameKey)
+        if (game === undefined || game.value !== d.gameValue)
+            page.closeGame(true)
     }
 
     function cancelLater(): void {
@@ -325,6 +391,7 @@ Page {
         const open = page.valueOpen || page.editing
         page.endValue()
         page.confirmEdit()
+        page.closeRows()
         if (confirm.shown)
             confirm.close()
         if (open && page.model !== null)
@@ -391,10 +458,8 @@ Page {
             page.act(r)
             return true
         }
-        if (r.kind === "sub" || r.expand === true) {
-            page.model.toggle(r.key)
-            if (r.expand === true)
-                page.refreshFrom(page.focusIndex + 1)
+        if (r.expand === true) {
+            page.openRows(r)
             return true
         }
         if (r.kind === "info" || r.readOnly)
@@ -449,7 +514,6 @@ Page {
         }
         switch (kind) {
         case "row":
-        case "sub":
             page.focusIndex = index
             return "a"
         case "header":
@@ -471,6 +535,10 @@ Page {
             return page.holdRise(name, repeat)
         if (d.valueSheet.shown)
             return d.valueSheet.handleAction(name, repeat)
+        if (gameSheet.shown)
+            return gameSheet.handleAction(name, repeat)
+        if (rowSheet.shown)
+            return rowSheet.handleAction(name, repeat)
         if (page.editing)
             return page.handleEdit(name, repeat)
         switch (name) {
@@ -570,6 +638,7 @@ Page {
             if (!page.model.available) {
                 page.endValue()
                 page.confirmEdit()
+                page.closeRows()
             }
         }
 
@@ -584,7 +653,10 @@ Page {
     QtObject {
         id: d
 
-        property int pendingFrom: -1
+        property string rowKey: ""
+        property string rowFocusKey: ""
+        property string gameKey: ""
+        property string gameValue: ""
         property string valueKey: ""
         property string riseKept: ""
         property var valueValues: []
@@ -735,6 +807,38 @@ Page {
                     swatchSheet.handleAction(kept, false)
             })
         }
+    }
+
+    RowSheet {
+        id: rowSheet
+
+        anchors.fill: parent
+        screenOff: page.screenOff
+        animated: page.live
+        onAccepted: (index) => page.pickRow(index)
+        onEntriesChanged: page.followRows()
+        onProgressChanged: {
+            if (!rowSheet.shown && rowSheet.progress === 0)
+                Qt.callLater(() => {
+                    if (!rowSheet.shown && rowSheet.progress === 0)
+                        rowSheet.rows = []
+                })
+        }
+        onFocusIndexChanged: {
+            const r = rowSheet.entries[rowSheet.focusIndex]
+            if (r !== undefined)
+                d.rowFocusKey = r.key
+        }
+    }
+
+    Sheet {
+        id: gameSheet
+
+        anchors.fill: parent
+        screenOff: page.screenOff
+        animated: page.live
+        onAccepted: (index) => page.pickGame(index)
+        onRejected: page.closeGame(true)
     }
 
     Dialog {
