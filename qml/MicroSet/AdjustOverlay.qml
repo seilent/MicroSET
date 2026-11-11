@@ -47,9 +47,31 @@ Item {
     property alias columns: columns
     property alias line1: line1
     property alias line2: line2
+    readonly property string touchKind: "block"
 
     visible: root.opacity > 0
     opacity: root.shown ? 1 : 0
+
+    function touchPress(kind: string, index: int, x: real, hit: Item): string {
+        return ""
+    }
+
+    function touchTap(kind: string, index: int, hit: Item) {
+        if (!root.shown || !root.page.editing)
+            return
+        if (kind === "exit") {
+            root.page.applyEdit()
+            return
+        }
+        const col = root.cols[index]
+        if (col === undefined)
+            return
+        const plus = kind === "plus"
+        if (!(plus ? col.up : col.down))
+            return
+        const delta = plus ? 1 : -1
+        root.page.step(root.balance && index === 0 ? -delta : delta)
+    }
 
     onEditedChanged: {
         if (root.edited === null) {
@@ -92,6 +114,9 @@ Item {
     Item {
         id: exitBox
 
+        readonly property string touchKind: root.shown ? "exit" : ""
+
+        z: 1
         x: 0
         y: 0
         width: Ui.px(Ui.adjustExit)
@@ -133,6 +158,9 @@ Item {
             Item {
                 id: plusBox
 
+                readonly property string touchKind: root.shown ? "plus" : ""
+                readonly property int touchIndex: column.index
+
                 x: column.modelData.x - plusBox.width / 2
                 y: Ui.px(Ui.overlayPlusY) - plusBox.height / 2
                 width: Ui.px(Ui.overlayRing)
@@ -149,6 +177,9 @@ Item {
 
             Item {
                 id: minusBox
+
+                readonly property string touchKind: root.shown ? "minus" : ""
+                readonly property int touchIndex: column.index
 
                 x: column.modelData.x - minusBox.width / 2
                 y: Ui.px(Ui.overlayMinusY) - minusBox.height / 2

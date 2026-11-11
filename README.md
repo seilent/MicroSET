@@ -73,45 +73,46 @@ read, change and watch them over D-Bus.
   and recovery, and is white while `microdap.accent_off` is on. The page (`SettingsView`) lists the schema groups and
   edits their keys over `net.seilent.MicroSet`: A on a list, number or on/off row opens a value sheet, on a balance row
   or a range over 64 values the adjust overlay (left and right step, up and down too on a single number, A keeps, B
-  restores), on a hue row a swatch sheet. By touch a row tap focuses the row and acts as A, a sheet or dialog item tap
-  picks the item, a drag scrolls and picks nothing, a scrim or header word tap is B, and a header word tap on the first
-  page closes the overlay. The accent sheet starts with a white OFF swatch when the schema has `microdap.accent_off` and
-  applies on A only: OFF sets `microdap.accent_off` and keeps the hue, a hue clears it. The LED hue sheet draws the hues
-  at the stored saturation and previews each step. The Stick LED rows are read only while `rgb.enabled` is off and
-  follow it as it changes; the hue row's swatch shows the hue at the stored saturation (white
-  at 0). The `games` group holds `fex.preset`, `wine.sync` and `proton.profiles`, then under a `games` label the games
-  that hold a value of their own and, while `proton.profiles` is `on`, the installed games with an image profile, in
-  library order (`#`, `a` to `z`, the kana rows, kanji), then `Add game`. A row shows the values in force from the game
-  itself or its profile (`TSO off, fsync`, `MicroOS profile off`), `default` when none; a game set back to its defaults
-  stays until the page closes. Games come from `steamapps/libraryfolders.vdf`, the `appmanifest_<appid>.acf` files of
-  each library and `userdata/<id>/config/shortcuts.vdf` (keyed by the 32 bit shortcut id) under `MICROSET_STEAM_DIR`
-  (`~/.local/share/Steam`), read when the page opens, again only once `libraryfolders.vdf`, `appcache/appinfo.vdf`, a
-  library's `steamapps` dir, one of its manifests, a `toolmanifest.vdf` in one of its `steamapps/common` dirs,
-  `userdata` or a `shortcuts.vdf` changed (inode, size or mtime): regular files of at most 1 MiB (`appinfo.vdf` 64 MiB),
-  names of at most 128 characters, at most 2000 manifests read. Apps without a plain `installdir` or with a
-  `toolmanifest.vdf` in their install dir, apps whose `common.type` in `appinfo.vdf` is `Music`, `Tool`, `Config`, `DLC`
-  or `Video` (soundtracks are `Music`), the Steamworks, EAC and BattlEye runtimes and Lossless Scaling are left out. The
-  type match ignores case. Any other type is listed, and so is an app without an `appinfo.vdf` entry or type. An
-  `appinfo.vdf` that does not parse keeps every app, a section that does not parse keeps its app. A game with stored
-  values and no manifest shows as `not installed`; the runtimes and Lossless Scaling never do, and an app left out by
-  type shows as a normal row only while it holds values. Game names in the rows and in the header of the game's page are
-  plain text. A game row, `not installed` ones too, opens the game's page, titled by its name: `MicroOS profile` (only
-  for a game with an image profile; while the profile is in force its entries are listed and marked `overridden` when a
-  value above the profile wins), `Preset`, one row per FEX option and `Wine sync`, all applied on A, then `Applies at
-  next launch`. `auto` shows what it resolves to from `Effective`: `auto (<value>, <source>)`, where an empty value
-  (Proton's or FEX's own) reads `default` and a value equal to its source shows once (`auto (default)`); `Preset` shows
-  `auto (<source>)`; while the row holds its own value its `auto` entry reads `auto`. The safety notes are `leads` in
-  `10-microset.json`; `auto` shows the note of the value it resolves to, and `on` of `MicroOS profile` the first profile
-  entry with a note that no value above the profile overrides (`TSO off: may crash, hang or damage saves`). The `Frame
-  generation` group shows while MicroOS's Lossless Scaling detection (`~/.local/state/microos-lsfg/state.json`,
-  `MICROSET_LSFG_STATE`, watched) reports it owned or installed, or while a frame generation value is set: the install
-  state (`install sent` for 20 minutes after a send in the same boot), `Install Lossless Scaling` (in the Steam session
-  only, from `/run/microos/session-current`; asks first, then starts `microos-lsfg-send@manual.service`), `Frame
-  generation`, `Mode`, `Games` (how many games get frame generation, from one `Resolve` call; A opens the games sheet:
-  the games with a frame generation value of their own or from their profile, each with its state, then `Add game`; A on
-  a game opens its off/on sheet and a pick writes one `Set`, A on a game that is not installed clears its values),
-  `Multiplier`, `Real frame cap`, `Flow scale` and a note on Steam's frame limit. Game pages then add `Frame
-  generation`, `Multiplier` and `Real frame cap`.
+  restores; by touch the plus and minus signs step, EXIT keeps and a tap anywhere else does nothing), on a hue row a
+  swatch sheet (a swatch tap applies it, a drag scrolls and moves no focus). By touch a row tap focuses the row and acts
+  as A, a sheet or dialog item tap picks the item, a drag scrolls and picks nothing, a scrim or header word tap is B,
+  and a header word tap on the first page closes the overlay. The accent sheet starts with a white OFF swatch when the
+  schema has `microdap.accent_off` and applies on A only: OFF sets `microdap.accent_off` and keeps the hue, a hue clears
+  it. The LED hue sheet draws the hues at the stored saturation and previews each step. The Stick LED rows are read only
+  while `rgb.enabled` is off and follow it as it changes; the hue row's swatch shows the hue at the stored saturation
+  (white at 0). The `games` group holds `fex.preset`, `wine.sync` and `proton.profiles`, then under a `games` label the
+  games that hold a value of their own and, while `proton.profiles` is `on`, the installed games with an image profile,
+  in library order (`#`, `a` to `z`, the kana rows, kanji), then `Add game`. A row shows the values in force from the
+  game itself or its profile (`TSO off, fsync`, `MicroOS profile off`), `default` when none; a game set back to its
+  defaults stays until the page closes. Games come from `steamapps/libraryfolders.vdf`, the `appmanifest_<appid>.acf`
+  files of each library and `userdata/<id>/config/shortcuts.vdf` (keyed by the 32 bit shortcut id) under
+  `MICROSET_STEAM_DIR` (`~/.local/share/Steam`), read when the page opens, again only once `libraryfolders.vdf`,
+  `appcache/appinfo.vdf`, a library's `steamapps` dir, one of its manifests, a `toolmanifest.vdf` in one of its
+  `steamapps/common` dirs, `userdata` or a `shortcuts.vdf` changed (inode, size or mtime): regular files of at most 1
+  MiB (`appinfo.vdf` 64 MiB), names of at most 128 characters, at most 2000 manifests read. Apps without a plain
+  `installdir` or with a `toolmanifest.vdf` in their install dir, apps whose `common.type` in `appinfo.vdf` is `Music`,
+  `Tool`, `Config`, `DLC` or `Video` (soundtracks are `Music`), the Steamworks, EAC and BattlEye runtimes and Lossless
+  Scaling are left out. The type match ignores case. Any other type is listed, and so is an app without an `appinfo.vdf`
+  entry or type. An `appinfo.vdf` that does not parse keeps every app, a section that does not parse keeps its app. A
+  game with stored values and no manifest shows as `not installed`; the runtimes and Lossless Scaling never do, and an
+  app left out by type shows as a normal row only while it holds values. Game names in the rows and in the header of the
+  game's page are plain text. A game row, `not installed` ones too, opens the game's page, titled by its name: `MicroOS
+  profile` (only for a game with an image profile; while the profile is in force its entries are listed and marked
+  `overridden` when a value above the profile wins), `Preset`, one row per FEX option and `Wine sync`, all applied on A,
+  then `Applies at next launch`. `auto` shows what it resolves to from `Effective`: `auto (<value>, <source>)`, where an
+  empty value (Proton's or FEX's own) reads `default` and a value equal to its source shows once (`auto (default)`);
+  `Preset` shows `auto (<source>)`; while the row holds its own value its `auto` entry reads `auto`. The safety notes
+  are `leads` in `10-microset.json`; `auto` shows the note of the value it resolves to, and `on` of `MicroOS profile`
+  the first profile entry with a note that no value above the profile overrides (`TSO off: may crash, hang or damage
+  saves`). The `Frame generation` group shows while MicroOS's Lossless Scaling detection
+  (`~/.local/state/microos-lsfg/state.json`, `MICROSET_LSFG_STATE`, watched) reports it owned or installed, or while a
+  frame generation value is set: the install state (`install sent` for 20 minutes after a send in the same boot),
+  `Install Lossless Scaling` (in the Steam session only, from `/run/microos/session-current`; asks first, then starts
+  `microos-lsfg-send@manual.service`), `Frame generation`, `Mode`, `Games` (how many games get frame generation, from
+  one `Resolve` call; A opens the games sheet: the games with a frame generation value of their own or from their
+  profile, each with its state, then `Add game`; A on a game opens its off/on sheet and a pick writes one `Set`, A on a
+  game that is not installed clears its values), `Multiplier`, `Real frame cap`, `Flow scale` and a note on Steam's
+  frame limit. Game pages then add `Frame generation`, `Multiplier` and `Real frame cap`.
 - Schema files in `/usr/share/microset/schema.d/`. `10-microset.json` holds the device and system keys, every other file
   only keys under its owner name (`microdap.*`, `microemu.*`). A key can carry `ui` hints for the page (`order`,
   `widget` `none`, `hue` (a swatch sheet) or `edit` (the adjust overlay instead of a sheet), `step` or a `steps` list (a

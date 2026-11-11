@@ -2083,6 +2083,142 @@ private slots:
         const qreal y = flick->property("contentY").toReal();
         QVERIFY(top >= y - 0.5 && top + height <= y + flick->height() + 0.5);
     }
+
+    void touchAccentSwatch()
+    {
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"60-microdap.json"_s)}));
+        fake->setValues({{u"microdap.accent_hue"_s, 120u}});
+        model->load();
+        QTRY_COMPARE(model->accentHue(), 120);
+        open(u"display"_s);
+        show(u"microdap.accent_hue"_s, u"microdap.accent_hue"_s);
+        key(Qt::Key_Return);
+        QVERIFY(swatchSheet()->property("shown").toBool());
+        QCOMPARE(swatchSheet()->property("focusIndex").toInt(), 13);
+        laidOut(swatchSheet());
+        const QPoint from = settledPoint(swatchSheet(), 12);
+        const QPoint by(2 * int(swatchSheet()->property("pitch").toReal()), 0);
+        drag(from, by, 4);
+        QTest::qWait(100);
+        QCOMPARE(swatchSheet()->property("focusIndex").toInt(), 13);
+        QVERIFY(swatchSheet()->property("shown").toBool());
+        QVERIFY(fake->calls().isEmpty());
+        QVERIFY(swatchSheet()->property("firstRow").toInt() <= 11);
+        tap(settledPoint(swatchSheet(), 11));
+        QTRY_VERIFY(!swatchSheet()->property("shown").toBool());
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set microdap.accent_hue 100"_s});
+    }
+
+    void touchLedHueSwatch()
+    {
+        fake->setStored({{u"rgb.enabled"_s, true}});
+        model->load();
+        QTRY_VERIFY(!model->rows(u"stick leds"_s, 0).at(2).toMap().value(u"readOnly"_s).toBool());
+        open(u"stick leds"_s);
+        show(u"rgb.hue"_s, u"rgb.hue"_s);
+        key(Qt::Key_Return);
+        QVERIFY(swatchSheet()->property("shown").toBool());
+        QCOMPARE(swatchSheet()->property("focusIndex").toInt(), 0);
+        laidOut(swatchSheet());
+        tap(settledPoint(swatchSheet(), 2));
+        QTRY_VERIFY(!swatchSheet()->property("shown").toBool());
+        QTRY_COMPARE(fake->stored().value(u"rgb.hue"_s), QVariant(20u));
+    }
+
+    void touchAdjustNumber()
+    {
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"50-microemu.json"_s)}));
+        model->load();
+        QTRY_VERIFY(!model->rows(u"emulation"_s, model->revision()).isEmpty());
+        open(u"emulation"_s);
+        show(u"microemu.retroarch.savestate_max_keep"_s, u"microemu.retroarch.savestate_max_keep"_s);
+        key(Qt::Key_Return);
+        QVERIFY(adjust()->property("shown").toBool());
+        QCOMPARE(adjustNumber(0), u"10"_s);
+        tap(centerOf(qvariant_cast<QQuickItem *>(adjustColumn(0)->property("plusBox"))));
+        QTRY_COMPARE(adjustNumber(0), u"11"_s);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set microemu.retroarch.savestate_max_keep 11"_s});
+        tap(centerOf(qvariant_cast<QQuickItem *>(adjustColumn(0)->property("minusBox"))));
+        QTRY_COMPARE(adjustNumber(0), u"10"_s);
+        QTRY_COMPARE(fake->calls().size(), 2);
+        auto *root = qobject_cast<QQuickItem *>(adjust());
+        const QPoint plus = centerOf(qvariant_cast<QQuickItem *>(adjustColumn(0)->property("plusBox")));
+        tap(root->mapToScene(QPointF(root->width() * 3 / 4, root->height() / 2)).toPoint());
+        QTest::qWait(100);
+        QCOMPARE(adjustNumber(0), u"10"_s);
+        QVERIFY(page()->property("editing").toBool());
+        QCOMPARE(fake->calls().size(), 2);
+        tap(plus);
+        QTRY_COMPARE(adjustNumber(0), u"11"_s);
+        QTRY_COMPARE(fake->calls().size(), 3);
+        tap(centerOf(qvariant_cast<QQuickItem *>(adjust()->property("exitBox"))));
+        QTRY_VERIFY(!page()->property("editing").toBool());
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 3);
+        QCOMPARE(fake->calls().last(), u"Set microemu.retroarch.savestate_max_keep 11"_s);
+        QTRY_COMPARE(value(u"microemu.retroarch.savestate_max_keep"_s), u"11"_s);
+    }
+
+    void touchAdjustBalance()
+    {
+        open(u"audio"_s);
+        show(u"audio.balance.headphones"_s, u"audio.balance.headphones"_s);
+        key(Qt::Key_Return);
+        QVERIFY(adjust()->property("shown").toBool());
+        QCOMPARE(adjustNumber(0), u"0.0"_s);
+        QCOMPARE(adjustNumber(1), u"0.0"_s);
+        tap(centerOf(qvariant_cast<QQuickItem *>(adjustColumn(0)->property("minusBox"))));
+        QTRY_COMPARE(adjustNumber(0), u"-0.5"_s);
+        QCOMPARE(adjustNumber(1), u"0.0"_s);
+        tap(centerOf(qvariant_cast<QQuickItem *>(adjustColumn(1)->property("plusBox"))));
+        QTest::qWait(100);
+        QCOMPARE(adjustNumber(0), u"-0.5"_s);
+        QCOMPARE(adjustNumber(1), u"0.0"_s);
+        tap(centerOf(qvariant_cast<QQuickItem *>(adjustColumn(0)->property("plusBox"))));
+        QTRY_COMPARE(adjustNumber(0), u"0.0"_s);
+        QCOMPARE(adjustNumber(1), u"0.0"_s);
+        tap(centerOf(qvariant_cast<QQuickItem *>(adjustColumn(1)->property("minusBox"))));
+        QTRY_COMPARE(adjustNumber(1), u"-0.5"_s);
+        QCOMPARE(adjustNumber(0), u"0.0"_s);
+        QVERIFY(page()->property("editing").toBool());
+        QVERIFY(fake->calls().isEmpty());
+        auto *exitBox = qvariant_cast<QQuickItem *>(adjust()->property("exitBox"));
+        auto *leftPlus = qvariant_cast<QQuickItem *>(adjustColumn(0)->property("plusBox"));
+        const QRectF corner = exitBox->mapRectToScene(QRectF(0, 0, exitBox->width(), exitBox->height()))
+                                  .intersected(leftPlus->mapRectToScene(QRectF(0, 0, leftPlus->width(), leftPlus->height())));
+        QVERIFY(!corner.isEmpty());
+        tap(corner.center().toPoint());
+        QTRY_VERIFY(!page()->property("editing").toBool());
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set audio.balance.headphones -1"_s});
+        QTRY_COMPARE(value(u"audio.balance.headphones"_s), u"l 0.5 db"_s);
+    }
+
+    void touchAdjustFadeBlocks()
+    {
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"50-microemu.json"_s)}));
+        model->load();
+        QTRY_VERIFY(!model->rows(u"emulation"_s, model->revision()).isEmpty());
+        open(u"emulation"_s);
+        page()->setProperty("animated", true);
+        show(u"microemu.retroarch.savestate_max_keep"_s, u"microemu.retroarch.savestate_max_keep"_s);
+        key(Qt::Key_Return);
+        QVERIFY(adjust()->property("shown").toBool());
+        QTRY_COMPARE(qobject_cast<QQuickItem *>(adjust())->opacity(), 1.0);
+        const QPoint plus = centerOf(qvariant_cast<QQuickItem *>(adjustColumn(0)->property("plusBox")));
+        tap(plus);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set microemu.retroarch.savestate_max_keep 11"_s});
+        tap(centerOf(qvariant_cast<QQuickItem *>(adjust()->property("exitBox"))));
+        QTRY_VERIFY(!page()->property("editing").toBool());
+        QVERIFY(qobject_cast<QQuickItem *>(adjust())->opacity() > 0);
+        tap(plus);
+        QTest::qWait(100);
+        QVERIFY(!page()->property("editing").toBool());
+        QVERIFY(!sheetShown());
+        QVERIFY(!page()->property("valueOpen").toBool());
+        QVERIFY(!rowSheet()->property("shown").toBool());
+        QCOMPARE(fake->calls(), QStringList{u"Set microemu.retroarch.savestate_max_keep 11"_s});
+        QTRY_COMPARE(value(u"microemu.retroarch.savestate_max_keep"_s), u"11"_s);
+    }
 };
 
 QTEST_MAIN(PageTest)

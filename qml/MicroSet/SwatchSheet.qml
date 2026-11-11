@@ -12,6 +12,17 @@ Sheet {
 
     items: root.colors.map(() => "")
 
+    function touchPress(kind: string, index: int, x: real, hit: Item): string {
+        return root.shown && kind === "scrim" ? "b" : ""
+    }
+
+    function touchTap(kind: string, index: int, hit: Item) {
+        if (!root.shown || kind !== "item")
+            return
+        root.focusIndex = index
+        root.accepted(index)
+    }
+
     Repeater {
         id: cells
 

@@ -518,11 +518,6 @@ Page {
     }
 
     function touchPress(kind: string, index: int, x: real, hit: Item): string {
-        if (page.editing) {
-            if (kind === "header")
-                return "b"
-            return "a"
-        }
         switch (kind) {
         case "row":
             page.focusIndex = index
