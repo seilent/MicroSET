@@ -26,7 +26,7 @@ Page {
 
     readonly property bool live: page.animated && !page.screenOff
     readonly property bool arriving: !page.arrived && page.live && page.stackAnimates
-    readonly property var rowTops: page.buildTops(page.rows)
+    property var rowTops: page.buildTops(page.rows)
     readonly property real contentHeight: page.rows.length === 0 ? 0 : page.rowTops[page.rows.length - 1] + page.rowHeightOf(page.rows[page.rows.length - 1])
     readonly property var focusedRow: page.rows[page.focusIndex] === undefined ? null : page.rows[page.focusIndex]
     readonly property bool scrolling: scrollAnim.running
@@ -571,6 +571,7 @@ Page {
     onFocusIndexChanged: page.focusKey = page.keyAtFocus()
 
     onRowsChanged: {
+        page.rowTops = Qt.binding(() => page.buildTops(page.rows))
         const kept = page.indexOfKey(page.focusKey)
         if (kept >= 0 && kept !== page.focusIndex) {
             page.focusIndex = kept

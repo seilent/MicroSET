@@ -409,6 +409,28 @@ private slots:
         reachable(kept);
     }
 
+    void thisAppKeepsLastRow()
+    {
+        model->lsfg()->setFixture({}, true, u"android"_s);
+        QTRY_VERIFY(!row(u"group-audio"_s).isEmpty());
+        int last = page()->property("rows").toList().size() - 1;
+        bool focusable = false;
+        while (last >= 0) {
+            QVERIFY(QMetaObject::invokeMethod(page(), "isFocusable", Q_RETURN_ARG(bool, focusable), Q_ARG(int, last)));
+            if (focusable)
+                break;
+            --last;
+        }
+        QVERIFY(last >= 0);
+        const QString kept = page()->property("rows").toList().at(last).toMap().value(u"key"_s).toString();
+        focus(kept);
+        QVERIFY(QMetaObject::invokeMethod(page(), "ensureVisible", Q_ARG(int, 0)));
+        reachable(kept);
+        model->setAndroidApp(u"com.example.game"_s);
+        QTRY_VERIFY(!row(u"android-app"_s).isEmpty());
+        reachable(kept);
+    }
+
     void thisGameOpensItsPage()
     {
         fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
