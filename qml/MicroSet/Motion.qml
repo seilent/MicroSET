@@ -128,7 +128,7 @@ QtObject {
     readonly property int dialog: 300
     readonly property int dialogHide: 150
     readonly property real dialogScale: 0.9
-    readonly property real dialogScrim: 0.8
+    readonly property real dialogScrim: 0.96
 
     readonly property int swivelIn: 350
     readonly property int swivelOut: 250

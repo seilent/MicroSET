@@ -15,7 +15,7 @@ Item {
     readonly property int hideDuration: Motion.dialogHide
     readonly property real fromScale: Motion.dialogScale
     readonly property real scrimAlpha: Motion.dialogScrim
-    readonly property color scrimColor: Ui.scrimOverlay
+    readonly property color scrimColor: Ui.scrimDialog
     readonly property real pitch: Ui.px(Ui.settingsPitch)
     readonly property real edge: Ui.px(Ui.edge)
     property alias scrim: scrim
