@@ -24,7 +24,7 @@ Item {
     property string shownValue: item.modelData.value
     readonly property bool valueSwapping: valueAnim.running
     property real enter: item.page.arriving ? 0 : 1
-    property real shift: item.page.arriving ? Motion.pivotShift : 0
+    property real shift: item.page.arriving ? Motion.rowsInShift : 0
     property int stagger: 0
     property int enterDuration: 0
     property var enterCurve: Motion.strip

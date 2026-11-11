@@ -96,6 +96,10 @@ QtObject {
     readonly property int pivotRowStagger: 22
     readonly property int pivotRowCap: 10
     readonly property real pivotHeaderParallax: 0.2
+    readonly property int rowsIn: 380
+    readonly property real rowsInShift: 34
+    readonly property int rowsInStagger: 22
+    readonly property int rowsInCap: 10
 
     readonly property int quickplay: 420
     readonly property real quickplayAngle: -12

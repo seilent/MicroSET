@@ -50,7 +50,7 @@ Page {
     }
 
     function feather(): void {
-        page.entrance(Motion.pivotShift, Motion.pivotRowStagger, Motion.pivotRowCap, Motion.pivotRows, true, page.firstVisible())
+        page.entrance(Motion.rowsInShift, Motion.rowsInStagger, Motion.rowsInCap, Motion.rowsIn, true, page.firstVisible())
     }
 
     function rowHeightOf(r: var): real {
