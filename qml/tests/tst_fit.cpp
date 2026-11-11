@@ -9,6 +9,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QQuickWindow>
+#include <QRegularExpression>
 #include <QScopedPointer>
 #include <QTemporaryDir>
 #include <QTest>
@@ -133,7 +134,7 @@ class FitTest : public QObject
             for (const QString &text : std::as_const(values)) {
                 item->setProperty("shownValue", text);
                 const qreal room = value->property("room").toReal();
-                if (title->width() < title->implicitWidth() || value->implicitWidth() > room)
+                if (title->parentItem()->width() - title->x() < title->implicitWidth() || value->implicitWidth() > room)
                     count.misses << u"%1: %2 %3 beside %4 %5 > %6"_s.arg(key, text, QString::number(value->implicitWidth()),
                                                                          title->property("text").toString(),
                                                                          QString::number(title->implicitWidth()),
@@ -381,6 +382,58 @@ private slots:
         QVERIFY2(count.misses.isEmpty(),
                  qPrintable(u"game sheet words, titles, leads or row values wider than their room at 640 wide:\n"_s
                             + count.misses.join(u'\n')));
+    }
+
+    void rowsNoBindingLoop()
+    {
+        QVERIFY(qEnvironmentVariableIsSet("MICROSET_FONT_DIR"));
+        QTest::failOnWarning(QRegularExpression(u"Binding loop"_s));
+        const QJsonObject schema = FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"50-fixture.json"_s),
+                                                            FakeMicroSetd::fixture(u"60-microdap.json"_s)});
+        for (const QSize size : {QSize(640, 960), QSize(960, 640), QSize(1080, 1920)}) {
+            SettingsModel model;
+            model.setFixture(schema, {}, {{u"rgb.enabled"_s, true}});
+            QQmlApplicationEngine engine;
+            engine.setInitialProperties({
+                {u"model"_s, QVariant::fromValue(static_cast<QObject *>(&model))},
+                {u"screenshot"_s, true},
+                {u"shotState"_s, u"none"_s},
+                {u"shotWidth"_s, size.width()},
+                {u"shotHeight"_s, size.height()},
+            });
+            engine.loadFromModule("MicroSetPageTest", "PageRoot");
+            auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
+            QVERIFY(window);
+            QObject *view = window->findChild<QObject *>(u"settingsView"_s);
+            QVERIFY(view);
+            QObject *stack = qvariant_cast<QObject *>(view->property("stack"));
+            for (const QVariant &group : model.groups(0)) {
+                const QString title = group.toMap().value(u"group"_s).toString();
+                if (title.isEmpty())
+                    continue;
+                QVERIFY(QMetaObject::invokeMethod(view, "open", Q_ARG(QString, title)));
+                QObject *page = qvariant_cast<QObject *>(stack->property("currentItem"));
+                QTRY_COMPARE(json(page->property("modelRows").toList()), json(model.rows(title, model.revision())));
+                QVERIFY(QMetaObject::invokeMethod(page, "back"));
+            }
+            QVERIFY(QMetaObject::invokeMethod(view, "open", Q_ARG(QString, u"stick leds"_s)));
+            QObject *page = qvariant_cast<QObject *>(stack->property("currentItem"));
+            for (const bool on : {false, true}) {
+                model.setFixture(schema, {}, {{u"rgb.enabled"_s, on}});
+                QTRY_COMPARE(json(page->property("modelRows").toList()), json(model.rows(u"stick leds"_s, model.revision())));
+            }
+            stack->setProperty("visible", false);
+            model.setFixture(schema, {}, {{u"rgb.enabled"_s, true}, {u"rgb.hue"_s, 30u}});
+            QTRY_COMPARE(json(page->property("modelRows").toList()), json(model.rows(u"stick leds"_s, model.revision())));
+            stack->setProperty("visible", true);
+            QTest::qWait(50);
+            QObject *ui = engine.singletonInstance<QObject *>("MicroSet", "Ui");
+            QVERIFY(ui);
+            ui->setProperty("turn", 1);
+            QTest::qWait(50);
+            ui->setProperty("turn", 0);
+            QTest::qWait(50);
+        }
     }
 };
 

@@ -1252,7 +1252,7 @@ private slots:
         auto *title = qvariant_cast<QQuickItem *>(rowItem->property("titleItem"));
         auto *valueItem = qvariant_cast<QQuickItem *>(rowItem->property("valueItem"));
         QVERIFY(title && valueItem);
-        QCOMPARE(title->width(), title->implicitWidth());
+        QVERIFY(title->parentItem()->width() - title->x() >= title->implicitWidth());
         const qreal room = valueItem->property("room").toReal();
         QVERIFY(room > 0);
         QVERIFY(valueItem->implicitWidth() > room);

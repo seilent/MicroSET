@@ -109,25 +109,33 @@ Item {
         }
     }
 
-    Text {
-        id: titleText
+    Item {
+        id: titleClip
 
-        x: Ui.px(Ui.hubEdge)
-        y: item.label
-            ? item.height - Ui.px(Ui.settingsLabelBaselineInset) - titleText.baselineOffset
-            : (item.height - titleText.height) / 2
-        width: swatch.visible ? swatch.x - Ui.px(Ui.gutter) - titleText.x
-            : Math.min(titleText.implicitWidth, item.width - Ui.px(Ui.hubEdge) - titleText.x)
-        text: item.modelData.title
-        textFormat: Text.PlainText
-        color: Ui.white(item.titleAlpha)
-        font: Ui.font(item.titleRole)
+        x: 0
+        width: item.hasSwatch ? swatch.x - Ui.px(Ui.gutter)
+            : Ui.px(Ui.hubEdge) + Math.min(titleText.implicitWidth, item.width - 2 * Ui.px(Ui.hubEdge))
+        height: item.height
+        baselineOffset: titleText.y + titleText.baselineOffset
         clip: true
 
-        Behavior on color {
-            enabled: item.page.live
-            ColorAnimation {
-                duration: Motion.focusAlpha
+        Text {
+            id: titleText
+
+            x: Ui.px(Ui.hubEdge)
+            y: item.label
+                ? item.height - Ui.px(Ui.settingsLabelBaselineInset) - titleText.baselineOffset
+                : (item.height - titleText.height) / 2
+            text: item.modelData.title
+            textFormat: Text.PlainText
+            color: Ui.white(item.titleAlpha)
+            font: Ui.font(item.titleRole)
+
+            Behavior on color {
+                enabled: item.page.live
+                ColorAnimation {
+                    duration: Motion.focusAlpha
+                }
             }
         }
     }
@@ -135,13 +143,13 @@ Item {
     Text {
         id: valueText
 
-        readonly property real room: item.width - Ui.px(Ui.hubEdge) - titleText.x - titleText.width - Ui.px(Ui.gutter)
+        readonly property real room: item.width - Ui.px(Ui.hubEdge) - titleClip.width - Ui.px(Ui.gutter)
 
         visible: item.shownValue !== "" && !item.hasSwatch
         x: item.width - Ui.px(Ui.hubEdge) - valueText.width
         width: Math.max(0, Math.min(valueText.implicitWidth, valueText.room))
         clip: true
-        anchors.baseline: titleText.baseline
+        anchors.baseline: titleClip.baseline
         text: item.shownValue
         textFormat: Text.PlainText
         color: item.editing ? Ui.accent : Ui.white(item.valueAlpha)
