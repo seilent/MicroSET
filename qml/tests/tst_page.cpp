@@ -1577,7 +1577,7 @@ private slots:
         for (const QString &name : {u"components/Keyboard.qml"_s, u"components/ListRow.qml"_s, u"components/Ring.qml"_s,
                                     u"components/Glyph.qml"_s, u"GlyphPaths.js"_s, u"JumpGrid.qml"_s,
                                     u"components/JumpLetter.qml"_s, u"components/LetterTile.qml"_s,
-                                    u"components/Dialog.qml"_s, u"Ui.qml"_s}) {
+                                    u"components/Dialog.qml"_s, u"components/Toast.qml"_s, u"Ui.qml"_s}) {
             QFile file(QStringLiteral(MICROSET_SOURCE_DIR "/qml/MicroSet/") + name);
             QVERIFY2(file.open(QIODevice::ReadOnly), qPrintable(name));
             for (const QRegularExpressionMatch &m : token.globalMatch(QString::fromUtf8(file.readAll()))) {

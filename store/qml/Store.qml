@@ -132,9 +132,10 @@ Window {
 
         objectName: "toast"
         x: 0
-        y: 0
         width: root.width
         screenOff: !root.shown
+        overlayUp: keyboard.shown
+        topPlace: keyboard.shown
     }
 
     StoreRouter {

@@ -40,9 +40,13 @@ Item {
     Toast {
         id: toast
 
+        readonly property Item page: stack.currentItem
+
         x: 0
-        y: 0
         width: view.width
+        overlayUp: toast.page !== null
+            && [toast.page.sheet, toast.page.swatchSheet, toast.page.rowSheet, toast.page.gameSheet].some((s) => s.shown)
+        topPlace: toast.overlayUp
     }
 
     Component {

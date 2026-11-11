@@ -265,8 +265,9 @@ Window {
 
             objectName: "menuToast"
             x: 0
-            y: 0
             width: rotor.width
+            overlayUp: menuSheet.shown
+            topPlace: menuSheet.shown
         }
 
         PadRouter {
@@ -313,9 +314,9 @@ Window {
                 id: hint
 
                 x: 0
-                y: 0
                 width: stripRotor.width
                 screenOff: false
+                topPlace: true
                 sticky: root.overlay.hint
                 onPhaseChanged: {
                     if (hint.phase === "hidden" && hint.progress <= 0 && root.overlay.hintShown)

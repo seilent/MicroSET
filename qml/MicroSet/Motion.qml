@@ -175,6 +175,7 @@ QtObject {
     readonly property int volumeHide: 1500
     readonly property int volumeFade: 380
     readonly property int toastIn: 350
+    readonly property int toastRise: 100
     readonly property int toastHold: 3500
     readonly property int toastOut: 250
     readonly property real toastTravel: 40

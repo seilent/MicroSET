@@ -443,7 +443,6 @@ Item {
         id: toast
 
         x: 0
-        y: 0
         width: screen.width
     }
 }

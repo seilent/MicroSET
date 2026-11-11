@@ -431,8 +431,9 @@ Window {
 
         objectName: "toast"
         x: 0
-        y: 0
         width: root.width
+        overlayUp: sheet.shown
+        topPlace: sheet.shown
     }
 
     Connections {
