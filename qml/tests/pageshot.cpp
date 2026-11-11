@@ -58,7 +58,8 @@ const QStringList &states()
         u"game-lsfg-blacklist"_s, u"game-lsfg-disabled"_s, u"game-lsfg-cap-off"_s, u"sheet-game-lsfg-multiplier"_s,
         u"sheet-game-lsfg-cap"_s, u"lsfg-games-motion"_s, u"lsfg-dialog-motion"_s, u"lsfg-sheet-game"_s,
         u"android-app"_s, u"sheet-android-limit"_s, u"android-app-lsfg-off"_s, u"android-perf"_s, u"android-perf-app"_s,
-        u"sheet-android-perf"_s, u"press-row-motion"_s,
+        u"sheet-android-perf"_s, u"press-row-motion"_s, u"lift-end"_s, u"lift-tall"_s, u"rowsheet-low"_s,
+        u"lift-motion"_s, u"lift-end-motion"_s,
     };
     return names;
 }
@@ -76,7 +77,7 @@ const QString LongName = u"The Legend of Heroes: Trails in the Sky the 1st Chapt
 bool lsfgState(const QString &state)
 {
     return state.startsWith("lsfg"_L1) || state == "top-lsfg"_L1 || state.startsWith("sheet-lsfg"_L1)
-        || state.startsWith("game-lsfg"_L1) || state.startsWith("sheet-game-lsfg"_L1);
+        || state.startsWith("game-lsfg"_L1) || state.startsWith("sheet-game-lsfg"_L1) || state == "rowsheet-low"_L1;
 }
 
 Games gamesOf(const QString &state)
@@ -94,6 +95,7 @@ Games gamesOf(const QString &state)
         const QMap<QString, QVariantMap> lsfg{
             {u"lsfg-open"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.2161700.lsfg.state"_s, u"on"_s}}},
             {u"lsfg-open-top"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.2161700.lsfg.state"_s, u"on"_s}}},
+            {u"rowsheet-low"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.2161700.lsfg.state"_s, u"on"_s}}},
             {u"lsfg-sheet-game"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.2161700.lsfg.state"_s, u"on"_s}}},
             {u"lsfg-games-motion"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}, {u"app.2161700.lsfg.state"_s, u"on"_s}}},
             {u"lsfg-bottom"_s, {{u"app.2238900.lsfg.state"_s, u"on"_s}}},

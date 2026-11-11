@@ -68,14 +68,14 @@ foreach(size 960x640 640x960)
             lsfg-sent lsfg-no-client lsfg-game-running lsfg-microsd lsfg-unknown lsfg-old-layer lsfg-install-focus
             lsfg-open-empty lsfg-gone-long lsfg-open-top game-lsfg-blacklist game-lsfg-disabled game-lsfg-cap-off
             sheet-game-lsfg-multiplier sheet-game-lsfg-cap lsfg-sheet-game android-app sheet-android-limit
-            android-app-lsfg-off android-perf android-perf-app sheet-android-perf)
+            android-app-lsfg-off android-perf android-perf-app sheet-android-perf lift-end lift-tall rowsheet-low)
         add_test(NAME page-shot-${state}-${size}
             COMMAND microset-pageshot --screenshot ${CMAKE_CURRENT_BINARY_DIR}/shots/${state}-${size}.png
                 --size ${size} --state ${state})
         set_tests_properties(page-shot-${state}-${size} PROPERTIES
             ENVIRONMENT "QT_QPA_PLATFORM=offscreen;MICROSET_FONT_DIR=${MICROSET_TEST_FONT_DIR}")
     endforeach()
-    foreach(state sheet-motion lsfg-games-motion lsfg-dialog-motion press-row-motion)
+    foreach(state sheet-motion lsfg-games-motion lsfg-dialog-motion press-row-motion lift-motion lift-end-motion)
         add_test(NAME page-frames-${state}-${size}
             COMMAND microset-pageshot --frames ${CMAKE_CURRENT_BINARY_DIR}/shots/${state}-${size} --size ${size}
                 --state ${state})

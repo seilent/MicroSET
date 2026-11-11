@@ -302,6 +302,78 @@ class PageTest : public QObject
         return cell ? qvariant_cast<QQuickItem *>(cell->property("titleItem")) : nullptr;
     }
 
+    QQuickItem *flickItem() const
+    {
+        return qvariant_cast<QQuickItem *>(page()->property("flick"));
+    }
+
+    qreal contentY() const
+    {
+        return flickItem()->property("contentY").toReal();
+    }
+
+    qreal maxY() const
+    {
+        qreal y = 0;
+        QMetaObject::invokeMethod(page(), "maxContentY", Q_RETURN_ARG(qreal, y));
+        return y;
+    }
+
+    qreal gutter() const
+    {
+        QObject *ui = engine->singletonInstance<QObject *>("MicroSet", "Ui");
+        return ui->property("gutter").toReal() * ui->property("u").toReal();
+    }
+
+    static qreal panelTop(QObject *sheet)
+    {
+        return qobject_cast<QQuickItem *>(sheet)->height() - qvariant_cast<QQuickItem *>(sheet->property("panel"))->height();
+    }
+
+    qreal openerBottom(const QString &k, qreal at) const
+    {
+        int index = -1;
+        QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, k));
+        qreal top = 0;
+        qreal height = 0;
+        QMetaObject::invokeMethod(page(), "rowTopOf", Q_RETURN_ARG(qreal, top), Q_ARG(int, index));
+        QMetaObject::invokeMethod(page(), "rowHeightOf", Q_RETURN_ARG(qreal, height), Q_ARG(QVariant, QVariant(row(k))));
+        return flickItem()->y() + top + height - at;
+    }
+
+    void cleared(const QString &k, QObject *sheet)
+    {
+        const qreal y = contentY();
+        const QVariantList tops = page()->property("rowTops").toList();
+        qreal previous = -1;
+        bool onTop = false;
+        for (const QVariant &top : tops) {
+            if (std::abs(top.toReal() - y) < 0.01)
+                onTop = true;
+            else if (top.toReal() < y)
+                previous = top.toReal();
+        }
+        QVERIFY2(onTop, qPrintable(u"contentY %1 is not a row top"_s.arg(y)));
+        const qreal line = panelTop(sheet) - gutter();
+        QVERIFY2(openerBottom(k, y) <= line + 0.01, qPrintable(u"%1 below %2"_s.arg(openerBottom(k, y)).arg(line)));
+        if (previous >= 0)
+            QVERIFY2(openerBottom(k, previous) > line + 0.01,
+                     qPrintable(u"row top %1 would clear it too"_s.arg(previous)));
+    }
+
+    QString lastPair(const QString &group) const
+    {
+        const QVariantList rows = model->rows(group, model->revision());
+        for (auto it = rows.crbegin(); it != rows.crend(); ++it) {
+            const QVariantMap r = it->toMap();
+            const QString k = r.value(u"key"_s).toString();
+            if (r.value(u"pick"_s).toString() == "sheet"_L1 && !r.value(u"readOnly"_s).toBool()
+                && model->sheet(k).value(u"words"_s).toList().size() == 2)
+                return k;
+        }
+        return {};
+    }
+
     QString focusedKey() const
     {
         return page()->property("focusedRow").toMap().value(u"key"_s).toString();
@@ -2336,6 +2408,347 @@ private slots:
         QTRY_VERIFY(!scroller->property("flinging").toBool());
         const double moved = flick->property("contentY").toReal();
         QVERIFY2(std::abs(moved - end) <= 0.5, qPrintable(u"%1 against %2 from %3 px/s"_s.arg(moved).arg(end).arg(velocity)));
+    }
+
+    void liftClearsOpenerBeforeTheRise()
+    {
+        open(u"display"_s);
+        page()->setProperty("animated", true);
+        focus(u"display.auto_rotate"_s);
+        key(Qt::Key_Return);
+        QVERIFY(page()->property("valueOpen").toBool());
+        QVERIFY(!sheetShown());
+        QVERIFY(contentY() < 0.01);
+        QTRY_VERIFY(sheetShown());
+        QVERIFY(contentY() > 0);
+        cleared(u"display.auto_rotate"_s, sheet());
+        QTRY_VERIFY(!sheet()->property("animating").toBool());
+        cleared(u"display.auto_rotate"_s, sheet());
+    }
+
+    void liftAtOnceWhenStill()
+    {
+        open(u"display"_s);
+        focus(u"display.auto_rotate"_s);
+        key(Qt::Key_Return);
+        QVERIFY(sheetShown());
+        QVERIFY(contentY() > 0);
+        cleared(u"display.auto_rotate"_s, sheet());
+    }
+
+    void liftLeavesClearRow()
+    {
+        open(u"audio"_s);
+        page()->setProperty("animated", true);
+        const QString opener = u"audio.eq.headphones.on"_s;
+        int index = -1;
+        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, opener)));
+        qreal top = 0;
+        QVERIFY(QMetaObject::invokeMethod(page(), "rowTopOf", Q_RETURN_ARG(qreal, top), Q_ARG(int, index)));
+        QVERIFY(top <= maxY());
+        flickItem()->setProperty("contentY", top);
+        focus(opener);
+        key(Qt::Key_Return);
+        QVERIFY(sheet()->property("animating").toBool());
+        QCOMPARE(contentY(), top);
+        QVERIFY(openerBottom(opener, top) <= panelTop(sheet()));
+    }
+
+    void liftPastTheEndReturnsWithTheClose()
+    {
+        open(u"audio"_s);
+        page()->setProperty("animated", true);
+        const QString opener = lastPair(u"audio"_s);
+        QVERIFY(!opener.isEmpty());
+        focus(opener);
+        QVERIFY(QMetaObject::invokeMethod(page(), "completeScroll"));
+        flickItem()->setProperty("contentY", maxY());
+        key(Qt::Key_Return);
+        QTRY_VERIFY(sheetShown() && !sheet()->property("animating").toBool());
+        QVERIFY(contentY() > maxY() + 0.5);
+        cleared(opener, sheet());
+        key(Qt::Key_Escape);
+        QVERIFY(!sheetShown());
+        QTRY_VERIFY(contentY() <= maxY() + 0.01);
+        QVERIFY(sheet()->property("progress").toReal() > 0);
+        QTRY_COMPARE(sheet()->property("progress").toReal(), 0.0);
+        QCOMPARE(contentY(), maxY());
+        QCOMPARE(flickItem()->property("bottomMargin").toReal(), 0.0);
+    }
+
+    void liftPastTheEndDropsOnDismiss()
+    {
+        open(u"audio"_s);
+        page()->setProperty("animated", true);
+        const QString opener = lastPair(u"audio"_s);
+        focus(opener);
+        QVERIFY(QMetaObject::invokeMethod(page(), "completeScroll"));
+        flickItem()->setProperty("contentY", maxY());
+        key(Qt::Key_Return);
+        QTRY_VERIFY(sheetShown() && !sheet()->property("animating").toBool());
+        QVERIFY(contentY() > maxY() + 0.5);
+        page()->setProperty("screenOff", true);
+        QCOMPARE(contentY(), maxY());
+        QCOMPARE(flickItem()->property("bottomMargin").toReal(), 0.0);
+        QVERIFY(!page()->property("valueOpen").toBool());
+    }
+
+    void liftSkipsTallSheet()
+    {
+        ledsOn();
+        open(u"stick leds"_s);
+        page()->setProperty("animated", true);
+        show(u"rgb.brightness"_s, u"rgb.brightness"_s);
+        const qreal before = contentY();
+        key(Qt::Key_Return);
+        QVERIFY(sheet()->property("animating").toBool());
+        QCOMPARE(contentY(), before);
+        QVERIFY(openerBottom(u"rgb.brightness"_s, before) > panelTop(sheet()));
+    }
+
+    void liftWithinRangeStaysAfterPick()
+    {
+        open(u"audio"_s);
+        const QString opener = u"audio.eq.headphones.on"_s;
+        show(opener, opener);
+        key(Qt::Key_Return);
+        QVERIFY(sheetShown());
+        cleared(opener, sheet());
+        const qreal lifted = contentY();
+        QVERIFY(lifted <= maxY());
+        key(Qt::Key_Down);
+        key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
+        QCOMPARE(contentY(), lifted);
+        QTRY_COMPARE(fake->stored().value(opener), QVariant(true));
+    }
+
+    void liftKeepsPadStep()
+    {
+        open(u"audio"_s);
+        page()->setProperty("animated", true);
+        const QString opener = u"audio.eq.headphones.on"_s;
+        show(opener, opener);
+        key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        QTRY_VERIFY(sheetShown() && !sheet()->property("animating").toBool());
+        QTRY_COMPARE(sheetFocus(), 1);
+        QVERIFY(sheetShown());
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set audio.eq.headphones.on true"_s});
+    }
+
+    void liftLandsWhenStillAgain()
+    {
+        open(u"display"_s);
+        page()->setProperty("animated", true);
+        QSignalSpy shown(sheet(), SIGNAL(shownChanged()));
+        focus(u"display.auto_rotate"_s);
+        key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
+        page()->setProperty("animated", false);
+        QVERIFY(sheetShown());
+        QCOMPARE(shown.count(), 1);
+        QCOMPARE(sheet()->property("progress").toReal(), 1.0);
+        QVERIFY(!sheet()->property("animating").toBool());
+        QCOMPARE(sheetFocus(), 1);
+        cleared(u"display.auto_rotate"_s, sheet());
+        key(Qt::Key_Escape);
+        QVERIFY(!sheetShown());
+        QTest::qWait(100);
+        QVERIFY(fake->calls().isEmpty());
+        QCOMPARE(shown.count(), 2);
+    }
+
+    void liftDraftStaysUnmoved()
+    {
+        open(u"display"_s);
+        page()->setProperty("animated", true);
+        focus(u"display.auto_rotate"_s);
+        key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
+        QCOMPARE(page()->property("draftKey").toString(), QString());
+        QTRY_VERIFY(sheetShown() && !sheet()->property("animating").toBool());
+        QCOMPARE(page()->property("draftKey").toString(), QString());
+        key(Qt::Key_Escape);
+        QTRY_COMPARE(sheet()->property("progress").toReal(), 0.0);
+        QVERIFY(fake->calls().isEmpty());
+        QCOMPARE(value(u"display.auto_rotate"_s), u"on"_s);
+    }
+
+    void liftTapLandsAndPicks()
+    {
+        open(u"audio"_s);
+        page()->setProperty("animated", true);
+        const QString opener = u"audio.eq.headphones.on"_s;
+        show(opener, opener);
+        key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
+        tap(settledPoint(sheet(), 1));
+        QTRY_COMPARE(fake->stored().value(opener), QVariant(true));
+        QVERIFY(!sheetShown());
+    }
+
+    void liftEndsOnScreenOffAndTurn()
+    {
+        QObject *ui = engine->singletonInstance<QObject *>("MicroSet", "Ui");
+        open(u"display"_s);
+        page()->setProperty("animated", true);
+        focus(u"display.auto_rotate"_s);
+        for (int round = 0; round < 2; ++round) {
+            key(Qt::Key_Return);
+            QVERIFY(page()->property("valueOpen").toBool());
+            QVERIFY(!sheetShown());
+            if (round == 0)
+                page()->setProperty("screenOff", true);
+            else
+                ui->setProperty("turn", 1);
+            QTest::qWait(50);
+            QVERIFY(!sheetShown());
+            QVERIFY(!sheet()->property("animating").toBool());
+            QVERIFY(!page()->property("valueOpen").toBool());
+            QCOMPARE(contentY(), maxY());
+            QCOMPARE(flickItem()->property("bottomMargin").toReal(), 0.0);
+            page()->setProperty("screenOff", false);
+            ui->setProperty("turn", 0);
+            QTest::qWait(50);
+        }
+        open(u"audio"_s);
+        page()->setProperty("animated", true);
+        const QString opener = u"audio.eq.headphones.on"_s;
+        show(opener, opener);
+        const qreal from = contentY();
+        key(Qt::Key_Return);
+        QVERIFY(!sheetShown());
+        page()->setProperty("screenOff", true);
+        const qreal left = contentY();
+        QTest::qWait(150);
+        QVERIFY(!sheetShown());
+        QVERIFY(!page()->property("valueOpen").toBool());
+        QCOMPARE(contentY(), left);
+        QVERIFY(left >= from && left <= maxY());
+        QTest::qWait(100);
+        QVERIFY(fake->calls().isEmpty());
+    }
+
+    void liftFollowsRowsInsertedAbove()
+    {
+        engine.reset();
+        model = std::make_unique<SettingsModel>(h->client());
+        model->lsfg()->setFixture({}, true, u"android"_s);
+        model->load();
+        startPage();
+        QVERIFY(window && view);
+        QTRY_VERIFY(model->available());
+        QTRY_VERIFY(!row(u"perf.android_overlay"_s).isEmpty());
+        atTop(u"perf.android_overlay"_s);
+        page()->setProperty("animated", true);
+        QSignalSpy shown(sheet(), SIGNAL(shownChanged()));
+        key(Qt::Key_Return);
+        QVERIFY(page()->property("valueOpen").toBool());
+        QVERIFY2(!sheetShown(), "perf.android_overlay is clear of its sheet, no lift to follow");
+        model->setAndroidApp(u"com.example.game"_s);
+        QTRY_VERIFY(!row(u"android-app"_s).isEmpty());
+        QTRY_VERIFY(sheetShown() && !sheet()->property("animating").toBool());
+        QCOMPARE(shown.count(), 1);
+        QCOMPARE(focusedKey(), u"android-app"_s);
+        cleared(u"perf.android_overlay"_s, sheet());
+    }
+
+    void liftHoldsThroughRowsChange()
+    {
+        open(u"display"_s);
+        focus(u"display.auto_rotate"_s);
+        key(Qt::Key_Return);
+        QVERIFY(sheetShown());
+        QVERIFY(contentY() > maxY() + 0.5);
+        const QVariantMap label{{u"kind"_s, u"label"_s}, {u"key"_s, u"label-test"_s}, {u"title"_s, u"test"_s},
+                                {u"value"_s, QString()}, {u"readOnly"_s, true}, {u"widget"_s, QString()},
+                                {u"swatch"_s, QString()}, {u"hue"_s, -1}};
+        const int focused = page()->property("focusIndex").toInt();
+        page()->setProperty("modelRows", QVariantList{label} + page()->property("modelRows").toList());
+        QCOMPARE(page()->property("focusIndex").toInt(), focused + 1);
+        QVERIFY(sheetShown());
+        QVERIFY(contentY() > maxY() + 0.5);
+        cleared(u"display.auto_rotate"_s, sheet());
+    }
+
+    void liftStopsFling()
+    {
+        open(u"audio"_s);
+        const QString opener = u"audio.eq.headphones.on"_s;
+        show(opener, opener);
+        QObject *scroller = qvariant_cast<QObject *>(flickItem()->property("touch"));
+        QVERIFY(QMetaObject::invokeMethod(scroller, "release", Q_ARG(double, 100.0)));
+        QVERIFY(scroller->property("flinging").toBool());
+        key(Qt::Key_Return);
+        QVERIFY(!scroller->property("flinging").toBool());
+        QVERIFY(sheetShown());
+        cleared(opener, sheet());
+        QTest::qWait(100);
+        cleared(opener, sheet());
+    }
+
+    void tapDuringTheReturnDoesNothing()
+    {
+        open(u"display"_s);
+        page()->setProperty("animated", true);
+        focus(u"display.auto_rotate"_s);
+        key(Qt::Key_Return);
+        QTRY_VERIFY(sheetShown() && !sheet()->property("animating").toBool());
+        const qreal lifted = contentY();
+        QVERIFY(lifted > maxY() + 0.5);
+        key(Qt::Key_Escape);
+        for (int i = 0; i < 2000 && contentY() > lifted - 0.5; ++i)
+            QTest::qWait(1);
+        QVERIFY(contentY() < lifted - 0.5);
+        QVERIFY(contentY() > maxY() + 0.5);
+        QVERIFY(sheet()->property("animating").toBool());
+        tap(centerOf(rowItem(u"display.auto_rotate"_s)));
+        QTRY_COMPARE(sheet()->property("progress").toReal(), 0.0);
+        QVERIFY(!sheetShown());
+        QVERIFY(!page()->property("valueOpen").toBool());
+        QCOMPARE(contentY(), maxY());
+    }
+
+    void liftSkipsTallSwatchSheet()
+    {
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped(), FakeMicroSetd::fixture(u"60-microdap.json"_s)}));
+        fake->setValues({{u"microdap.accent_hue"_s, 120u}});
+        model->load();
+        QTRY_COMPARE(model->accentHue(), 120);
+        open(u"display"_s);
+        show(u"microdap.accent_hue"_s, u"microdap.accent_hue"_s);
+        const qreal before = contentY();
+        key(Qt::Key_Return);
+        QVERIFY(swatchSheet()->property("shown").toBool());
+        QCOMPARE(contentY(), before);
+        QVERIFY(openerBottom(u"microdap.accent_hue"_s, before) > panelTop(swatchSheet()));
+    }
+
+    void rowSheetLiftsNothing()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}});
+        fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
+        fake->setValues({{u"app.292120.lsfg.state"_s, u"off"_s}});
+        fake->setStored({{u"app.292120.lsfg.state"_s, u"off"_s}});
+        model->load();
+        QTRY_COMPARE(model->value(u"app.292120.lsfg.state"_s, model->revision()).toString(), u"off"_s);
+        writeLsfg(R"({"version": 1, "owned": "yes", "install": "installed"})");
+        openLsfg();
+        QTRY_COMPARE(value(u"lsfg-games"_s), u"0 on"_s);
+        page()->setProperty("animated", true);
+        show(u"lsfg-games"_s, u"lsfg-games"_s);
+        const qreal before = contentY();
+        key(Qt::Key_Return);
+        QVERIFY(rowSheet()->property("shown").toBool());
+        QTRY_VERIFY(!rowSheet()->property("animating").toBool());
+        QCOMPARE(contentY(), before);
+        QVERIFY(openerBottom(u"lsfg-games"_s, before) > panelTop(rowSheet()));
+        qunsetenv("MICROSET_STEAM_DIR");
     }
 };
 

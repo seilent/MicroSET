@@ -535,6 +535,57 @@ private slots:
                             + count.misses.join(u'\n')));
     }
 
+    void liftKeepsOpenerClear()
+    {
+        QVERIFY(qEnvironmentVariableIsSet("MICROSET_FONT_DIR"));
+        SettingsModel model;
+        model.setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {});
+        QString end;
+        const QVariantList audio = model.rows(u"audio"_s, model.revision());
+        for (auto it = audio.crbegin(); it != audio.crend() && end.isEmpty(); ++it) {
+            const QVariantMap r = it->toMap();
+            if (r.value(u"pick"_s).toString() == "sheet"_L1 && !r.value(u"readOnly"_s).toBool()
+                && model.sheet(r.value(u"key"_s).toString()).value(u"words"_s).toList().size() == 2)
+                end = r.value(u"key"_s).toString();
+        }
+        QVERIFY(!end.isEmpty());
+        for (const QSize size : {QSize(640, 960), QSize(960, 640)}) {
+            QQmlApplicationEngine engine;
+            QObject *view = viewOf(engine, model, size);
+            QVERIFY(view);
+            QObject *ui = engine.singletonInstance<QObject *>("MicroSet", "Ui");
+            const qreal gutter = ui->property("gutter").toReal() * ui->property("u").toReal();
+            const std::initializer_list<std::pair<QString, QString>> cases{{u"display"_s, u"display.auto_rotate"_s},
+                                                                            {u"audio"_s, end}};
+            for (const auto &[group, key] : cases) {
+                const QString name = u"%1x%2 %3"_s.arg(size.width()).arg(size.height()).arg(key);
+                QVERIFY(QMetaObject::invokeMethod(view, "open", Q_ARG(QString, group)));
+                QObject *page = qvariant_cast<QObject *>(qvariant_cast<QObject *>(view->property("stack"))->property("currentItem"));
+                QTRY_COMPARE(json(page->property("modelRows").toList()), json(model.rows(group, model.revision())));
+                QTRY_VERIFY(qvariant_cast<QQuickItem *>(page->property("sheet"))->height() > 0);
+                int index = -1;
+                QVERIFY(QMetaObject::invokeMethod(page, "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, key)));
+                page->setProperty("focusIndex", index);
+                if (group == "audio"_L1)
+                    QVERIFY(QMetaObject::invokeMethod(page, "keepFocusVisible"));
+                QVERIFY(QMetaObject::invokeMethod(page, "openValue", Q_ARG(QString, key)));
+                auto *sheet = qvariant_cast<QQuickItem *>(page->property("sheet"));
+                QVERIFY2(sheet->property("shown").toBool(), qPrintable(name));
+                auto *flick = qvariant_cast<QQuickItem *>(page->property("flick"));
+                qreal top = 0;
+                qreal height = 0;
+                QVERIFY(QMetaObject::invokeMethod(page, "rowTopOf", Q_RETURN_ARG(qreal, top), Q_ARG(int, index)));
+                QVERIFY(QMetaObject::invokeMethod(page, "rowHeightOf", Q_RETURN_ARG(qreal, height),
+                                                  Q_ARG(QVariant, page->property("focusedRow"))));
+                const qreal bottom = flick->y() + top + height - flick->property("contentY").toReal();
+                const qreal line = sheet->height() - qvariant_cast<QQuickItem *>(sheet->property("panel"))->height() - gutter;
+                QVERIFY2(bottom <= line + 0.01, qPrintable(u"%1: opener bottom %2 below %3"_s.arg(name).arg(bottom).arg(line)));
+                QVERIFY(QMetaObject::invokeMethod(page, "cancelValue"));
+                QVERIFY(QMetaObject::invokeMethod(page, "back"));
+            }
+        }
+    }
+
     void rowsNoBindingLoop()
     {
         QVERIFY(qEnvironmentVariableIsSet("MICROSET_FONT_DIR"));

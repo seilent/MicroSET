@@ -10,7 +10,8 @@ Window {
     property int shotWidth: 960
     property int shotHeight: 640
     property string shotState: "top"
-    readonly property bool motion: root.shotState === "sheet-motion"
+    readonly property bool motion: root.shotState === "sheet-motion" || root.shotState === "lift-motion"
+        || root.shotState === "lift-end-motion"
     readonly property int shotSettle: Motion.focusAlpha
     readonly property var groupStates: ({
         audio: "audio", display: "display", rgb: "stick leds", "rgb-off": "stick leds", power: "power", system: "system",
@@ -29,6 +30,8 @@ Window {
         "sheet-emu-scheme": ["emulation", "microemu.esde.theme_color_scheme", 0],
         "sheet-emu-scheme-end": ["emulation", "microemu.esde.theme_color_scheme", -1],
         "sheet-motion": ["audio", "audio.volume_step", 0],
+        "lift-motion": ["display", "display.auto_rotate", 0],
+        "lift-tall": ["stick leds", "rgb.brightness", 0],
         "sheet-emu-variant": ["emulation", "microemu.esde.theme_variant", 0],
         "sheet-long-label": ["group with a long title", "fixture.long", 0],
         "sheet-hue": ["stick leds", "rgb.hue", 0],
@@ -63,12 +66,13 @@ Window {
         "lsfg-no-client": "lsfg-status", "lsfg-game-running": "lsfg-status", "lsfg-microsd": "lsfg-status",
         "lsfg-unknown": "lsfg-status", "lsfg-old-layer": "lsfg-status", "lsfg-install-focus": "lsfg-install",
         "lsfg-open-empty": "lsfg-proton", "lsfg-gone-long": "lsfg-game-251150", "lsfg-open-top": "lsfg-games",
-        "lsfg-games-motion": "lsfg-games", "lsfg-dialog-motion": "lsfg-install", "lsfg-sheet-game": "lsfg-games"
+        "lsfg-games-motion": "lsfg-games", "lsfg-dialog-motion": "lsfg-install", "lsfg-sheet-game": "lsfg-games",
+        "rowsheet-low": "lsfg-games"
     })
     readonly property var lsfgSheet: ({
         "lsfg-open": "lsfg-game-2238900", "lsfg-blacklist": "lsfg-game-2050650", "lsfg-gone-long": "lsfg-game-251150",
         "lsfg-open-empty": "lsfg-add", "lsfg-bottom": "last", "lsfg-open-top": "first",
-        "lsfg-sheet-game": "lsfg-game-2238900"
+        "lsfg-sheet-game": "lsfg-game-2238900", "rowsheet-low": "first"
     })
     property alias view: view
 
@@ -98,6 +102,10 @@ Window {
             page.keepFocusVisible()
             if (root.motion) {
                 page.animated = true
+                if (root.shotState !== "sheet-motion") {
+                    rest.start()
+                    return
+                }
                 fall.start()
             }
             page.activate()
@@ -108,6 +116,16 @@ Window {
                 view.toast.complete()
             }
         })
+    }
+
+    function lastPair(group: string): string {
+        const rows = root.model.rows(group, root.model.revision)
+        for (let i = rows.length - 1; i >= 0; i--) {
+            const r = rows[i]
+            if (r.pick === "sheet" && !r.readOnly && root.model.sheet(r.key).words.length === 2)
+                return r.key
+        }
+        return ""
     }
 
     function bottom(): void {
@@ -151,6 +169,8 @@ Window {
             view.open("audio")
             view.toast.show("Output", "set failed")
             view.toast.complete()
+        } else if (root.shotState === "lift-end" || root.shotState === "lift-end-motion") {
+            root.sheet("audio", root.lastPair("audio"), 0)
         } else if (root.sheetStates[root.shotState] !== undefined) {
             const shot = root.sheetStates[root.shotState]
             root.sheet(shot[0], shot[1], shot[2])
@@ -240,8 +260,10 @@ Window {
         } else if (root.shotState === "sheet-bool") {
             view.open("display")
             const page = view.stack.currentItem
-            page.focusIndex = page.indexOfKey("display.auto_rotate")
-            page.activate()
+            Qt.callLater(() => {
+                page.focusIndex = page.indexOfKey("display.auto_rotate")
+                page.activate()
+            })
         }
     }
 
@@ -258,6 +280,16 @@ Window {
         anchors.fill: parent
         model: root.model
         animated: !root.screenshot
+    }
+
+    Timer {
+        id: rest
+
+        interval: Motion.scroll
+        onTriggered: {
+            fall.start()
+            view.stack.currentItem.activate()
+        }
     }
 
     Timer {

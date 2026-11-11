@@ -121,6 +121,8 @@ Page {
     }
 
     function scrollTo(y: real, duration: int) {
+        if (dropAnim.running)
+            page.dropNow()
         touchScroller.stop()
         const target = Math.max(0, Math.min(page.maxContentY(), y))
         scrollAnim.stop()
@@ -144,6 +146,53 @@ Page {
     function completeScroll() {
         if (scrollAnim.running)
             scrollAnim.complete()
+        if (dropAnim.running)
+            page.dropNow()
+    }
+
+    function panelTop(): real {
+        const target = d.valueSheet
+        const title = target.title === "" ? 0 : liftTitle.implicitHeight
+        const room = target.height - target.statusClear - 2 * target.edge - title - target.leadHeight
+        const rows = target.items.length === 0 ? 0
+            : Math.max(1, Math.min(target.items.length, Math.floor(room / target.pitch)))
+        return target.height - (2 * target.edge + title + target.leadHeight + rows * target.pitch)
+    }
+
+    function liftTop(index: int): real {
+        const need = flick.y + page.rowTopOf(index) + page.rowHeightOf(page.rows[index]) - page.panelTop()
+            + Ui.px(Ui.gutter)
+        for (let i = 0; i <= index; i++) {
+            if (page.rowTopOf(i) >= need - 0.01)
+                return page.rowTopOf(i)
+        }
+        return -1
+    }
+
+    function relift(index: int): void {
+        const top = page.liftTop(index)
+        if (top < 0) {
+            liftAnim.stop()
+            page.dropNow()
+            d.lifted = false
+            d.showValue(d.lifting, d.valueKey)
+            return
+        }
+        flick.bottomMargin = Math.max(0, top - page.maxContentY())
+        if (liftAnim.running) {
+            liftAnim.stop()
+            liftAnim.from = flick.contentY
+            liftAnim.to = top
+            liftAnim.start()
+            return
+        }
+        flick.contentY = top
+    }
+
+    function dropNow(): void {
+        dropAnim.stop()
+        flick.contentY = Math.min(flick.contentY, page.maxContentY())
+        flick.bottomMargin = 0
     }
 
     function moveRow(delta: int): bool {
@@ -237,6 +286,8 @@ Page {
     function openValue(key: string): void {
         if (page.model === null || page.model.busy(key) || !page.model.beginEdit(key))
             return
+        if (dropAnim.running)
+            page.dropNow()
         const values = page.model.sheet(key)
         const r = page.rows[page.indexOfKey(key)]
         if (values.words === undefined || values.words.length === 0 || r === undefined) {
@@ -259,14 +310,38 @@ Page {
                 : values.values.map((v) => v < 0 ? Ui.textFull : Ui.accentForHue(v))
         else
             sheet.items = values.words
-        target.open()
-        target.mark = values.mark
-        target.wrap = values.wrap
-        target.focusIndex = values.focus
-        d.moved = false
+        d.valueSet = values
+        d.lifting = d.session
+        const index = page.indexOfKey(key)
+        const base = scrollAnim.running ? scrollAnim.to : flick.contentY
+        const bottom = flick.y + page.rowTopOf(index) + page.rowHeightOf(r) - base
+        const top = page.liftTop(index)
+        if (top < 0 || bottom <= page.panelTop() + 0.01) {
+            d.showValue(d.session, key)
+            return
+        }
+        touchScroller.stop()
+        scrollAnim.stop()
+        liftAnim.stop()
+        flick.bottomMargin = Math.max(0, top - page.maxContentY())
+        d.lifted = true
+        if (!page.live) {
+            flick.contentY = top
+            d.showValue(d.session, key)
+            return
+        }
+        liftAnim.from = flick.contentY
+        liftAnim.to = top
+        liftAnim.start()
     }
 
-    function endValue(): void {
+    function endValue(now: bool): void {
+        const lifting = d.lifting !== 0
+        const lifted = d.lifted
+        const moving = d.valueSheet.shown && d.valueSheet.animated
+        liftAnim.stop()
+        d.lifting = 0
+        d.lifted = false
         d.valueKey = ""
         d.riseKept = ""
         d.valueValues = []
@@ -275,6 +350,15 @@ Page {
             sheet.close()
         if (swatchSheet.shown)
             swatchSheet.close()
+        if (!lifted)
+            return
+        if (now || lifting || !moving || !page.active || flick.contentY <= page.maxContentY()) {
+            page.dropNow()
+            return
+        }
+        dropAnim.from = flick.contentY
+        dropAnim.to = page.maxContentY()
+        dropAnim.start()
     }
 
     function previewValue(index: int): void {
@@ -286,7 +370,7 @@ Page {
     function acceptValue(index: int): void {
         const value = d.valueValues[index]
         const key = d.valueKey
-        page.endValue()
+        page.endValue(false)
         if (value === undefined)
             return
         if (key === page.model.accentKey)
@@ -298,7 +382,7 @@ Page {
     function cancelValue(): void {
         if (!page.valueOpen)
             return
-        page.endValue()
+        page.endValue(false)
         page.model.cancelPreview()
     }
 
@@ -401,7 +485,7 @@ Page {
 
     function dismiss(): void {
         const open = page.valueOpen || page.editing
-        page.endValue()
+        page.endValue(true)
         page.confirmEdit()
         page.closeRows()
         if (confirm.shown)
@@ -507,6 +591,14 @@ Page {
     }
 
     function completeAll() {
+        if (d.lifting !== 0 && page.screenOff) {
+            liftAnim.stop()
+        } else if (d.lifting !== 0) {
+            liftAnim.complete()
+            d.showValue(d.lifting, d.valueKey)
+            d.valueSheet.complete()
+            d.valueSheet.list.forceLayout()
+        }
         page.settle()
         page.completeScroll()
     }
@@ -539,6 +631,8 @@ Page {
     function handleAction(name: string, repeat: bool): bool {
         if (confirm.shown)
             return confirm.handleAction(name, repeat)
+        if (d.lifting !== 0)
+            return page.holdRise(name, repeat)
         if (d.valueSheet.shown && page.valueOpen && d.valueSheet.animating)
             return page.holdRise(name, repeat)
         if (d.valueSheet.shown)
@@ -584,10 +678,12 @@ Page {
         const kept = top ? page.nearestFocusable(0, 1) : page.indexOfKey(page.focusKey)
         if (kept >= 0 && kept !== page.focusIndex) {
             page.focusIndex = kept
-            if (top)
-                page.scrollTo(0, 0)
-            else
-                page.ensureVisible(0)
+            if (d.lifting === 0 && !d.lifted) {
+                if (top)
+                    page.scrollTo(0, 0)
+                else
+                    page.ensureVisible(0)
+            }
         }
         page.fixFocus()
         page.focusKey = page.keyToKeep()
@@ -600,6 +696,8 @@ Page {
             const at = page.indexOfKey(d.valueKey)
             if (at < 0 || page.rows[at].readOnly)
                 page.cancelLater()
+            else if (d.lifting !== 0 || d.lifted)
+                page.relift(at)
         }
         if (confirm.shown && !page.rows.some((r) => r.action === confirm.action))
             confirm.close()
@@ -662,7 +760,7 @@ Page {
 
         function onAvailableChanged() {
             if (!page.model.available) {
-                page.endValue()
+                page.endValue(true)
                 page.confirmEdit()
                 page.closeRows()
             }
@@ -670,7 +768,7 @@ Page {
 
         function onPreviewEnded(key) {
             if (page.valueOpen && d.valueKey === key)
-                page.endValue()
+                page.endValue(false)
             if (page.editing && page.editKey === key)
                 page.confirmEdit()
         }
@@ -693,6 +791,21 @@ Page {
         property string valueItems: ""
         property bool moved: false
         property int session: 0
+        property int lifting: 0
+        property bool lifted: false
+        property var valueSet: null
+
+        function showValue(session: int, key: string): void {
+            if (session === 0 || d.lifting !== session || d.session !== session || d.valueKey !== key)
+                return
+            d.lifting = 0
+            const target = d.valueSheet
+            target.open()
+            target.mark = d.valueSet.mark
+            target.wrap = d.valueSet.wrap
+            target.focusIndex = d.valueSet.focus
+            d.moved = false
+        }
     }
 
     PageSurface {
@@ -765,6 +878,14 @@ Page {
         }
     }
 
+    Text {
+        id: liftTitle
+
+        visible: false
+        text: d.valueSheet.title
+        font: Ui.font(Ui.dialogTitle)
+    }
+
     CroppedHeader {
         id: header
 
@@ -779,6 +900,27 @@ Page {
         target: flick
         property: "contentY"
         easing.type: Motion.easeIn
+    }
+
+    NumberAnimation {
+        id: liftAnim
+
+        target: flick
+        property: "contentY"
+        duration: Motion.scroll
+        easing.type: Motion.easeIn
+        onFinished: d.showValue(d.lifting, d.valueKey)
+    }
+
+    NumberAnimation {
+        id: dropAnim
+
+        target: flick
+        property: "contentY"
+        duration: Math.min(Motion.scroll, d.valueSheet.duration)
+        easing.type: Motion.bezier
+        easing.bezierCurve: Motion.decel
+        onFinished: flick.bottomMargin = 0
     }
 
     Sheet {

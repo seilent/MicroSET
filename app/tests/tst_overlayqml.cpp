@@ -964,6 +964,27 @@ private slots:
         QTRY_COMPARE(m_overlay->hides, 1);
         QCOMPARE(stack->property("depth").toInt(), 1);
     }
+
+    void menuDuringLiftEndsIt()
+    {
+        openAt(u"display"_s, u"display.auto_rotate"_s);
+        page()->setProperty("animated", true);
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QVERIFY(page()->property("valueOpen").toBool());
+        QVERIFY(!valueSheetShown());
+        m_overlay->openMenu({u"Steam OS"_s}, 0, {QString()});
+        QTRY_VERIFY(!page()->property("valueOpen").toBool());
+        QTest::qWait(150);
+        QObject *sheet = qvariant_cast<QObject *>(page()->property("sheet"));
+        QVERIFY(!sheet->property("shown").toBool());
+        QVERIFY(!sheet->property("animating").toBool());
+        auto *flick = qvariant_cast<QQuickItem *>(page()->property("flick"));
+        qreal end = 0;
+        QVERIFY(QMetaObject::invokeMethod(page(), "maxContentY", Q_RETURN_ARG(qreal, end)));
+        QCOMPARE(flick->property("contentY").toReal(), end);
+        QCOMPARE(flick->property("bottomMargin").toReal(), 0.0);
+        QCOMPARE(m_overlay->hides, 0);
+    }
 };
 
 QTEST_MAIN(OverlayQmlTest)
