@@ -30,6 +30,7 @@ foreach(state browse rollback long-reason empty-journal short-journal dialog toa
 endforeach()
 
 find_program(SHA256SUM sha256sum REQUIRED)
-add_test(NAME recovery-shot-compare COMMAND ${SHA256SUM} --check --strict ${CMAKE_CURRENT_SOURCE_DIR}/shots.sha256
+add_test(NAME recovery-shot-compare
+    COMMAND sh -c "${SHA256SUM} --check --strict \"$0\" || { ${SHA256SUM} *.png; exit 1; }" ${CMAKE_CURRENT_SOURCE_DIR}/shots.sha256
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shots)
 set_tests_properties(recovery-shot-compare PROPERTIES FIXTURES_REQUIRED recovery-shots)
