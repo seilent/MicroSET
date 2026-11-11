@@ -27,11 +27,14 @@ Item {
     readonly property string focusLetter: root.letters[root.focusIndex] === undefined ? "" : root.letters[root.focusIndex]
     readonly property int exitIndex: -1
     readonly property bool exitFocused: root.focusIndex === root.exitIndex
+    readonly property real eps: 0.01
     property alias exitText: exitText
     property alias exitCell: exitCell
     property alias cells: cells
     property alias face: face
     property alias fade: progressAnim
+    property alias flick: flick
+    property alias scrollAnimation: scrollAnim
     readonly property string touchKind: "block"
 
     signal jumpTo(string letter)
@@ -120,6 +123,79 @@ Item {
         return false
     }
 
+    function slotOf(index: int): int {
+        return index === root.exitIndex ? 0 : index + root.offset
+    }
+
+    function rowTop(slot: int): real {
+        return root.gridY + Math.floor(slot / root.cols) * root.pitch
+    }
+
+    function limit(): real {
+        return Math.max(0, flick.contentHeight - flick.height)
+    }
+
+    function offsetFor(slot: int, off: real): real {
+        const edge = Ui.px(Ui.edge)
+        const top = root.rowTop(slot)
+        let to = off
+        if (top - off < edge - root.eps)
+            to = slot < root.cols ? 0 : top - edge
+        else if (top + root.tile - off > flick.height - edge + root.eps)
+            to = top + root.tile - (flick.height - edge)
+        return Math.max(0, Math.min(root.limit(), to))
+    }
+
+    function inBand(slot: int, off: real): bool {
+        const edge = Ui.px(Ui.edge)
+        const top = root.rowTop(slot) - off
+        return top >= edge - root.eps && top + root.tile <= flick.height - edge + root.eps
+    }
+
+    function focusAfterScroll(): void {
+        const off = flick.contentY
+        const focusSlot = root.slotOf(root.focusIndex)
+        if (root.inBand(focusSlot, off))
+            return
+        const d = root.rowTop(focusSlot) - off < Ui.px(Ui.edge) - root.eps ? 1 : -1
+        const count = root.offset + root.letters.length
+        for (let s = d > 0 ? 0 : count - 1; s >= 0 && s < count; s += d) {
+            if (!root.inBand(s, off))
+                continue
+            const i = s < root.offset ? root.exitIndex : s - root.offset
+            if (i === root.exitIndex || root.has(root.letters[i])) {
+                root.focusIndex = i
+                return
+            }
+        }
+    }
+
+    function scrollToFocus(): bool {
+        const from = scrollAnim.running ? scrollAnim.to : flick.contentY
+        const to = root.offsetFor(root.slotOf(root.focusIndex), from)
+        if (Math.abs(to - from) <= root.eps)
+            return false
+        scroller.stop()
+        scrollAnim.stop()
+        if (root.screenOff) {
+            flick.contentY = to
+            return true
+        }
+        scrollAnim.from = flick.contentY
+        scrollAnim.to = to
+        scrollAnim.start()
+        return true
+    }
+
+    function stepped(moved: bool): bool {
+        return root.scrollToFocus() || moved
+    }
+
+    function refit(): void {
+        if (root.shown)
+            flick.contentY = root.offsetFor(root.slotOf(root.focusIndex), flick.contentY)
+    }
+
     function animateTo(value: real, duration: int) {
         progressAnim.stop()
         if (root.screenOff || value === root.progress) {
@@ -137,6 +213,9 @@ Item {
         const wanted = root.letters.indexOf(letter)
         const start = wanted >= 0 && root.has(letter) ? wanted : root.firstAvailable()
         root.focusIndex = start < 0 ? root.exitIndex : start
+        scroller.stop()
+        scrollAnim.stop()
+        flick.contentY = root.offsetFor(root.slotOf(root.focusIndex), 0)
         if (progressAnim.running && !root.opening) {
             progressAnim.stop()
             root.progress = 0
@@ -150,6 +229,8 @@ Item {
         if (!root.shown)
             return
         const back = progressAnim.running && root.opening
+        scroller.stop()
+        scrollAnim.stop()
         root.shown = false
         root.opening = false
         root.animateTo(0, Math.round(root.progress * (back ? root.openDuration : root.closeDuration)))
@@ -166,13 +247,13 @@ Item {
             return false
         switch (name) {
         case "up":
-            return root.stepRow(-1)
+            return root.stepped(root.stepRow(-1))
         case "down":
-            return root.stepRow(1)
+            return root.stepped(root.stepRow(1))
         case "left":
-            return root.stepLinear(-1)
+            return root.stepped(root.stepLinear(-1))
         case "right":
-            return root.stepLinear(1)
+            return root.stepped(root.stepLinear(1))
         case "a":
             if (repeat)
                 return true
@@ -201,8 +282,13 @@ Item {
             progressAnim.stop()
             root.progress = root.shown ? 1 : 0
             root.opening = root.shown
+            scroller.stop()
+            if (scrollAnim.running)
+                scrollAnim.complete()
         }
     }
+
+    onColsChanged: Qt.callLater(root.refit)
 
     NumberAnimation {
         id: progressAnim
@@ -210,6 +296,15 @@ Item {
         target: root
         property: "progress"
         easing.type: Motion.linear
+    }
+
+    NumberAnimation {
+        id: scrollAnim
+
+        target: flick
+        property: "contentY"
+        duration: Motion.scroll
+        easing.type: Motion.easeIn
     }
 
     Item {
@@ -224,62 +319,90 @@ Item {
             color: Ui.bg
         }
 
-        Item {
-            id: exitCell
+        Flickable {
+            id: flick
 
-            readonly property string touchKind: root.shown ? "exit" : ""
+            readonly property bool touchScroll: true
+            readonly property bool touchScrollEnabled: root.shown
+            readonly property string touchKind: root.shown ? "grid" : ""
+            property alias touch: scroller
 
-            x: root.gridX - root.gap / 2
-            y: root.gridY - root.gap / 2
-            width: root.pitch
-            height: root.pitch
-
-            Text {
-                id: exitText
-
-                x: Ui.px(Ui.jumpExitCx) - exitCell.x - exitText.width / 2
-                y: Ui.px(Ui.jumpExitTop + Ui.capHeight * Ui.jumpExit.size) - exitCell.y - exitText.baselineOffset
-                text: "exit"
-                color: Ui.white(root.exitFocused ? Ui.jumpExit.alpha : Ui.jumpExit.alphaDim)
-                font: Ui.font(Ui.jumpExit)
+            function stopScroll(): void {
+                scrollAnim.stop()
             }
-        }
 
-        Repeater {
-            id: cells
+            anchors.fill: parent
+            contentWidth: flick.width
+            contentHeight: Ui.px(Ui.jumpContentH)
+            interactive: false
+            boundsBehavior: Flickable.StopAtBounds
+            onHeightChanged: Qt.callLater(root.refit)
+            onContentHeightChanged: Qt.callLater(root.refit)
 
-            model: root.letters
+            TouchScroll {
+                id: scroller
 
-            delegate: Item {
-                id: cell
+                flick: root.flick
+                onMoved: root.focusAfterScroll()
+            }
 
-                required property int index
-                required property var modelData
-                readonly property bool available: root.has(cell.modelData)
-                readonly property string touchKind: root.shown && cell.available ? "letter" : ""
-                readonly property int touchIndex: cell.index
-                property alias tile: tile
+            Item {
+                id: exitCell
 
-                x: root.cellX(cell.index) - root.gap / 2
-                y: root.cellY(cell.index) - root.gap / 2
+                readonly property string touchKind: root.shown ? "exit" : ""
+
+                x: root.gridX - root.gap / 2
+                y: root.gridY - root.gap / 2
                 width: root.pitch
                 height: root.pitch
 
-                LetterTile {
-                    id: tile
+                Text {
+                    id: exitText
 
-                    readonly property real snapX: Math.round(root.cellX(cell.index))
-                    readonly property real snapY: Math.round(root.cellY(cell.index))
+                    x: Ui.px(Ui.jumpExitCx) - exitCell.x - exitText.width / 2
+                    y: Ui.px(Ui.jumpExitTop + Ui.capHeight * Ui.jumpExit.size) - exitCell.y - exitText.baselineOffset
+                    text: "exit"
+                    color: Ui.white(root.exitFocused ? Ui.jumpExit.alpha : Ui.jumpExit.alphaDim)
+                    font: Ui.font(Ui.jumpExit)
+                }
+            }
 
-                    x: tile.snapX - cell.x
-                    y: tile.snapY - cell.y
-                    width: Math.round(root.tile)
-                    height: Math.round(root.tile)
-                    letter: cell.modelData
-                    empty: !cell.available
-                    focused: cell.available && root.focusIndex === cell.index
-                    pressed: tile.focused && root.pressed
-                    animated: !root.screenOff
+            Repeater {
+                id: cells
+
+                model: root.letters
+
+                delegate: Item {
+                    id: cell
+
+                    required property int index
+                    required property var modelData
+                    readonly property bool available: root.has(cell.modelData)
+                    readonly property string touchKind: root.shown && cell.available ? "letter" : ""
+                    readonly property int touchIndex: cell.index
+                    property alias tile: tile
+
+                    x: root.cellX(cell.index) - root.gap / 2
+                    y: root.cellY(cell.index) - root.gap / 2
+                    width: root.pitch
+                    height: root.pitch
+
+                    LetterTile {
+                        id: tile
+
+                        readonly property real snapX: Math.round(root.cellX(cell.index))
+                        readonly property real snapY: Math.round(root.cellY(cell.index))
+
+                        x: tile.snapX - cell.x
+                        y: tile.snapY - cell.y
+                        width: Math.round(root.tile)
+                        height: Math.round(root.tile)
+                        letter: cell.modelData
+                        empty: !cell.available
+                        focused: cell.available && root.focusIndex === cell.index
+                        pressed: tile.focused && root.pressed
+                        animated: !root.screenOff
+                    }
                 }
             }
         }
