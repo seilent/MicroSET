@@ -54,6 +54,8 @@ QtObject {
 
     readonly property var decel: [0.1, 0.9, 0.2, 1.0, 1, 1]
     readonly property var strip: [0.2, 0.8, 0.2, 1, 1, 1]
+    readonly property var cubicOut: [1 / 3, 1, 2 / 3, 1, 1, 1]
+    readonly property var linearCurve: [1 / 3, 1 / 3, 2 / 3, 2 / 3, 1, 1]
     readonly property int sine: Easing.OutSine
     readonly property int pop: Easing.OutExpo
     readonly property int bezierPop: Easing.OutBack
@@ -88,13 +90,16 @@ QtObject {
     readonly property int homeOutStagger: 28
     readonly property real homeOutShift: -0.25
 
-    readonly property int pivotOut: 300
-    readonly property int pivotStrip: 380
-    readonly property int pivotLabel: 200
-    readonly property int pivotRows: 380
+    readonly property int pivotOut: 50
+    readonly property int pivotStrip: 133
+    readonly property int pivotRows: 150
     readonly property real pivotShift: 34
-    readonly property int pivotRowStagger: 22
+    readonly property int pivotRowStagger: 0
     readonly property int pivotRowCap: 10
+    readonly property real pivotStripShift: 22.5 * Ui.kScale
+    readonly property real pivotStripAlpha: 0.40
+    readonly property real pivotRowInShift: 25 * Ui.kScale
+    readonly property int pivotRowFade: 200
     readonly property int rowsIn: 380
     readonly property real rowsInShift: 34
     readonly property int rowsInStagger: 22
