@@ -17,6 +17,7 @@ Item {
     property bool toastShown: false
     property var validator: null
     readonly property bool animating: progressAnim.running
+    readonly property bool up: root.shown || root.progress > 0
     readonly property bool bare: discard.shown
     readonly property bool toastCovers: root.toastShown && Ui.landscape
     readonly property var keys: entry.keys

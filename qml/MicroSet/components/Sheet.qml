@@ -22,6 +22,7 @@ Item {
     property var stack: []
     readonly property int depth: root.stack.length
     readonly property bool animating: progressAnim.running
+    readonly property bool up: root.shown || root.progress > 0
     readonly property int duration: Motion.sheet
     readonly property real scrimAlpha: Motion.sheetScrim
     readonly property color scrimColor: Ui.scrimSheet

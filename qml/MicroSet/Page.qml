@@ -14,6 +14,10 @@ Item {
     readonly property bool active: page.stack !== null && page.stack.currentItem === page
     readonly property real dialogFade: page.stack !== null ? page.stack.dialogFade : 0
     readonly property bool dialogUp: page.dialogFade > 0
+    property var sheets: []
+    property var dialogs: []
+    readonly property bool focusHidden: (page.stack !== null && page.stack.dialogShown === true) || page.dialogs.some((d) => d.shown)
+    readonly property bool overlayUp: page.focusHidden || page.sheets.some((s) => s.up) || (page.stack !== null && page.stack.overlayUp === true)
     readonly property bool stackAnimates: page.stack !== null && page.stack.animate === true
     property string touchKind: "page"
 

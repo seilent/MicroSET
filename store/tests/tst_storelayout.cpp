@@ -681,8 +681,12 @@ private slots:
         open(1);
         openDetail(u"org.example.App0"_s);
         QCOMPARE(rowTitle(u"action"_s), u"open"_s);
+        QQuickItem *back = find(u"back-ring"_s);
+        QVERIFY(back != nullptr);
+        const qreal focusedStroke = back->property("strokeWidth").toReal();
         tap(u"x"_s);
         QTest::qWait(50);
+        QVERIFY(back->property("strokeWidth").toReal() < focusedStroke);
         QQuickItem *confirm = find(u"confirm"_s);
         QVERIFY(confirm != nullptr);
         QVERIFY(confirm->property("shown").toBool());
@@ -694,6 +698,7 @@ private slots:
         tap(u"b"_s);
         QTest::qWait(100);
         QVERIFY(!confirm->property("shown").toBool());
+        QCOMPARE(back->property("strokeWidth").toReal(), focusedStroke);
         QCOMPARE(fake->uninstalled(), QStringList());
         tap(u"x"_s);
         QTest::qWait(50);

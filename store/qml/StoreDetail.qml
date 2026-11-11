@@ -156,10 +156,11 @@ Page {
         Ring {
             id: backRing
 
+            objectName: "back-ring"
             x: Ui.px(Ui.backRingX)
             y: Ui.px(Ui.backRingY)
             size: Ui.backRing
-            focused: true
+            focused: !page.focusHidden
             glyph: "back"
             animated: false
         }

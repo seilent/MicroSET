@@ -81,6 +81,12 @@ Window {
         value: Math.max(confirm.scrim.opacity, keyboard.progress)
     }
 
+    Binding {
+        target: stack
+        property: "dialogShown"
+        value: confirm.shown
+    }
+
     Component {
         id: listPage
 
