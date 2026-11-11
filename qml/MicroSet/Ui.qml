@@ -276,9 +276,13 @@ QtObject {
     readonly property real qpPeekW: ui.qpW * ui.qpPeekScale
     readonly property real headerBand: 70
     readonly property real headerXHeightBottom: 66
-    readonly property real pivotTop: ui.landscape ? 58 : 74
-    readonly property real pivotBottom: ui.landscape ? 86 : 106
-    readonly property real pivotBaseline: ui.pivotTop + 21
+    readonly property real pivotTop: ui.landscape ? 58 : 63 * ui.kScale
+    readonly property real pivotBottom: ui.landscape ? 86 : 92.5 * ui.kScale
+    readonly property real pivotBaseline: ui.landscape ? 79 : 95
+    readonly property real pageHeaderBaseline: ui.landscape ? 52 : 52 * ui.kScale
+    readonly property real pagePivotBaseline: ui.landscape ? 79 : 85.5 * ui.kScale
+    readonly property real pageContentTop: ui.landscape ? 98 : 120 * ui.kScale
+    readonly property real pageCountBaseline: ui.pagePivotBaseline
     readonly property real pivotGap: 16
     readonly property real pivotLeadGap: ui.hubEdge + 2
     readonly property real contentTop: ui.landscape ? 98 : 128
@@ -308,7 +312,7 @@ QtObject {
     readonly property real playingDotOffset: 6
     readonly property real detailRow: 124
     readonly property real detailNameDrop: 15
-    readonly property real detailNameBaseline: ui.pivotBaseline + ui.detailNameDrop
+    readonly property real detailNameBaseline: ui.pagePivotBaseline + ui.detailNameDrop
     readonly property real detailRingTop: 150
     readonly property real detailRing: 32
     readonly property real detailRingGap: 24
@@ -339,8 +343,8 @@ QtObject {
     readonly property real settingsValueFocused: 0.85
     readonly property real settingsValueDim: 0.4
     readonly property real eqValueGap: 8
-    readonly property real queueCountBaseline: ui.pivotBaseline
-    readonly property real queueRowsTop: ui.contentTop
+    readonly property real queueCountBaseline: ui.pageCountBaseline
+    readonly property real queueRowsTop: ui.pageContentTop
     readonly property real backRing: 64
     readonly property real backRingStroke: 4
     readonly property real backRingX: 0

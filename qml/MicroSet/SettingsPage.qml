@@ -732,7 +732,7 @@ Page {
         }
 
         x: 0
-        y: Ui.px(Ui.contentTop)
+        y: Ui.px(Ui.pageContentTop)
         width: page.width
         height: page.height - flick.y
         contentWidth: flick.width
