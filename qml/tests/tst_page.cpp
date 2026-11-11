@@ -171,6 +171,33 @@ class PageTest : public QObject
         QTRY_VERIFY(!model->rows(u"stick leds"_s, model->revision()).at(2).toMap().value(u"readOnly"_s).toBool());
     }
 
+    void startPage()
+    {
+        engine = std::make_unique<QQmlApplicationEngine>();
+        engine->setInitialProperties({
+            {u"model"_s, QVariant::fromValue(static_cast<QObject *>(model.get()))},
+            {u"screenshot"_s, true},
+            {u"shotState"_s, u"none"_s},
+        });
+        engine->loadFromModule("MicroSetPageTest", "PageRoot");
+        window = qobject_cast<QQuickWindow *>(engine->rootObjects().value(0));
+        QVERIFY(window);
+        view = window->findChild<QObject *>(u"settingsView"_s);
+        QVERIFY(view);
+    }
+
+    QString focusedKey() const
+    {
+        return page()->property("focusedRow").toMap().value(u"key"_s).toString();
+    }
+
+    void atTop(const QString &key)
+    {
+        QTRY_COMPARE(focusedKey(), key);
+        QCOMPARE(page()->property("focusIndex").toInt(), 1);
+        QCOMPARE(qvariant_cast<QObject *>(page()->property("flick"))->property("contentY").toReal(), 0.0);
+    }
+
 private slots:
     void init()
     {
@@ -185,19 +212,10 @@ private slots:
         model = std::make_unique<SettingsModel>(h->client());
         model->load();
         QTRY_VERIFY(model->available());
-        engine = std::make_unique<QQmlApplicationEngine>();
-        engine->setInitialProperties({
-            {u"model"_s, QVariant::fromValue(static_cast<QObject *>(model.get()))},
-            {u"screenshot"_s, true},
-            {u"shotState"_s, u"none"_s},
-        });
-        engine->loadFromModule("MicroSetPageTest", "PageRoot");
-        window = qobject_cast<QQuickWindow *>(engine->rootObjects().value(0));
-        QVERIFY(window);
+        startPage();
+        QVERIFY(window && view);
         window->requestActivate();
         QVERIFY(QTest::qWaitForWindowActive(window));
-        view = window->findChild<QObject *>(u"settingsView"_s);
-        QVERIFY(view);
     }
 
     void cleanup()
@@ -206,6 +224,37 @@ private slots:
         model.reset();
         fake.reset();
         h.reset();
+    }
+
+    void groupsFocusFirstWhileLoading()
+    {
+        engine.reset();
+        model = std::make_unique<SettingsModel>(h->client());
+        model->load();
+        startPage();
+        QVERIFY(window && view);
+        QVERIFY(!model->available());
+        QCOMPARE(page()->property("rows").toList().size(), 2);
+        QCOMPARE(focusedKey(), u"group-updates"_s);
+        QTRY_VERIFY(model->available());
+        QTRY_VERIFY(!row(u"group-audio"_s).isEmpty());
+        atTop(u"group-audio"_s);
+    }
+
+    void androidFocusFirstWhenTheAppComesLate()
+    {
+        engine.reset();
+        model = std::make_unique<SettingsModel>(h->client());
+        model->lsfg()->setFixture({}, true, u"android"_s);
+        model->load();
+        startPage();
+        QVERIFY(window && view);
+        QTRY_VERIFY(model->available());
+        QTRY_VERIFY(!row(u"perf.android_overlay"_s).isEmpty());
+        atTop(u"perf.android_overlay"_s);
+        model->setAndroidApp(u"com.example.game"_s);
+        QTRY_VERIFY(!row(u"android-app"_s).isEmpty());
+        atTop(u"android-app"_s);
     }
 
     void groupsAndBack()
@@ -399,7 +448,7 @@ private slots:
     {
         model->lsfg()->setFixture({}, true, u"android"_s);
         const QString kept = u"group-audio"_s;
-        QTRY_VERIFY(!row(kept).isEmpty());
+        QTRY_VERIFY(!row(u"perf.android_overlay"_s).isEmpty());
         focus(kept);
         model->setAndroidApp(u"com.example.game"_s);
         QTRY_VERIFY(!row(u"android-app"_s).isEmpty());
@@ -412,7 +461,7 @@ private slots:
     void thisAppKeepsLastRow()
     {
         model->lsfg()->setFixture({}, true, u"android"_s);
-        QTRY_VERIFY(!row(u"group-audio"_s).isEmpty());
+        QTRY_VERIFY(!row(u"perf.android_overlay"_s).isEmpty());
         int last = page()->property("rows").toList().size() - 1;
         bool focusable = false;
         while (last >= 0) {

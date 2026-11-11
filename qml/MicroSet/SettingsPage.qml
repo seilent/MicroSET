@@ -84,6 +84,10 @@ Page {
         return page.rows[page.focusIndex] === undefined ? "" : page.rows[page.focusIndex].key
     }
 
+    function keyToKeep(): string {
+        return page.focusIndex === page.nearestFocusable(0, 1) ? "" : page.keyAtFocus()
+    }
+
     function isFocusable(index: int): bool {
         const r = page.rows[index]
         return r !== undefined && r !== null && r.kind !== "label"
@@ -568,17 +572,21 @@ Page {
         }
     }
 
-    onFocusIndexChanged: page.focusKey = page.keyAtFocus()
+    onFocusIndexChanged: page.focusKey = page.keyToKeep()
 
     onRowsChanged: {
         page.rowTops = Qt.binding(() => page.buildTops(page.rows))
-        const kept = page.indexOfKey(page.focusKey)
+        const top = page.focusKey === ""
+        const kept = top ? page.nearestFocusable(0, 1) : page.indexOfKey(page.focusKey)
         if (kept >= 0 && kept !== page.focusIndex) {
             page.focusIndex = kept
-            page.ensureVisible(0)
+            if (top)
+                page.scrollTo(0, 0)
+            else
+                page.ensureVisible(0)
         }
         page.fixFocus()
-        page.focusKey = page.keyAtFocus()
+        page.focusKey = page.keyToKeep()
         const r = page.rows[page.focusIndex]
         if (page.editing && (r === undefined || r === null || r.key !== page.editKey || r.readOnly)) {
             page.confirmEdit()
