@@ -16,6 +16,8 @@
 #include <QByteArray>
 #include <QCommandLineParser>
 #include <QDBusConnection>
+#include <QDBusMessage>
+#include <QDBusPendingCallWatcher>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
@@ -40,6 +42,7 @@ using namespace Qt::StringLiterals;
 namespace {
 
 constexpr int watchdogMs = 7000;
+constexpr int foregroundMs = 2000;
 
 void fail(const QString &message)
 {
@@ -126,11 +129,37 @@ int main(int argc, char *argv[])
         if (model)
             model->setGame(withFrameLimit(game.info(), frameLimit.limit(), frameLimit.refresh()));
     };
-    QObject::connect(&overlay, &Overlay::shownChanged, &game, [&overlay, &game, pushGame] {
-        if (!overlay.shown())
+    quint64 appAsk = 0;
+    const auto pushApp = [&model, &session, &appAsk] {
+        if (!model)
             return;
+        const quint64 ask = ++appAsk;
+        if (model->lsfg()->session() != "android"_L1) {
+            model->setAndroidApp({});
+            return;
+        }
+        const QDBusMessage message = QDBusMessage::createMethodCall(u"net.seilent.MicroOs.Android1"_s,
+                                                                    u"/net/seilent/MicroOs/Android"_s,
+                                                                    u"net.seilent.MicroOs.Android1"_s, u"Foreground"_s);
+        auto *watcher = new QDBusPendingCallWatcher(session.asyncCall(message, foregroundMs), model.get());
+        QObject::connect(watcher, &QDBusPendingCallWatcher::finished, model.get(), [&model, &appAsk, watcher, ask] {
+            watcher->deleteLater();
+            const QDBusMessage reply = watcher->reply();
+            if (ask == appAsk)
+                model->setAndroidApp(reply.type() == QDBusMessage::ReplyMessage ? reply.arguments().value(0).toString()
+                                                                                : QString());
+        });
+    };
+    QObject::connect(&overlay, &Overlay::shownChanged, &game, [&overlay, &game, &model, &appAsk, pushGame, pushApp] {
+        if (!overlay.shown()) {
+            ++appAsk;
+            if (model)
+                model->setAndroidApp({});
+            return;
+        }
         game.refresh();
         pushGame();
+        pushApp();
     });
     overlay.setUi([&] {
         if (engine)
@@ -138,6 +167,7 @@ int main(int argc, char *argv[])
         model = std::make_unique<SettingsModel>(system);
         model->load();
         pushGame();
+        pushApp();
         QObject::connect(&game, &RunningGame::changed, model.get(), pushGame);
         QObject::connect(&frameLimit, &microset::FrameLimitWatch::changed, model.get(), pushGame);
         engine = std::make_unique<QQmlApplicationEngine>();

@@ -582,7 +582,8 @@
       "default": false,
       "applier": null,
       "group": null,
-      "label": "Android frame generation"
+      "label": "Android frame generation",
+      "ui": {"apply": "confirm"}
     },
     "lsfg.android_fps": {
       "type": "u",
@@ -591,7 +592,8 @@
       "max": 60,
       "applier": null,
       "group": null,
-      "label": "Android frame limit"
+      "label": "Android frame limit",
+      "ui": {"apply": "confirm", "steps": [0, 30], "values": {"0": "off"}}
     },
     "app.profile": {
       "type": "s",

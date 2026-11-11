@@ -57,6 +57,7 @@ const QStringList &states()
         u"lsfg-old-layer"_s, u"lsfg-install-focus"_s, u"lsfg-open-empty"_s, u"lsfg-gone-long"_s, u"lsfg-open-top"_s,
         u"game-lsfg-blacklist"_s, u"game-lsfg-disabled"_s, u"game-lsfg-cap-off"_s, u"sheet-game-lsfg-multiplier"_s,
         u"sheet-game-lsfg-cap"_s, u"lsfg-games-motion"_s, u"lsfg-dialog-motion"_s, u"lsfg-sheet-game"_s,
+        u"android-app"_s, u"sheet-android-limit"_s, u"android-app-lsfg-off"_s,
     };
     return names;
 }
@@ -68,6 +69,7 @@ struct Games
     QVariantMap stored;
 };
 
+const QString AndroidApp = u"com.bandainamcoent.idolmaster_gakuen"_s;
 const QString LongName = u"The Legend of Heroes: Trails in the Sky the 1st Chapter Deluxe Edition with Every Bonus"_s;
 
 bool lsfgState(const QString &state)
@@ -214,6 +216,10 @@ int main(int argc, char *argv[])
     values.insert(games.stored);
     if (accentOff)
         values.insert(u"microdap.accent_off"_s, true);
+    const bool android = state == "android-app"_L1 || state == "sheet-android-limit"_L1 || state == "android-app-lsfg-off"_L1;
+    if (android)
+        values.insert({{u"lsfg.android_app"_s, AndroidApp}, {u"lsfg.android_state"_s, true}, {u"lsfg.android_fps"_s, 30u},
+                       {u"lsfg.enabled"_s, state != "android-app-lsfg-off"_L1}});
     SettingsModel model;
     model.updates()->setFixture(u"testing-38784f1"_s, u"none"_s, {});
     model.setFixture(FakeMicroSetd::describe(files), values,
@@ -240,6 +246,10 @@ int main(int argc, char *argv[])
             lsfg.insert(it.key(), it.value());
         const bool known = state != "lsfg-unknown"_L1;
         model.lsfg()->setFixture(known ? lsfg : QJsonObject(), known, u"steam"_s);
+    }
+    if (android) {
+        model.lsfg()->setFixture({}, true, u"android"_s);
+        model.setAndroidApp(AndroidApp);
     }
     if (state == "lsfg-gone-long"_L1) {
         model.enter(u"app.251150"_s);

@@ -38,6 +38,11 @@ const QString LsfgGamesKey = u"lsfg-games"_s;
 const QString LsfgGamePrefix = u"lsfg-game-"_s;
 const QString LsfgInstallKey = u"lsfg-install"_s;
 const QString LsfgOffText = u"Frame generation is off"_s;
+const QString AndroidGroup = u"lsfg.android"_s;
+const QString AndroidAppKey = u"lsfg.android_app"_s;
+const QString AndroidStateKey = u"lsfg.android_state"_s;
+const QString AndroidFpsKey = u"lsfg.android_fps"_s;
+constexpr qsizetype AndroidAppMax = 128;
 const QString ProfilesKey = u"proton.profiles"_s;
 const QString ProfileOption = u"profile"_s;
 constexpr qsizetype MaxGames = 512;
@@ -201,6 +206,14 @@ void SettingsModel::setGame(const QVariantMap &game)
         }
         fetchEffective(appid);
     }
+    bump();
+}
+
+void SettingsModel::setAndroidApp(const QString &package)
+{
+    if (package == m_androidApp)
+        return;
+    m_androidApp = package;
     bump();
 }
 
@@ -375,8 +388,10 @@ void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, 
     QSet<QString> referenced;
     QVariantMap lsfgDefaults;
     for (auto it = schema.begin(); it != schema.end(); ++it) {
-        const QJsonObject object = it.value().toObject();
-        if (it.key().startsWith("lsfg."_L1) && !it.key().startsWith("lsfg.android_"_L1))
+        QJsonObject object = it.value().toObject();
+        if (it.key().startsWith("lsfg.android_"_L1))
+            object.insert(u"group"_s, AndroidGroup);
+        else if (it.key().startsWith("lsfg."_L1))
             lsfgDefaults.insert(it.key(),
                                 coerce(object.value("type"_L1).toString(), object.value("default"_L1).toVariant()));
         if (object.value("per_app"_L1).toBool() && it.key().startsWith(AppPrefix)) {
@@ -585,6 +600,11 @@ QVariant SettingsModel::shownOf(const Entry &entry) const
 {
     if (m_preview && m_preview->override && m_preview->key == entry.key && m_preview->last.isValid())
         return m_preview->last;
+    if (entry.key == AndroidStateKey || entry.key == AndroidFpsKey) {
+        const auto app = m_entries.constFind(AndroidAppKey);
+        if (app == m_entries.cend() || app->shown.toString() != m_androidApp)
+            return entry.defaultValue;
+    }
     return entry.shown;
 }
 
@@ -774,6 +794,8 @@ QList<const SettingsModel::Entry *> SettingsModel::visible(const QString &group)
     const bool fallbackShown = fallback != m_entries.cend() && !textOf(*fallback, fallback->shown).isEmpty();
     const bool lsfg = lsfgShown();
     for (const Entry &entry : m_entries) {
+        if (entry.group == AndroidGroup)
+            continue;
         if (!lsfg && (entry.group == LsfgGroup || (!entry.appid.isEmpty() && entry.option.startsWith("lsfg."_L1))))
             continue;
         if (titleOf(entry.group) != group || (kindOf(entry) == "info"_L1 && textOf(entry, entry.shown).isEmpty()))
@@ -1012,6 +1034,22 @@ QVariantList SettingsModel::thisGame() const
     if (held && limitKnown && refreshKnown && 0 < limit && limit < refresh)
         out << infoRow(u"game-lsfg-limit"_s, u"Steam frame limit"_s, u"on: counts generated frames"_s);
     return out;
+}
+
+QVariantList SettingsModel::thisApp() const
+{
+    const auto state = m_entries.constFind(AndroidStateKey);
+    const auto fps = m_entries.constFind(AndroidFpsKey);
+    if (m_androidApp.isEmpty() || m_lsfg.session() != "android"_L1 || state == m_entries.cend() || fps == m_entries.cend())
+        return {};
+    QVariantMap generation = rowOf(*state);
+    generation.insert(u"title"_s, u"Frame generation"_s);
+    QVariantMap limit = rowOf(*fps);
+    limit.insert(u"title"_s, u"Frame limit"_s);
+    QVariantList out{label(u"this app"_s), infoRow(u"android-app"_s, m_androidApp, QString()), generation};
+    if (!lsfgOn())
+        out << infoRow(u"lsfg-off"_s, LsfgOffText, QString());
+    return out << limit << infoRow(u"android-next"_s, u"Frame generation applies at next start"_s, QString());
 }
 
 bool SettingsModel::profilesOn() const
@@ -1328,7 +1366,7 @@ QVariantList SettingsModel::groups(int) const
             return b.title == UpdatesGroup;
         return a.order != b.order ? a.order < b.order : a.title < b.title;
     });
-    QVariantList out = thisGame();
+    QVariantList out = thisApp() + thisGame();
     QString section;
     for (const Item &item : std::as_const(items)) {
         if (out.isEmpty() || item.owner != section) {
@@ -1353,7 +1391,8 @@ bool SettingsModel::beginEdit(const QString &key)
         return false;
     }
     endPreviews();
-    m_preview = Preview{key, it->shown, {}, it->overridable, it->confirm || key == AccentKey, {it->shown}};
+    const QVariant shown = shownOf(*it);
+    m_preview = Preview{key, shown, {}, it->overridable, it->confirm || key == AccentKey, {shown}};
     return true;
 }
 
@@ -1622,6 +1661,22 @@ bool SettingsModel::write(const QString &key, const QVariant &value)
     if (!m_fixture && !m_available) {
         emit refused(it->title, NotAvailable);
         return false;
+    }
+    if (key == AndroidStateKey || key == AndroidFpsKey) {
+        const auto app = m_entries.constFind(AndroidAppKey);
+        if (m_androidApp.isEmpty() || app == m_entries.cend())
+            return false;
+        if (m_androidApp.size() > AndroidAppMax) {
+            emit refused(it->title, SetFailed);
+            return false;
+        }
+        if (app->shown.toString() != m_androidApp) {
+            if (!write(AndroidAppKey, m_androidApp))
+                return false;
+            const auto other = m_entries.constFind(key == AndroidStateKey ? AndroidFpsKey : AndroidStateKey);
+            if (other != m_entries.cend())
+                write(other->key, other->defaultValue);
+        }
     }
     if (it->shown == wanted)
         return true;

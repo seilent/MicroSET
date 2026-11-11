@@ -67,7 +67,8 @@ foreach(size 960x640 640x960)
             sheet-lsfg-mode sheet-lsfg-multiplier sheet-lsfg-cap sheet-lsfg-flow game-lsfg sheet-game-lsfg lsfg-installing
             lsfg-sent lsfg-no-client lsfg-game-running lsfg-microsd lsfg-unknown lsfg-old-layer lsfg-install-focus
             lsfg-open-empty lsfg-gone-long lsfg-open-top game-lsfg-blacklist game-lsfg-disabled game-lsfg-cap-off
-            sheet-game-lsfg-multiplier sheet-game-lsfg-cap lsfg-sheet-game)
+            sheet-game-lsfg-multiplier sheet-game-lsfg-cap lsfg-sheet-game android-app sheet-android-limit
+            android-app-lsfg-off)
         add_test(NAME page-shot-${state}-${size}
             COMMAND microset-pageshot --screenshot ${CMAKE_CURRENT_BINARY_DIR}/shots/${state}-${size}.png
                 --size ${size} --state ${state})

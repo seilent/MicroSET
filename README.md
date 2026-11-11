@@ -32,7 +32,15 @@ read, change and watch them over D-Bus.
   while gamescope's applied limit (`GAMESCOPE_FPS_LIMIT_FEEDBACK`) is under the refresh rate. Any other game
   (native or on a Steam Linux Runtime) gets the game row only. Scopes of the runtimes and Lossless Scaling are skipped.
   A scope that is removed or leaves the active state turns the state row `unknown`. While `STEAM_COMPAT_FEX_CONFIG` is
-  non empty, the running game's page ends with `Set in Steam` (TSO, Multiblock). Row values are plain text.
+  non empty, the running game's page ends with `Set in Steam` (TSO, Multiblock). In the android session each show
+  calls `Foreground()` of `net.seilent.MicroOs.Android1` on the session bus (2 s timeout), and hiding clears the
+  answer; with a package the first page starts with `this app`: the package, `Frame generation`
+  (`lsfg.android_state`), `Frame generation is off` while `lsfg.enabled` is false, `Frame limit` (`lsfg.android_fps`,
+  `off` or `30`) and `Frame generation applies at next start`. The rows show the stored values while
+  `lsfg.android_app` names that package, else `off`. Both sheets apply on accept. An accepted change for another app
+  writes `lsfg.android_app`, resets the other Android key to its default, then writes its key; a package over 128
+  characters is refused (`set failed`) before any write.
+  Row values are plain text.
   The overlay also owns `net.seilent.MicroOs.SessionMenu` (interface `SessionMenu1`, `Show(sessions, current, hints)`):
   a sheet listing the sessions MicroOS passes, current marked. A switches (`microos-session-switch@<name>.service`) or
   starts an install (`microos-session-install@<name>.service`), B closes.

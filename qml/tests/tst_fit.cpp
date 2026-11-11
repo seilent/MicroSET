@@ -35,14 +35,14 @@ class FitTest : public QObject
         QStringList misses;
     };
 
-    static QObject *viewOf(QQmlApplicationEngine &engine, SettingsModel &model)
+    static QObject *viewOf(QQmlApplicationEngine &engine, SettingsModel &model, QSize size = {640, 960})
     {
         engine.setInitialProperties({
             {u"model"_s, QVariant::fromValue(static_cast<QObject *>(&model))},
             {u"screenshot"_s, true},
             {u"shotState"_s, u"none"_s},
-            {u"shotWidth"_s, 640},
-            {u"shotHeight"_s, 960},
+            {u"shotWidth"_s, size.width()},
+            {u"shotHeight"_s, size.height()},
         });
         engine.loadFromModule("MicroSetPageTest", "PageRoot");
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));
@@ -297,6 +297,47 @@ private slots:
                  qPrintable(u"frame generation words, titles or row values wider than their room at 640 wide:\n"_s
                             + count.misses.join(u'\n')));
         qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void androidAppFits_data()
+    {
+        QTest::addColumn<QSize>("size");
+        QTest::newRow("960x640") << QSize(960, 640);
+        QTest::newRow("640x960") << QSize(640, 960);
+    }
+
+    void androidAppFits()
+    {
+        QFETCH(QSize, size);
+        QVERIFY(qEnvironmentVariableIsSet("MICROSET_FONT_DIR"));
+        SettingsModel model;
+        model.setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {});
+        model.lsfg()->setFixture({}, true, u"android"_s);
+        QQmlApplicationEngine engine;
+        QObject *view = viewOf(engine, model, size);
+        QVERIFY(view);
+        QObject *page = qvariant_cast<QObject *>(qvariant_cast<QObject *>(view->property("stack"))->property("currentItem"));
+        auto *repeater = qvariant_cast<QObject *>(page->property("repeater"));
+        QVERIFY(repeater);
+        const QString whole = u"com.bandainamcoent.idolmaster_gakuen"_s;
+        const QString longest = u"com."_s + QString(124, u'a');
+        for (const QString &package : {whole, longest}) {
+            model.setAndroidApp(package);
+            const auto shown = [&]() -> QQuickItem * {
+                QQuickItem *item = nullptr;
+                QMetaObject::invokeMethod(repeater, "itemAt", Q_RETURN_ARG(QQuickItem *, item), Q_ARG(int, 1));
+                return item && item->property("modelData").toMap().value(u"title"_s).toString() == package ? item : nullptr;
+            };
+            QTRY_VERIFY(shown());
+            QQuickItem *item = shown();
+            auto *title = qvariant_cast<QQuickItem *>(item->property("titleItem"));
+            QQuickItem *clip = title->parentItem();
+            QTRY_COMPARE(item->width(), qreal(size.width()));
+            QVERIFY(clip->clip());
+            QVERIFY2(clip->width() <= item->width() - title->x(),
+                     qPrintable(u"%1 clips at %2 in a %3 row"_s.arg(package).arg(clip->width()).arg(item->width())));
+            QCOMPARE(clip->width() - title->x() >= title->implicitWidth(), package == whole);
+        }
     }
 
     void gameSheetsFitAt640_data()

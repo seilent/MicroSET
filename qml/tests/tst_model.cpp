@@ -1075,6 +1075,128 @@ private slots:
         qunsetenv("MICROSET_STEAM_DIR");
     }
 
+    void androidApp()
+    {
+        SettingsModel fixture;
+        fixture.setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}),
+                           {{u"lsfg.android_app"_s, u"com.example.game"_s}, {u"lsfg.android_state"_s, true},
+                            {u"lsfg.android_fps"_s, 30u}},
+                           {});
+        fixture.lsfg()->setFixture({}, true, u"android"_s);
+        QVERIFY(!keysOf(fixture.groups(0)).contains(u"label-this app"_s));
+        fixture.setAndroidApp(u"com.example.game"_s);
+        QVariantList rows = fixture.groups(0);
+        QCOMPARE(keysOf(rows).mid(0, 6), (QStringList{u"label-this app"_s, u"android-app"_s, u"lsfg.android_state"_s,
+                                                      u"lsfg.android_fps"_s, u"android-next"_s, u"label-microset"_s}));
+        QVERIFY(!keysOf(rows).contains(u"group-Frame generation"_s));
+        QVERIFY(!keysOf(rows).contains(u"group-lsfg.android"_s));
+        QVERIFY(!keysOf(rows).contains(u"lsfg-off"_s));
+        QCOMPARE(rowOf(rows, u"label-this app"_s).value(u"title"_s).toString(), u"this app"_s);
+        QCOMPARE(rowOf(rows, u"android-app"_s).value(u"title"_s).toString(), u"com.example.game"_s);
+        QCOMPARE(rowOf(rows, u"android-app"_s).value(u"kind"_s).toString(), u"info"_s);
+        QCOMPARE(value(rows, u"android-app"_s), QString());
+        QCOMPARE(rowOf(rows, u"lsfg.android_state"_s).value(u"title"_s).toString(), u"Frame generation"_s);
+        QCOMPARE(rowOf(rows, u"lsfg.android_state"_s).value(u"pick"_s).toString(), u"sheet"_s);
+        QCOMPARE(value(rows, u"lsfg.android_state"_s), u"on"_s);
+        QCOMPARE(fixture.sheet(u"lsfg.android_state"_s).value(u"mark"_s).toInt(), 1);
+        QCOMPARE(rowOf(rows, u"lsfg.android_fps"_s).value(u"title"_s).toString(), u"Frame limit"_s);
+        QCOMPARE(rowOf(rows, u"lsfg.android_fps"_s).value(u"pick"_s).toString(), u"sheet"_s);
+        QCOMPARE(value(rows, u"lsfg.android_fps"_s), u"30"_s);
+        QCOMPARE(rowOf(rows, u"android-next"_s).value(u"title"_s).toString(), u"Frame generation applies at next start"_s);
+        QCOMPARE(value(rows, u"android-next"_s), QString());
+        QVariantMap limit = fixture.sheet(u"lsfg.android_fps"_s);
+        QCOMPARE(words(limit), (QStringList{u"30"_s, u"off"_s}));
+        QCOMPARE(limit.value(u"mark"_s).toInt(), 0);
+        fixture.setAndroidApp(u"com.example.other"_s);
+        rows = fixture.groups(0);
+        QCOMPARE(rowOf(rows, u"android-app"_s).value(u"title"_s).toString(), u"com.example.other"_s);
+        QCOMPARE(value(rows, u"lsfg.android_state"_s), u"off"_s);
+        QCOMPARE(rowOf(rows, u"lsfg.android_state"_s).value(u"current"_s), QVariant(false));
+        QCOMPARE(fixture.sheet(u"lsfg.android_state"_s).value(u"mark"_s).toInt(), 0);
+        QCOMPARE(value(rows, u"lsfg.android_fps"_s), u"off"_s);
+        limit = fixture.sheet(u"lsfg.android_fps"_s);
+        QCOMPARE(words(limit), (QStringList{u"30"_s, u"off"_s}));
+        QCOMPARE(limit.value(u"mark"_s).toInt(), 1);
+        fixture.setAndroidApp({});
+        QVERIFY(!keysOf(fixture.groups(0)).contains(u"label-this app"_s));
+        fixture.setAndroidApp(u"com.example.game"_s);
+        fixture.lsfg()->setFixture({}, true, u"steam"_s);
+        rows = fixture.groups(0);
+        QVERIFY(!keysOf(rows).contains(u"label-this app"_s));
+        QVERIFY(!keysOf(rows).contains(u"lsfg.android_state"_s));
+        QVERIFY(!keysOf(rows).contains(u"group-lsfg.android"_s));
+        SettingsModel off;
+        off.setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {{u"lsfg.enabled"_s, false}}, {});
+        off.lsfg()->setFixture({}, true, u"android"_s);
+        off.setAndroidApp(u"com.example.game"_s);
+        rows = off.groups(0);
+        QCOMPARE(keysOf(rows).mid(0, 6), (QStringList{u"label-this app"_s, u"android-app"_s, u"lsfg.android_state"_s,
+                                                      u"lsfg-off"_s, u"lsfg.android_fps"_s, u"android-next"_s}));
+        QCOMPARE(rowOf(rows, u"lsfg-off"_s).value(u"title"_s).toString(), u"Frame generation is off"_s);
+        QCOMPARE(rowOf(rows, u"lsfg-off"_s).value(u"kind"_s).toString(), u"info"_s);
+        QCOMPARE(value(rows, u"lsfg-off"_s), QString());
+    }
+
+    void androidAppWrites()
+    {
+        writeSession("android\n");
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped()}));
+        const QVariantMap values{{u"lsfg.android_app"_s, u"com.example.old"_s}, {u"lsfg.android_fps"_s, 30u}};
+        fake->setValues(values);
+        fake->setStored(values);
+        const auto m = model();
+        m->setAndroidApp(u"com.example.game"_s);
+        QCOMPARE(value(m->groups(0), u"lsfg.android_fps"_s), u"off"_s);
+        QVERIFY(m->sheet(u"lsfg.android_state"_s).value(u"draft"_s).toBool());
+        QVERIFY(m->sheet(u"lsfg.android_fps"_s).value(u"draft"_s).toBool());
+        QVERIFY(m->beginEdit(u"lsfg.android_state"_s));
+        QVERIFY(m->preview(true));
+        QVERIFY(fake->calls().isEmpty());
+        m->endPreview(true);
+        QTRY_COMPARE(fake->calls(), (QStringList{u"Set lsfg.android_app com.example.game"_s, u"Set lsfg.android_fps 0"_s,
+                                                 u"Set lsfg.android_state true"_s}));
+        QTRY_COMPARE(value(m->groups(0), u"lsfg.android_state"_s), u"on"_s);
+        QCOMPARE(value(m->groups(0), u"lsfg.android_fps"_s), u"off"_s);
+        QVERIFY(m->beginEdit(u"lsfg.android_fps"_s));
+        QVERIFY(m->preview(30u));
+        m->endPreview(30u);
+        QTRY_COMPARE(fake->calls().size(), 4);
+        QCOMPARE(fake->calls().last(), u"Set lsfg.android_fps 30"_s);
+        QTRY_COMPARE(value(m->groups(0), u"lsfg.android_fps"_s), u"30"_s);
+        m->setAndroidApp(u"com.example.next"_s);
+        QTRY_COMPARE(value(m->groups(0), u"lsfg.android_state"_s), u"off"_s);
+        QVERIFY(m->beginEdit(u"lsfg.android_state"_s));
+        QVERIFY(m->preview(true));
+        m->cancelPreview();
+        QVERIFY(m->beginEdit(u"lsfg.android_fps"_s));
+        QVERIFY(m->preview(0u));
+        m->cancelPreview();
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 4);
+        m->setAndroidApp(u"com.example.game"_s);
+        QTRY_COMPARE(value(m->groups(0), u"lsfg.android_state"_s), u"on"_s);
+        QCOMPARE(value(m->groups(0), u"lsfg.android_fps"_s), u"30"_s);
+        m->setAndroidApp(u"com.example.next"_s);
+        QTRY_COMPARE(value(m->groups(0), u"lsfg.android_fps"_s), u"off"_s);
+        QVERIFY(m->beginEdit(u"lsfg.android_fps"_s));
+        m->endPreview(0u);
+        QTRY_COMPARE(fake->calls().mid(4), (QStringList{u"Set lsfg.android_app com.example.next"_s,
+                                                        u"Set lsfg.android_state false"_s, u"Set lsfg.android_fps 0"_s}));
+        QTRY_COMPARE(value(m->groups(0), u"lsfg.android_state"_s), u"off"_s);
+        QCOMPARE(value(m->groups(0), u"lsfg.android_fps"_s), u"off"_s);
+        QSignalSpy refused(m.get(), &SettingsModel::refused);
+        m->setAndroidApp(u"com."_s + QString(125, u'a'));
+        QVERIFY(m->beginEdit(u"lsfg.android_state"_s));
+        m->endPreview(true);
+        QCOMPARE(refused.size(), 1);
+        QCOMPARE(refused.at(0).at(1).toString(), SettingsModel::SetFailed);
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 7);
+        m->setAndroidApp(u"com.example.next"_s);
+        QTRY_COMPARE(value(m->groups(0), u"lsfg.android_state"_s), u"off"_s);
+        QCOMPARE(value(m->groups(0), u"lsfg.android_fps"_s), u"off"_s);
+    }
+
     void lsfgPage()
     {
         const QString log = stubSystemctl();

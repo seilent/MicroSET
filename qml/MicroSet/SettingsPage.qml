@@ -13,6 +13,7 @@ Page {
     property string editKey: ""
     property var draft: null
     property var shownValues: ({})
+    property string focusKey: ""
     property var modelRows: page.model === null ? [] : page.model.rows(page.group, page.model.revision)
     readonly property bool valueOpen: d.valueKey !== ""
     readonly property bool pickerOpen: page.valueOpen || page.editing || rowSheet.shown || gameSheet.shown
@@ -77,6 +78,10 @@ Page {
                 return i
         }
         return -1
+    }
+
+    function keyAtFocus(): string {
+        return page.rows[page.focusIndex] === undefined ? "" : page.rows[page.focusIndex].key
     }
 
     function isFocusable(index: int): bool {
@@ -563,8 +568,16 @@ Page {
         }
     }
 
+    onFocusIndexChanged: page.focusKey = page.keyAtFocus()
+
     onRowsChanged: {
+        const kept = page.indexOfKey(page.focusKey)
+        if (kept >= 0 && kept !== page.focusIndex) {
+            page.focusIndex = kept
+            page.ensureVisible(0)
+        }
         page.fixFocus()
+        page.focusKey = page.keyAtFocus()
         const r = page.rows[page.focusIndex]
         if (page.editing && (r === undefined || r === null || r.key !== page.editKey || r.readOnly)) {
             page.confirmEdit()

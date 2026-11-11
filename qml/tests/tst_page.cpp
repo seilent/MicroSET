@@ -395,6 +395,20 @@ private slots:
         key(Qt::Key_Escape);
     }
 
+    void thisAppKeepsFocus()
+    {
+        model->lsfg()->setFixture({}, true, u"android"_s);
+        const QString kept = u"group-audio"_s;
+        QTRY_VERIFY(!row(kept).isEmpty());
+        focus(kept);
+        model->setAndroidApp(u"com.example.game"_s);
+        QTRY_VERIFY(!row(u"android-app"_s).isEmpty());
+        reachable(kept);
+        model->setAndroidApp({});
+        QTRY_VERIFY(row(u"android-app"_s).isEmpty());
+        reachable(kept);
+    }
+
     void thisGameOpensItsPage()
     {
         fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);

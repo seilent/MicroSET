@@ -59,6 +59,7 @@ public:
     void setFixture(const QJsonObject &schema, const QVariantMap &values, const QVariantMap &stored);
     void setProtonFixture(const QMap<QString, QJsonObject> &effective, const QJsonObject &profiles);
     void setGame(const QVariantMap &game);
+    void setAndroidApp(const QString &package);
     UpdateInfo *updates();
     LsfgState *lsfg();
 
@@ -207,6 +208,7 @@ private:
     QVariantMap gameRow(const QString &appid, const QString &title) const;
     QVariantList gameRows() const;
     QVariantList thisGame() const;
+    QVariantList thisApp() const;
     bool profilesOn() const;
     bool lsfgOn() const;
     bool lsfgShown() const;
@@ -239,6 +241,7 @@ private:
     QSet<QString> m_apps;
     QMap<QString, QString> m_names;
     QVariantMap m_game;
+    QString m_androidApp;
     QList<SteamLibrary::Game> m_library;
     QList<SteamLibrary::Game> m_libraryDropped;
     QSet<QString> m_present;
