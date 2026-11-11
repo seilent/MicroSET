@@ -162,6 +162,7 @@ Item {
         holdTimer.stop()
         layer.down = false
         layer.tapping = false
+        Ui.pressHit = null
         layer.dragging = false
         layer.tracking = false
         layer.pending = null
@@ -200,6 +201,7 @@ Item {
         }
         layer.dead = true
         layer.tapping = false
+        Ui.pressHit = null
         layer.dragging = false
         layer.pending = null
     }
@@ -324,6 +326,8 @@ Item {
             layer.start = layer.localIn(layer.frame, p)
             layer.last = layer.start
             layer.tapping = true
+            Ui.pressHeld = null
+            Ui.pressHit = layer.kind === "header" || layer.kind === "pivot" ? found.hit.pressTarget ?? found.hit : null
             layer.sample(layer.start.y)
             if (!layer.tracking && layer.owner !== null && typeof layer.owner.touchContext === "function")
                 holdTimer.restart()
@@ -345,6 +349,7 @@ Item {
             return
         layer.releasePressed()
         layer.tapping = false
+        Ui.pressHit = null
         layer.dead = true
         layer.touched()
     }
@@ -371,6 +376,7 @@ Item {
         if (dx * dx + dy * dy <= slop * slop)
             return
         layer.tapping = false
+        Ui.pressHit = null
         holdTimer.stop()
         layer.releasePressed()
         if (layer.scroll === null || Math.abs(dy) < Math.abs(dx)) {
@@ -460,9 +466,13 @@ Item {
         const action = layer.action
         const pressed = layer.pressedPage
         layer.pressedPage = null
+        const target = kind === "pivot" ? hit.pressTarget ?? hit : null
+        const strip = layer.ancestorWith(target, "land")
+        const before = strip !== null ? strip.activeIndex : -1
         layer.clear()
         if (owner !== null && typeof owner.touchTap === "function")
             owner.touchTap(kind, index, hit)
+        Ui.pressHeld = strip !== null && strip.activeIndex !== before && strip.moving ? target : null
         if (["a", "b", "left", "right"].indexOf(action) >= 0) {
             layer.dispatching = true
             try {

@@ -12,6 +12,8 @@ QtObject {
     readonly property real windowW: ui.turn % 2 === 1 ? ui.surfaceH : ui.surfaceW
     readonly property real windowH: ui.turn % 2 === 1 ? ui.surfaceW : ui.surfaceH
     property real userScale: 1.0
+    property Item pressHit: null
+    property Item pressHeld: null
     readonly property var padDirections: ["up", "right", "down", "left"]
     readonly property var padFaces: ["y", "b", "a", "x"]
     readonly property int padTurn: ui.orientationActive ? ((ui.landscapeTurn - ui.turn) % 4 + 4) % 4 : 0

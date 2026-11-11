@@ -12,6 +12,7 @@ Item {
 
     readonly property real textX: label.x
     readonly property real textBaseline: label.y + label.baselineOffset
+    readonly property Item labelItem: label
 
     width: Ui.windowW
     height: Ui.px(root.hub ? Ui.headerBand : Ui.pivotTop)
@@ -26,7 +27,7 @@ Item {
         y: Ui.px(root.hub ? Ui.headerXHeightBottom : Ui.pageHeaderBaseline) - label.baselineOffset
         text: root.text
         textFormat: Text.PlainText
-        color: Ui.white(root.alpha)
+        color: Ui.white(Ui.pressHit === label ? Ui.alphaFull : root.alpha)
         font: Ui.font(root.hub ? Ui.hubHeader : Ui.pageHeader)
     }
 }
