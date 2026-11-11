@@ -397,6 +397,10 @@ Item {
                         y: tile.snapY - cell.y
                         width: Math.round(root.tile)
                         height: Math.round(root.tile)
+                        clipLetter: true
+                        role: Ui.jumpCell
+                        letterRightInset: Ui.jumpLetterInsetX
+                        letterBaselineInset: Ui.jumpLetterInsetBaseline
                         letter: cell.modelData
                         empty: !cell.available
                         focused: cell.available && root.focusIndex === cell.index

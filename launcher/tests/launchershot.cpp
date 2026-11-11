@@ -47,6 +47,7 @@ const QStringList &states()
     static const QStringList names{
         u"home"_s, u"home-empty"_s, u"home-running"_s, u"home-long"_s, u"allapps"_s, u"allapps-zero"_s,
         u"allapps-many"_s, u"allapps-long"_s, u"allapps-deep"_s, u"sheet"_s, u"sheet-allapps"_s, u"jump"_s,
+        u"jump-letters"_s, u"jump-end"_s,
         u"power-home"_s, u"power-allapps"_s, u"toast"_s, u"confirm"_s, u"home-battery-low"_s,
     };
     return names;
@@ -223,6 +224,12 @@ int main(int argc, char *argv[])
         allApps = state != "sheet"_L1;
         jump = state == "jump"_L1;
         sheet = state == "sheet"_L1;
+    } else if (state == "jump-letters"_L1 || state == "jump-end"_L1) {
+        rows = namedEntries({u"Archive Tool"_s, u"Bluetooth Manager"_s, u"Calculator"_s, u"Files"_s, u"Music"_s,
+                             u"Terminal"_s, u"Zed"_s, u"かな入力"_s, u"漢字辞典"_s}, iconDir.path());
+        favoriteIds = ids(rows, 2);
+        allApps = true;
+        jump = true;
     } else if (state == "allapps-zero"_L1) {
         rows.clear();
         favoriteIds.clear();
@@ -302,6 +309,9 @@ int main(int argc, char *argv[])
         QQuickItem *apps = find(u"apps"_s);
         if (apps != nullptr)
             QMetaObject::invokeMethod(apps, "openJump");
+        QQuickItem *grid = find(u"jump"_s);
+        if (grid != nullptr && state == "jump-end"_L1)
+            QMetaObject::invokeMethod(grid, "open", Q_ARG(QVariant, grid->property("available")), Q_ARG(QString, u"漢"_s));
     }
     if (sheetApps) {
         bool handled = false;

@@ -423,6 +423,9 @@ QtObject {
     readonly property real jumpTop: 19.54 * ui.kScale
     readonly property real jumpExitCx: 23.3 * ui.kScale
     readonly property real jumpExitTop: 21.1 * ui.kScale
+    readonly property real jumpLetterInsetX: 2.78 * ui.kScale
+    readonly property real jumpLetterInsetBaseline: 4.01 * ui.kScale
+    readonly property real jumpEmptyAlpha: 0.06
     readonly property int jumpExitCells: 1
     readonly property int jumpCells: 38
     readonly property int jumpRows: Math.ceil((ui.jumpExitCells + ui.jumpCells) / ui.jumpCols)

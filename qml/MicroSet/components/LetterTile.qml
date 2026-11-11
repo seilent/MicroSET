@@ -8,12 +8,14 @@ PressScale {
     property real size: Ui.tileS
     property bool focused: false
     property bool empty: false
+    property var role: Ui.letterGlyph
+    property real letterRightInset: Ui.letterInsetX
+    property real letterBaselineInset: Ui.letterInsetBaseline
+    property bool clipLetter: false
 
-    readonly property real borderWidth: Ui.px(root.focused ? Ui.focusBorder : Ui.letterTileBorder)
+    readonly property real borderWidth: root.empty ? 0 : Ui.px(root.focused ? Ui.focusBorder : Ui.letterTileBorder)
     readonly property real borderAlpha: root.focused ? Ui.alphaFull : Ui.alphaLow
-    readonly property real letterAlpha: root.empty ? Ui.alphaLow : Ui.letterGlyph.alpha
-    readonly property real letterRightInset: Ui.letterInsetX
-    readonly property real letterBaselineInset: Ui.letterInsetBaseline
+    readonly property real letterAlpha: root.empty ? Ui.jumpEmptyAlpha : root.role.alpha
     readonly property Item letterItem: glyph
 
     width: Ui.px(root.size)
@@ -33,15 +35,20 @@ PressScale {
         }
     }
 
-    Text {
-        id: glyph
+    Item {
+        anchors.fill: parent
+        clip: root.clipLetter
 
-        anchors.right: parent.right
-        anchors.rightMargin: Ui.px(root.letterRightInset)
-        anchors.baseline: parent.bottom
-        anchors.baselineOffset: -Ui.px(root.letterBaselineInset)
-        text: root.letter
-        color: Ui.white(root.letterAlpha)
-        font: Ui.font(Ui.letterGlyph)
+        Text {
+            id: glyph
+
+            anchors.right: parent.right
+            anchors.rightMargin: Ui.px(root.letterRightInset)
+            anchors.baseline: parent.bottom
+            anchors.baselineOffset: -Ui.px(root.letterBaselineInset)
+            text: root.letter
+            color: Ui.white(root.letterAlpha)
+            font: Ui.font(root.role)
+        }
     }
 }

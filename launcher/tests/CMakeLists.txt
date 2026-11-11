@@ -41,7 +41,7 @@ if(NOT MICROSET_TEST_FONT_DIR)
 endif()
 
 set(shot_states home home-empty home-running home-long allapps allapps-zero allapps-many allapps-long allapps-deep
-    sheet sheet-allapps jump power-home power-allapps toast confirm home-battery-low)
+    sheet sheet-allapps jump jump-letters jump-end power-home power-allapps toast confirm home-battery-low)
 foreach(size 480x320 320x480)
     foreach(state IN LISTS shot_states)
         add_test(NAME launcher-shot-${state}-${size}
