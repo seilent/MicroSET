@@ -7,6 +7,7 @@ Page {
     property QtObject model: null
     property string group: ""
     property string title: page.model === null ? page.group : page.model.pageTitle(page.group, page.model.revision)
+    property real headerX: Ui.pageHeaderX
     property bool animated: true
     property bool screenOff: false
     property bool editing: false
@@ -764,7 +765,8 @@ Page {
         id: header
 
         text: page.title
-        animated: page.live
+        penX: page.headerX
+        alpha: Ui.pageHeaderSettingsAlpha
     }
 
     NumberAnimation {

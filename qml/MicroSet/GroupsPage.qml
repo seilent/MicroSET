@@ -10,6 +10,7 @@ SettingsPage {
     signal hideRequested()
 
     title: "settings"
+    headerX: Ui.pageSettingsHeaderX
     modelRows: groups.model === null ? [] : groups.model.groups(groups.model.revision)
 
     function press(name: string) {

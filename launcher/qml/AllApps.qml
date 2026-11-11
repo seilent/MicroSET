@@ -152,7 +152,6 @@ Item {
         id: header
 
         text: "apps"
-        animated: false
     }
 
     StatusStrip {
@@ -189,7 +188,7 @@ Item {
 
         objectName: "applist"
         x: 0
-        y: Ui.px(Ui.contentTop)
+        y: Ui.px(Ui.pageContentTop)
         width: page.width
         height: page.height - list.y
         model: page.rows

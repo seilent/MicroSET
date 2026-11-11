@@ -498,7 +498,7 @@ private slots:
         QVERIFY(grid != nullptr);
         QCOMPARE(int(qRound(grid->property("cellWidth").toReal())), 83);
         QCOMPARE(int(qRound(grid->property("cellHeight").toReal())), 107);
-        QCOMPARE(int(qRound(grid->y())), 128 - 2);
+        QCOMPARE(int(qRound(grid->y())), 136 - 2);
         const QQuickItem *tile = find(u"tile-0"_s);
         QVERIFY(tile != nullptr);
         QCOMPARE(int(qRound(tile->width())), 71);

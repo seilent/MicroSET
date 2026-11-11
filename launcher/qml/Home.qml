@@ -74,7 +74,7 @@ Window {
         readonly property bool hasRunning: home.windowList.length > 0
         readonly property int gridBase: home.hasRunning ? 1 : 0
         readonly property real gridTop: home.hasRunning
-            ? Ui.px(Ui.contentTop) + Ui.px(Ui.tileCellH + Ui.gutter) : Ui.px(Ui.contentTop)
+            ? Ui.px(Ui.pageContentTop) + Ui.px(Ui.tileCellH + Ui.gutter) : Ui.px(Ui.pageContentTop)
         readonly property real rowPitch: Ui.px(Ui.tileCellH + Ui.gutter)
         readonly property real cellPitch: Ui.px(Ui.tileS + Ui.gutter)
         readonly property bool empty: home.launcher !== null && home.launcher.favoriteCount === 0
@@ -159,7 +159,6 @@ Window {
             id: header
 
             text: "apps"
-            animated: false
         }
 
         StatusStrip {
@@ -262,7 +261,7 @@ Window {
 
             objectName: "running"
             x: Ui.px(Ui.hubEdge) - home.border
-            y: Ui.px(Ui.contentTop) - home.border
+            y: Ui.px(Ui.pageContentTop) - home.border
             width: home.width - 2 * Ui.px(Ui.hubEdge) + 2 * home.border
             height: Ui.px(Ui.tileCellH) + home.border
             orientation: ListView.Horizontal

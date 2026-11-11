@@ -75,6 +75,8 @@ QtObject {
     readonly property var hubHeader: ({ name: "hubHeader", size: 128, style: "Light", caps: Font.AllLowercase, alpha: 0.4, tracking: -1.0, cropped: true, sample: "music" })
     readonly property var pageHeader: ({ name: "pageHeader", size: 150 * ui.kScale, style: "Light", caps: Font.AllLowercase, alpha: 0.27, tracking: -1.0, cropped: true, sample: "music" })
     readonly property real pageHeaderSettingsAlpha: 0.64
+    readonly property real pageHeaderX: -22 * ui.kScale
+    readonly property real pageSettingsHeaderX: -17.3 * ui.kScale
     readonly property var albumHeader: ({ name: "albumHeader", size: 143 * ui.kScale, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5 * 143 / 24.7, cropped: true, sample: "album" })
     readonly property var homeItem: ({ name: "homeItem", size: 34, style: "Semilight", caps: Font.AllLowercase, alpha: 1.0, alphaDim: 0.6, tracking: -0.5, sample: "music" })
     readonly property var homeSubtitle: ({ name: "homeSubtitle", size: 8, style: "Regular", caps: Font.AllUppercase, alpha: 0.6, tracking: -0.5, sample: "artists albums songs" })

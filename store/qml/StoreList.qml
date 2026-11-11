@@ -110,7 +110,6 @@ Page {
         id: header
 
         text: "store"
-        animated: false
     }
 
     StatusStrip {
@@ -161,7 +160,7 @@ Page {
 
         objectName: "storelist-rows"
         x: 0
-        y: Ui.px(Ui.contentTop)
+        y: Ui.px(Ui.pageContentTop)
         width: page.width
         height: page.height - rowList.y
         model: page.rows

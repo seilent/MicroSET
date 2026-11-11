@@ -141,7 +141,7 @@ Item {
         id: header
 
         text: "recovery"
-        animated: screen.animated
+        form: "hub"
     }
 
     Text {
