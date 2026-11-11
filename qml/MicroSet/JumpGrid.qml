@@ -21,19 +21,16 @@ Item {
     readonly property real gridX: Ui.px(Ui.edge)
     readonly property real gridY: Ui.px(Ui.jumpTop)
     readonly property bool animating: progressAnim.running
-    readonly property int openDuration: Motion.swivelIn
-    readonly property int closeDuration: Motion.swivelOut
-    readonly property real curved: root.opening ? Motion.expOut6(root.progress) : Motion.expIn1(1 - root.progress)
-    readonly property real angle: root.opening
-        ? -Motion.swivelAngle * (1 - root.curved)
-        : Motion.swivelAngle * root.curved
-    readonly property real visualOpacity: root.opening ? root.curved : 1 - root.curved
+    readonly property int openDuration: Motion.jumpIn
+    readonly property int closeDuration: Motion.jumpOut
+    readonly property real visualOpacity: root.progress
     readonly property string focusLetter: root.letters[root.focusIndex] === undefined ? "" : root.letters[root.focusIndex]
     readonly property int exitIndex: -1
     readonly property bool exitFocused: root.shown && root.focusIndex === root.exitIndex
     property alias exitText: exitText
     property alias cells: cells
-    property alias swivel: swivel
+    property alias face: face
+    property alias fade: progressAnim
     readonly property string touchKind: "block"
 
     signal jumpTo(string letter)
@@ -139,6 +136,10 @@ Item {
         const wanted = root.letters.indexOf(letter)
         const start = wanted >= 0 && root.has(letter) ? wanted : root.firstAvailable()
         root.focusIndex = start < 0 ? root.exitIndex : start
+        if (progressAnim.running && !root.opening) {
+            progressAnim.stop()
+            root.progress = 0
+        }
         root.shown = true
         root.opening = true
         root.animateTo(1, root.openDuration)
@@ -147,9 +148,10 @@ Item {
     function close() {
         if (!root.shown)
             return
+        const back = progressAnim.running && root.opening
         root.shown = false
         root.opening = false
-        root.animateTo(0, root.closeDuration)
+        root.animateTo(0, Math.round(root.progress * (back ? root.openDuration : root.closeDuration)))
         root.closed()
     }
 
@@ -209,20 +211,17 @@ Item {
         easing.type: Motion.linear
     }
 
-    Rectangle {
-        anchors.fill: parent
-        color: Ui.bg
-        opacity: root.visualOpacity
-    }
-
-    Turnstile {
-        id: swivel
+    Item {
+        id: face
 
         anchors.fill: parent
-        axis: Qt.XAxis
-        hinge: root.height / 2
-        angle: root.angle
         opacity: root.visualOpacity
+        layer.enabled: root.animating
+
+        Rectangle {
+            anchors.fill: parent
+            color: Ui.bg
+        }
 
         Text {
             id: exitText

@@ -138,10 +138,8 @@ QtObject {
     readonly property real dialogScale: 0.9
     readonly property real dialogScrim: 0.96
 
-    readonly property int swivelIn: 350
-    readonly property int swivelOut: 250
-    readonly property real swivelAngle: 30
-    readonly property real swivelDim: 0.4
+    readonly property int jumpIn: 300
+    readonly property int jumpOut: 180
 
     readonly property int jumpHold: 350
     readonly property int jumpFade: 380
