@@ -10,8 +10,9 @@ Item {
     property real startY: 0
     property real startFinger: 0
     property real lastWrite: 0
+    property real retention: Motion.flingRetention
     readonly property bool flinging: frames.running
-    readonly property real decay: 1000 / Motion.flingTick * -Math.log(Motion.flingRetention)
+    readonly property real decay: 1000 / Motion.flingTick * -Math.log(scroll.retention)
 
     signal moved()
 
@@ -53,7 +54,7 @@ Item {
 
     function step(seconds: real) {
         const dt = Math.min(seconds, Motion.flingMaxStep / 1000)
-        const f = Math.pow(Motion.flingRetention, dt * 1000 / Motion.flingTick)
+        const f = Math.pow(scroll.retention, dt * 1000 / Motion.flingTick)
         const inside = scroll.write(scroll.flick.contentY + scroll.velocity * (1 - f) / scroll.decay)
         scroll.velocity *= f
         if (!inside || Math.abs(scroll.velocity) < Ui.px(Ui.flingStop))

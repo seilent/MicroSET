@@ -156,6 +156,7 @@ QtObject {
     readonly property real pressScale: 0.96
     readonly property int touchReturnDelay: 200
     readonly property real flingRetention: 0.95
+    readonly property real listFlingRetention: 0.83
     readonly property int flingTick: 16
     readonly property int flingWindow: 100
     readonly property int flingMaxStep: 33

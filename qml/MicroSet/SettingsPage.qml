@@ -760,6 +760,7 @@ Page {
 
             flick: page.flick
             limit: page.maxContentY
+            retention: Motion.listFlingRetention
             onMoved: flick.clampFocusToView()
         }
     }

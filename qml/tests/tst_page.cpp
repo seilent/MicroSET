@@ -19,6 +19,7 @@
 #include <QtQml/qqmlextensionplugin.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <memory>
 #include <vector>
@@ -2313,6 +2314,28 @@ private slots:
         QCOMPARE(rowSheet()->property("focusIndex").toInt(), 0);
         QVERIFY(!gameSheet()->property("shown").toBool());
         qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void pageFlingAtListDecay()
+    {
+        open(u"audio"_s);
+        auto *flick = qvariant_cast<QQuickItem *>(page()->property("flick"));
+        QObject *scroller = qvariant_cast<QObject *>(flick->property("touch"));
+        QCOMPARE(flick->property("contentY").toReal(), 0.0);
+        const QPoint from = flick->mapToScene(QPointF(flick->width() / 2, flick->height() * 3 / 4)).toPoint();
+        drag(from, QPoint(0, -int(flick->height() / 3)), 6);
+        for (int i = 0; i < 2000 && !scroller->property("flinging").toBool(); ++i)
+            QTest::qWait(1);
+        QVERIFY(scroller->property("flinging").toBool());
+        const double velocity = scroller->property("velocity").toReal();
+        const double end = flick->property("contentY").toReal() + velocity / (62.5 * -std::log(0.83));
+        qreal limit = 0;
+        QVERIFY(QMetaObject::invokeMethod(page(), "maxContentY", Q_RETURN_ARG(qreal, limit)));
+        QVERIFY(velocity > 0);
+        QVERIFY(end < limit);
+        QTRY_VERIFY(!scroller->property("flinging").toBool());
+        const double moved = flick->property("contentY").toReal();
+        QVERIFY2(std::abs(moved - end) <= 0.5, qPrintable(u"%1 against %2 from %3 px/s"_s.arg(moved).arg(end).arg(velocity)));
     }
 };
 
