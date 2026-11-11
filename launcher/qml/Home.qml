@@ -10,6 +10,7 @@ Window {
     property QtObject accent: null
     property bool shotAccentOff: false
     readonly property int accentHue: root.accent !== null && root.accent.hue >= 0 ? root.accent.hue : Ui.accentHueDefault
+    readonly property bool focusHidden: confirm.shown || power.shown
     property string appId: ""
     property string appName: ""
 
@@ -250,7 +251,8 @@ Window {
                 size: Ui.tileS
                 source: cell.modelData.source
                 title: cell.modelData.name
-                focused: home.focusRow === home.gridRowOf(cell.index) && home.focusIndex === home.gridColOf(cell.index)
+                focused: !root.focusHidden && home.focusRow === home.gridRowOf(cell.index)
+                    && home.focusIndex === home.gridColOf(cell.index)
                 captioned: true
             }
         }
@@ -307,7 +309,7 @@ Window {
                         ? home.launcher.windowIcon(windowCell.index) : ""
                     title: home.revision >= 0 && home.launcher !== null
                         ? home.launcher.windowName(windowCell.index) : ""
-                    focused: home.focusRow === 0 && home.focusIndex === windowCell.index
+                    focused: !root.focusHidden && home.focusRow === 0 && home.focusIndex === windowCell.index
                     captioned: true
                 }
             }
@@ -389,6 +391,7 @@ Window {
         id: apps
 
         launcher: root.launcher
+        focusHidden: root.focusHidden
         visible: root.launcher !== null && root.launcher.content && root.page === "allapps"
         onSheetRequested: (id, name, flatpak, starred) => root.openAppSheet(id, name, flatpak, starred)
     }

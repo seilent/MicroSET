@@ -662,6 +662,43 @@ private slots:
         QCOMPARE(launcher->page(), Launcher::appsPage());
     }
 
+    void focusMarksIdleUnderDialogs()
+    {
+        load(480, 320, entries(12), {}, 1, ids(2));
+        QQuickItem *tile = find(u"tile-0"_s);
+        QVERIFY(tile != nullptr);
+        QQuickItem *border = nullptr;
+        for (QQuickItem *child : tile->childItems()) {
+            if (QByteArray(child->metaObject()->className()).contains("Rectangle")
+                && child->property("color").value<QColor>().alpha() == 0)
+                border = child;
+        }
+        QVERIFY(border != nullptr);
+        QVERIFY(border->isVisible());
+        QVERIFY(QMetaObject::invokeMethod(window, "askUninstall", Q_ARG(QString, u"app0.desktop"_s),
+                                          Q_ARG(QString, u"app 0"_s)));
+        QQuickItem *confirm = find(u"confirm"_s);
+        QTRY_VERIFY(confirm->property("shown").toBool());
+        QVERIFY(!border->isVisible());
+        QVERIFY(QMetaObject::invokeMethod(confirm, "close"));
+        QTRY_VERIFY(border->isVisible());
+
+        launcher->openAllApps();
+        QTest::qWait(50);
+        QObject *list = find(u"applist"_s);
+        QVERIFY(list != nullptr);
+        QQuickItem *row = nullptr;
+        QVERIFY(QMetaObject::invokeMethod(list, "itemAtIndex", Q_RETURN_ARG(QQuickItem *, row), Q_ARG(int, 0)));
+        QVERIFY(row != nullptr);
+        QQuickItem *ring = qvariant_cast<QQuickItem *>(
+            qvariant_cast<QQuickItem *>(row->property("rowItem"))->property("ringItem"));
+        QVERIFY(ring != nullptr);
+        const qreal focusedStroke = ring->property("strokeWidth").toReal();
+        launcher->ShowPower();
+        QTRY_VERIFY_WITH_TIMEOUT(find(u"power"_s)->property("shown").toBool(), 2000);
+        QVERIFY(ring->property("strokeWidth").toReal() < focusedStroke);
+    }
+
     void powerPageTakesThePressOverAllApps()
     {
         load(480, 320, entries(12), {}, 1, ids(12));

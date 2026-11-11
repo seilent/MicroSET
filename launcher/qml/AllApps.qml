@@ -7,6 +7,7 @@ Item {
 
     required property QtObject launcher
     property alias focusIndex: list.focusIndex
+    property bool focusHidden: false
     property bool pressed: false
 
     readonly property var rows: page.launcher === null ? [] : page.launcher.allApps
@@ -217,6 +218,7 @@ Item {
                 icon: row.modelData.source
                 primary: row.modelData.name
                 focused: list.focusIndex === row.index
+                focusHidden: page.focusHidden
                 pressed: page.pressed && list.focusIndex === row.index
             }
         }
