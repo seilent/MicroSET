@@ -17,6 +17,7 @@ Item {
     property bool lines: false
     property int plainIndex: -1
     property int firstRow: 0
+    property real statusClear: Ui.px(Ui.statusTop + Ui.statusHeight)
     property real progress: 0
     property var stack: []
     readonly property int depth: root.stack.length
@@ -31,7 +32,7 @@ Item {
     readonly property real leadHeight: root.lead === "" && !root.keepLead ? 0 : root.pitch
     readonly property int shownRows: root.items.length === 0 ? 0
         : Math.max(1, Math.min(root.items.length,
-                               Math.floor((root.height - 2 * root.edge - root.titleHeight - root.leadHeight) / root.pitch)))
+                               Math.floor((root.height - root.statusClear - 2 * root.edge - root.titleHeight - root.leadHeight) / root.pitch)))
     readonly property int lastFirstRow: Math.max(0, root.items.length - root.shownRows)
     property alias scrim: scrim
     property alias panel: panel
