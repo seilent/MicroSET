@@ -794,16 +794,19 @@ Page {
         property int lifting: 0
         property bool lifted: false
         property var valueSet: null
+        property bool opening: false
 
         function showValue(session: int, key: string): void {
             if (session === 0 || d.lifting !== session || d.session !== session || d.valueKey !== key)
                 return
             d.lifting = 0
             const target = d.valueSheet
+            d.opening = true
             target.open()
             target.mark = d.valueSet.mark
             target.wrap = d.valueSet.wrap
             target.focusIndex = d.valueSet.focus
+            d.opening = false
             d.moved = false
         }
     }
@@ -939,7 +942,7 @@ Page {
                 d.valueLeads = []
         }
         onFocusIndexChanged: {
-            if (page.valueOpen)
+            if (page.valueOpen && !d.opening)
                 d.moved = true
         }
         onAnimatingChanged: {
@@ -964,7 +967,7 @@ Page {
         onRejected: page.cancelValue()
         onFocusMoved: (index) => page.previewValue(index)
         onFocusIndexChanged: {
-            if (page.valueOpen)
+            if (page.valueOpen && !d.opening)
                 d.moved = true
         }
         onAnimatingChanged: {

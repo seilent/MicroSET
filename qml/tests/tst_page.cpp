@@ -2750,6 +2750,42 @@ private slots:
         QVERIFY(openerBottom(u"lsfg-games"_s, before) > panelTop(rowSheet()));
         qunsetenv("MICROSET_STEAM_DIR");
     }
+
+    void draftValueHoldsWhileItsSheetOpens()
+    {
+        open(u"display"_s);
+        page()->setProperty("animated", true);
+        focus(u"display.auto_rotate"_s);
+        int index = -1;
+        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index),
+                                          Q_ARG(QString, u"display.auto_rotate"_s)));
+        const auto shown = [this, index]() {
+            QQuickItem *item = nullptr;
+            QMetaObject::invokeMethod(qvariant_cast<QObject *>(page()->property("repeater")), "itemAt",
+                                      Q_RETURN_ARG(QQuickItem *, item), Q_ARG(int, index));
+            return item ? qvariant_cast<QQuickItem *>(item->property("valueItem"))->property("text").toString() : QString();
+        };
+        QSignalSpy drafts(page(), SIGNAL(draftKeyChanged()));
+        for (int round = 0; round < 2; ++round) {
+            QStringList seen{shown()};
+            key(Qt::Key_Return);
+            for (int i = 0; i < 3000 && !(sheetShown() && !sheet()->property("animating").toBool()); ++i) {
+                seen << shown();
+                QTest::qWait(1);
+            }
+            for (int i = 0; i < 400; ++i) {
+                seen << shown();
+                QTest::qWait(1);
+            }
+            QVERIFY(sheetShown());
+            seen.removeDuplicates();
+            QVERIFY2(seen == QStringList{u"on"_s}, qPrintable(seen.join(u", "_s)));
+            key(Qt::Key_Escape);
+            QTRY_COMPARE(sheet()->property("progress").toReal(), 0.0);
+        }
+        QCOMPARE(drafts.count(), 0);
+        QVERIFY(fake->calls().isEmpty());
+    }
 };
 
 QTEST_MAIN(PageTest)
