@@ -1086,8 +1086,9 @@ private slots:
         QVERIFY(!keysOf(fixture.groups(0)).contains(u"label-this app"_s));
         fixture.setAndroidApp(u"com.example.game"_s);
         QVariantList rows = fixture.groups(0);
-        QCOMPARE(keysOf(rows).mid(0, 6), (QStringList{u"label-this app"_s, u"android-app"_s, u"lsfg.android_state"_s,
-                                                      u"lsfg.android_fps"_s, u"android-next"_s, u"label-microset"_s}));
+        QCOMPARE(keysOf(rows).mid(0, 8), (QStringList{u"label-this app"_s, u"android-app"_s, u"lsfg.android_state"_s,
+                                                      u"lsfg.android_fps"_s, u"android-next"_s, u"label-android"_s,
+                                                      u"perf.android_overlay"_s, u"label-microset"_s}));
         QVERIFY(!keysOf(rows).contains(u"group-Frame generation"_s));
         QVERIFY(!keysOf(rows).contains(u"group-lsfg.android"_s));
         QVERIFY(!keysOf(rows).contains(u"lsfg-off"_s));
@@ -1135,6 +1136,62 @@ private slots:
         QCOMPARE(rowOf(rows, u"lsfg-off"_s).value(u"title"_s).toString(), u"Frame generation is off"_s);
         QCOMPARE(rowOf(rows, u"lsfg-off"_s).value(u"kind"_s).toString(), u"info"_s);
         QCOMPARE(value(rows, u"lsfg-off"_s), QString());
+    }
+
+    void androidPerf()
+    {
+        const QString overlay = u"perf.android_overlay"_s;
+        SettingsModel fixture;
+        fixture.setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {{overlay, true}}, {});
+        fixture.lsfg()->setFixture({}, true, u"android"_s);
+        QVariantList rows = fixture.groups(0);
+        QCOMPARE(keysOf(rows).mid(0, 3), (QStringList{u"label-android"_s, overlay, u"label-microset"_s}));
+        QVERIFY(!keysOf(rows).contains(u"group-lsfg.android"_s));
+        QCOMPARE(rowOf(rows, u"label-android"_s).value(u"title"_s).toString(), u"android"_s);
+        QCOMPARE(rowOf(rows, overlay).value(u"title"_s).toString(), u"Performance overlay"_s);
+        QCOMPARE(rowOf(rows, overlay).value(u"pick"_s).toString(), u"sheet"_s);
+        QVERIFY(rowOf(rows, overlay).value(u"confirm"_s).toBool());
+        QVERIFY(!rowOf(rows, overlay).value(u"readOnly"_s).toBool());
+        QCOMPARE(value(rows, overlay), u"on"_s);
+        QCOMPARE(fixture.sheet(overlay).value(u"mark"_s).toInt(), 1);
+        QVERIFY(fixture.sheet(overlay).value(u"draft"_s).toBool());
+        fixture.setAndroidApp(u"com.example.game"_s);
+        rows = fixture.groups(0);
+        const QStringList keys = keysOf(rows);
+        QCOMPARE(keys.indexOf(u"label-android"_s), keys.indexOf(u"android-next"_s) + 1);
+        QCOMPARE(keys.indexOf(overlay), keys.indexOf(u"label-android"_s) + 1);
+        QCOMPARE(keys.count(overlay), 1);
+        for (const QString &session : {u"steam"_s, u"microdap"_s, QString()}) {
+            fixture.lsfg()->setFixture({}, true, session);
+            rows = fixture.groups(0);
+            QVERIFY2(!keysOf(rows).contains(u"label-android"_s), qPrintable(session));
+            QVERIFY2(!keysOf(rows).contains(overlay), qPrintable(session));
+        }
+    }
+
+    void androidPerfWrites()
+    {
+        writeSession("android\n");
+        fake->setSchema(FakeMicroSetd::describe({FakeMicroSetd::shipped()}));
+        const QString overlay = u"perf.android_overlay"_s;
+        const auto m = model();
+        QTRY_COMPARE(value(m->groups(0), overlay), u"off"_s);
+        QVERIFY(m->beginEdit(overlay));
+        QVERIFY(m->preview(true));
+        QVERIFY(fake->calls().isEmpty());
+        m->endPreview(true);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set perf.android_overlay true"_s});
+        QTRY_COMPARE(value(m->groups(0), overlay), u"on"_s);
+        QVERIFY(m->beginEdit(overlay));
+        QVERIFY(m->preview(false));
+        m->cancelPreview();
+        QTest::qWait(100);
+        QCOMPARE(fake->calls().size(), 1);
+        QCOMPARE(value(m->groups(0), overlay), u"on"_s);
+        QVERIFY(m->beginEdit(overlay));
+        m->endPreview(false);
+        QTRY_COMPARE(fake->calls().last(), u"Set perf.android_overlay false"_s);
+        QTRY_COMPARE(value(m->groups(0), overlay), u"off"_s);
     }
 
     void androidAppWrites()

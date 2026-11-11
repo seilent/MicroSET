@@ -43,6 +43,7 @@ const QString AndroidAppKey = u"lsfg.android_app"_s;
 const QString AndroidStateKey = u"lsfg.android_state"_s;
 const QString AndroidFpsKey = u"lsfg.android_fps"_s;
 constexpr qsizetype AndroidAppMax = 128;
+const QString PerfOverlayKey = u"perf.android_overlay"_s;
 const QString ProfilesKey = u"proton.profiles"_s;
 const QString ProfileOption = u"profile"_s;
 constexpr qsizetype MaxGames = 512;
@@ -389,7 +390,7 @@ void SettingsModel::build(const QJsonObject &schema, const QVariantMap &values, 
     QVariantMap lsfgDefaults;
     for (auto it = schema.begin(); it != schema.end(); ++it) {
         QJsonObject object = it.value().toObject();
-        if (it.key().startsWith("lsfg.android_"_L1))
+        if (it.key().startsWith("lsfg.android_"_L1) || it.key() == PerfOverlayKey)
             object.insert(u"group"_s, AndroidGroup);
         else if (it.key().startsWith("lsfg."_L1))
             lsfgDefaults.insert(it.key(),
@@ -1052,6 +1053,14 @@ QVariantList SettingsModel::thisApp() const
     return out << limit << infoRow(u"android-next"_s, u"Frame generation applies at next start"_s, QString());
 }
 
+QVariantList SettingsModel::androidPerf() const
+{
+    const auto overlay = m_entries.constFind(PerfOverlayKey);
+    if (m_lsfg.session() != "android"_L1 || overlay == m_entries.cend())
+        return {};
+    return {label(u"android"_s), rowOf(*overlay)};
+}
+
 bool SettingsModel::profilesOn() const
 {
     const auto shape = m_entries.constFind(ProfilesKey);
@@ -1366,7 +1375,7 @@ QVariantList SettingsModel::groups(int) const
             return b.title == UpdatesGroup;
         return a.order != b.order ? a.order < b.order : a.title < b.title;
     });
-    QVariantList out = thisApp() + thisGame();
+    QVariantList out = thisApp() + androidPerf() + thisGame();
     QString section;
     for (const Item &item : std::as_const(items)) {
         if (out.isEmpty() || item.owner != section) {

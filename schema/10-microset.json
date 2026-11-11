@@ -595,6 +595,14 @@
       "label": "Android frame limit",
       "ui": {"apply": "confirm", "steps": [0, 30], "values": {"0": "off"}}
     },
+    "perf.android_overlay": {
+      "type": "b",
+      "default": false,
+      "applier": null,
+      "group": null,
+      "label": "Performance overlay",
+      "ui": {"apply": "confirm"}
+    },
     "app.profile": {
       "type": "s",
       "default": "on",

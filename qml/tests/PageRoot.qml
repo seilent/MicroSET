@@ -222,6 +222,14 @@ Window {
                 if (root.shotState === "sheet-android-limit")
                     page.activate()
             })
+        } else if (root.shotState.startsWith("android-perf") || root.shotState === "sheet-android-perf") {
+            const page = view.stack.currentItem
+            Qt.callLater(() => {
+                page.focusIndex = page.indexOfKey("perf.android_overlay")
+                page.keepFocusVisible()
+                if (root.shotState === "sheet-android-perf")
+                    page.activate()
+            })
         } else if (root.shotState === "sheet-bool") {
             view.open("display")
             const page = view.stack.currentItem

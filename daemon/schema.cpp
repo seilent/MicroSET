@@ -18,7 +18,7 @@ namespace {
 const QString PrivilegedFile = u"10-microset.json"_s;
 const QString PrivilegedOwner = u"microset"_s;
 const QStringList Reserved = {u"microset"_s, u"power"_s, u"meta"_s, u"session"_s, u"audio"_s, u"display"_s, u"rgb"_s,
-                               u"system"_s, u"app"_s, u"fex"_s, u"wine"_s, u"proton"_s, u"lsfg"_s};
+                               u"system"_s, u"app"_s, u"fex"_s, u"wine"_s, u"proton"_s, u"lsfg"_s, u"perf"_s};
 const QStringList Types = {u"s"_s, u"b"_s, u"u"_s, u"i"_s, u"d"_s, u"as"_s};
 const QStringList Validators = {u"eq_filters"_s, u"desktop_ids"_s};
 const QStringList Widgets = {u"none"_s, u"hue"_s, u"edit"_s};

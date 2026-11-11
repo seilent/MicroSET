@@ -209,6 +209,7 @@ private:
     QVariantList gameRows() const;
     QVariantList thisGame() const;
     QVariantList thisApp() const;
+    QVariantList androidPerf() const;
     bool profilesOn() const;
     bool lsfgOn() const;
     bool lsfgShown() const;

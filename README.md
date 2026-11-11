@@ -39,7 +39,8 @@ read, change and watch them over D-Bus.
   `off` or `30`) and `Frame generation applies at next start`. The rows show the stored values while
   `lsfg.android_app` names that package, else `off`. Both sheets apply on accept. An accepted change for another app
   writes `lsfg.android_app`, resets the other Android key to its default, then writes its key; a package over 128
-  characters is refused (`set failed`) before any write.
+  characters is refused (`set failed`) before any write. In the android session the first page has `android`
+  (after `this app` when there is one): `Performance overlay` (`perf.android_overlay`), applied on accept.
   Row values are plain text.
   The overlay also owns `net.seilent.MicroOs.SessionMenu` (interface `SessionMenu1`, `Show(sessions, current, hints)`):
   a sheet listing the sessions MicroOS passes, current marked. A switches (`microos-session-switch@<name>.service`) or
@@ -140,6 +141,7 @@ default removes the key, at most 512 games hold values (`Failed`, "too many game
 `lsfg.enabled`, `lsfg.mode` (`whitelist` or `blacklist`), `lsfg.multiplier` (2 or 3), `lsfg.fps_cap` (`auto`, `20`,
 `30` or `off`), `lsfg.flow_scale` (25 to 100 %), `lsfg.performance_mode`, `lsfg.present_wait_offset` (0 to 8),
 `lsfg.android_app` (package name, up to 128 characters), `lsfg.android_state` and `lsfg.android_fps` (0 to 60).
+`perf.android_overlay` turns the Android session's performance overlay on.
 
 Proton profiles come from `/usr/share/microos/proton/profiles.json` (`MICROSET_PROTON_PROFILES`):
 `{"version": 1, "profiles": {"<appid>": {"tool": "<Proton version prefix>", "set": {"<per game key>": "<value>"}}}}`.

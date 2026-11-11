@@ -56,6 +56,7 @@ private slots:
                                                u"lsfg.multiplier"_s, u"lsfg.performance_mode"_s, u"lsfg.present_wait_offset"_s,
                                                u"meta.gpu_undervolt_serial"_s, u"meta.imported_power"_s,
                                                u"meta.moved_bt_codec"_s, u"meta.moved_rgb_saturation"_s,
+                                               u"perf.android_overlay"_s,
                                                u"power.game_floor"_s, u"power.governor"_s, u"power.gpu_clock"_s,
                                                u"power.gpu_level"_s, u"power.gpu_tuning_fallback"_s, u"power.gpu_tuning_trip"_s,
                                                u"power.gpu_undervolt"_s, u"power.gpu_undervolt_active"_s, u"power.gpu_undervolt_levels"_s,
@@ -410,7 +411,7 @@ private slots:
     {
         Harness h;
         for (const char *owner : {"microset", "power", "meta", "session", "audio", "display", "rgb", "system", "app", "fex",
-                                  "wine", "proton", "lsfg"})
+                                  "wine", "proton", "lsfg", "perf"})
             h.writeFile(u"s/20-%1.json"_s.arg(QLatin1StringView(owner)),
                         file(owner, QByteArray("\"") + owner + ".x\": {\"type\": \"b\", \"default\": true}"));
         h.writeFile(u"s/21-app.json"_s,
@@ -496,6 +497,15 @@ private slots:
         QVERIFY(!schema.accepts(*schema.key(u"lsfg.android_fps"_s), 61u));
         QVERIFY(schema.key(u"lsfg.performance_mode"_s)->group.isEmpty());
         QVERIFY(schema.key(u"lsfg.present_wait_offset"_s)->group.isEmpty());
+        const Key &overlay = *schema.key(u"perf.android_overlay"_s);
+        QCOMPARE(overlay.type, u"b"_s);
+        QCOMPARE(overlay.defaultValue, QVariant(false));
+        QCOMPARE(overlay.owner, u"microset"_s);
+        QCOMPARE(overlay.label, u"Performance overlay"_s);
+        QCOMPARE(overlay.ui, (QJsonObject{{u"apply"_s, u"confirm"_s}}));
+        QVERIFY(overlay.applier.isEmpty());
+        QVERIFY(overlay.group.isEmpty());
+        QVERIFY(!overlay.perApp);
         QVERIFY(schema.preset(u"default"_s) && schema.preset(u"compatibility"_s) && schema.preset(u"performance"_s));
         QCOMPARE(*schema.preset(u"default"_s), Schema::Preset());
         QCOMPARE(*schema.preset(u"compatibility"_s),
@@ -943,7 +953,7 @@ private slots:
         QCOMPARE(clock.value("type"_L1).toString(), u"u"_s);
         QCOMPARE(schema.describe(u"power.tdp"_s).size(), 1);
         QCOMPARE(schema.describe(u"powe"_s).size(), 0);
-        QCOMPARE(schema.describe({}).size(), 81);
+        QCOMPARE(schema.describe({}).size(), 82);
         QCOMPARE(schema.describe(u"audio"_s).size(), 27);
         QVERIFY(schema.describe(u"meta"_s).value("meta.imported_power"_L1).toObject().value("group"_L1).isNull());
     }

@@ -57,7 +57,8 @@ const QStringList &states()
         u"lsfg-old-layer"_s, u"lsfg-install-focus"_s, u"lsfg-open-empty"_s, u"lsfg-gone-long"_s, u"lsfg-open-top"_s,
         u"game-lsfg-blacklist"_s, u"game-lsfg-disabled"_s, u"game-lsfg-cap-off"_s, u"sheet-game-lsfg-multiplier"_s,
         u"sheet-game-lsfg-cap"_s, u"lsfg-games-motion"_s, u"lsfg-dialog-motion"_s, u"lsfg-sheet-game"_s,
-        u"android-app"_s, u"sheet-android-limit"_s, u"android-app-lsfg-off"_s,
+        u"android-app"_s, u"sheet-android-limit"_s, u"android-app-lsfg-off"_s, u"android-perf"_s, u"android-perf-app"_s,
+        u"sheet-android-perf"_s,
     };
     return names;
 }
@@ -216,7 +217,8 @@ int main(int argc, char *argv[])
     values.insert(games.stored);
     if (accentOff)
         values.insert(u"microdap.accent_off"_s, true);
-    const bool android = state == "android-app"_L1 || state == "sheet-android-limit"_L1 || state == "android-app-lsfg-off"_L1;
+    const bool android = state == "android-app"_L1 || state == "sheet-android-limit"_L1 || state == "android-app-lsfg-off"_L1
+        || state == "android-perf-app"_L1 || state == "sheet-android-perf"_L1;
     if (android)
         values.insert({{u"lsfg.android_app"_s, AndroidApp}, {u"lsfg.android_state"_s, true}, {u"lsfg.android_fps"_s, 30u},
                        {u"lsfg.enabled"_s, state != "android-app-lsfg-off"_L1}});
@@ -247,10 +249,10 @@ int main(int argc, char *argv[])
         const bool known = state != "lsfg-unknown"_L1;
         model.lsfg()->setFixture(known ? lsfg : QJsonObject(), known, u"steam"_s);
     }
-    if (android) {
+    if (android || state == "android-perf"_L1)
         model.lsfg()->setFixture({}, true, u"android"_s);
+    if (android)
         model.setAndroidApp(AndroidApp);
-    }
     if (state == "lsfg-gone-long"_L1) {
         model.enter(u"app.251150"_s);
         model.leave(u"app.251150"_s);

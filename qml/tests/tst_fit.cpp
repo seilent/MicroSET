@@ -340,6 +340,76 @@ private slots:
         }
     }
 
+    void androidPerfFits_data()
+    {
+        QTest::addColumn<QSize>("size");
+        QTest::newRow("960x640") << QSize(960, 640);
+        QTest::newRow("640x960") << QSize(640, 960);
+    }
+
+    void androidPerfFits()
+    {
+        QFETCH(QSize, size);
+        QVERIFY(qEnvironmentVariableIsSet("MICROSET_FONT_DIR"));
+        const QString overlay = u"perf.android_overlay"_s;
+        SettingsModel model;
+        model.setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {});
+        model.lsfg()->setFixture({}, true, u"android"_s);
+        QQmlApplicationEngine engine;
+        QObject *view = viewOf(engine, model, size);
+        QVERIFY(view);
+        QObject *page = qvariant_cast<QObject *>(qvariant_cast<QObject *>(view->property("stack"))->property("currentItem"));
+        auto *repeater = qvariant_cast<QObject *>(page->property("repeater"));
+        QVERIFY(repeater);
+        for (const QString &package : {QString(), u"com."_s + QString(124, u'a')}) {
+            model.setAndroidApp(package);
+            const auto shown = [&]() -> QQuickItem * {
+                int index = -1;
+                QMetaObject::invokeMethod(page, "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, overlay));
+                QQuickItem *item = nullptr;
+                QMetaObject::invokeMethod(repeater, "itemAt", Q_RETURN_ARG(QQuickItem *, item), Q_ARG(int, index));
+                const QVariantMap row = item ? item->property("modelData").toMap() : QVariantMap();
+                const int first = package.isEmpty() ? 1 : 6;
+                return index == first && row.value(u"key"_s).toString() == overlay ? item : nullptr;
+            };
+            QTRY_VERIFY(shown());
+            QQuickItem *item = shown();
+            auto *title = qvariant_cast<QQuickItem *>(item->property("titleItem"));
+            auto *value = qvariant_cast<QQuickItem *>(item->property("valueItem"));
+            QTRY_COMPARE(item->width(), qreal(size.width()));
+            QCOMPARE(title->property("text").toString(), u"Performance overlay"_s);
+            for (const QString &text : {u"on"_s, u"off"_s}) {
+                item->setProperty("shownValue", text);
+                const qreal room = value->property("room").toReal();
+                QVERIFY2(title->parentItem()->width() - title->x() >= title->implicitWidth() && value->implicitWidth() <= room,
+                         qPrintable(u"%1 %2 beside %3 > %4"_s.arg(text, QString::number(value->implicitWidth()),
+                                                                QString::number(title->implicitWidth()), QString::number(room))));
+            }
+            item->setProperty("shownValue", item->property("modelData").toMap().value(u"value"_s));
+        }
+        QVERIFY(QMetaObject::invokeMethod(page, "openValue", Q_ARG(QString, overlay)));
+        auto *sheet = qvariant_cast<QQuickItem *>(page->property("sheet"));
+        QVERIFY(sheet->property("shown").toBool());
+        QCOMPARE(sheet->property("title").toString(), u"Performance overlay"_s);
+        auto *panel = qvariant_cast<QQuickItem *>(sheet->property("panel"));
+        QTRY_VERIFY(panel->width() > 0);
+        const qreal room = panel->width() - 2 * sheet->property("edge").toReal();
+        const QStringList words = sheet->property("items").toStringList();
+        QCOMPARE(words.size(), 2);
+        int texts = 0;
+        for (QQuickItem *delegate : qvariant_cast<QQuickItem *>(sheet->property("list"))->childItems()) {
+            for (QQuickItem *text : delegate->childItems()) {
+                QVERIFY2(text->implicitWidth() <= room, qPrintable(text->property("text").toString()));
+                ++texts;
+            }
+        }
+        QCOMPARE(texts, words.size());
+        for (QQuickItem *child : panel->childItems())
+            if (child->property("text").toString() == sheet->property("title").toString())
+                QVERIFY2(child->implicitWidth() <= room, qPrintable(QString::number(child->implicitWidth())));
+        QVERIFY(QMetaObject::invokeMethod(page, "cancelValue"));
+    }
+
     void gameSheetsFitAt640_data()
     {
         QTest::addColumn<QVariantMap>("stored");
