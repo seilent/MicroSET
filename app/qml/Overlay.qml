@@ -280,6 +280,13 @@ Window {
             ignored: root.overlay.menuBusy ? ["a", "b", "start", "back"] : root.overlay.hint ? ["a"] : []
             focus: true
         }
+
+        TouchLayer {
+            anchors.fill: parent
+            enabled: root.overlay.shown && !root.overlay.menuBusy && !root.overlay.hint
+            dialogs: [menuSheet].concat(view.touchDialogs)
+            router: router
+        }
     }
 
     Window {

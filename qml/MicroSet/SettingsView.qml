@@ -9,6 +9,7 @@ Item {
     property bool overlay: false
     readonly property int accentHue: view.model !== null && view.model.accentHue >= 0
         ? Ui.hueOnGrid(view.model.accentHue) : Ui.accentHueDefault
+    readonly property var touchDialogs: stack.currentItem === null ? [] : stack.currentItem.touchDialogs
     property alias stack: stack
     property alias toast: toast
 

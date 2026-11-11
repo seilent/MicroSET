@@ -6,6 +6,7 @@
 #include "uirelease.h"
 
 #include <QElapsedTimer>
+#include <QHash>
 #include <QJsonObject>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -240,6 +241,75 @@ class OverlayQmlTest : public QObject
                                           Q_ARG(bool, false)));
         QVERIFY(game->property("shown").toBool());
         QVERIFY(page()->property("pickerOpen").toBool());
+    }
+
+    QQuickItem *rowItem(const QString &key) const
+    {
+        int index = -1;
+        QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, key));
+        QQuickItem *item = nullptr;
+        QMetaObject::invokeMethod(qvariant_cast<QObject *>(page()->property("repeater")), "itemAt",
+                                  Q_RETURN_ARG(QQuickItem *, item), Q_ARG(int, index));
+        return item;
+    }
+
+    static QPoint centerOf(QQuickItem *item)
+    {
+        return item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint();
+    }
+
+    static QPoint settledPoint(QObject *sheet, int index)
+    {
+        auto *root = qobject_cast<QQuickItem *>(sheet);
+        auto *panel = qvariant_cast<QQuickItem *>(sheet->property("panel"));
+        auto *list = qvariant_cast<QQuickItem *>(sheet->property("window"));
+        const qreal y = root->height() - panel->height() + list->y()
+            + (index + 0.5) * sheet->property("pitch").toReal() - list->property("contentY").toReal();
+        return root->mapToScene(QPointF(root->width() / 2, y)).toPoint();
+    }
+
+    static bool laidOutNow(QObject *sheet)
+    {
+        const qreal pitch = sheet->property("pitch").toReal();
+        for (QQuickItem *row : qvariant_cast<QQuickItem *>(sheet->property("list"))->childItems())
+            if (row->property("touchIndex").isValid() && qAbs(row->y() - row->property("touchIndex").toInt() * pitch) > 0.5)
+                return false;
+        return true;
+    }
+
+    static void laidOut(QObject *sheet)
+    {
+        for (int i = 0; i < 2000 && !laidOutNow(sheet); ++i)
+            QTest::qWait(1);
+        QVERIFY(laidOutNow(sheet));
+    }
+
+    void tap(const QPoint &at)
+    {
+        QTest::mouseClick(m_window, Qt::LeftButton, Qt::NoModifier, at);
+    }
+
+    void openAt(const QString &group, const QString &key)
+    {
+        QVERIFY(QMetaObject::invokeMethod(m_view, "open", Q_ARG(QString, group)));
+        int index = -1;
+        QVERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, key)));
+        page()->setProperty("focusIndex", index);
+        QVERIFY(QMetaObject::invokeMethod(page(), "keepFocusVisible"));
+    }
+
+    QPoint headerPoint() const
+    {
+        auto *header = qvariant_cast<QQuickItem *>(page()->property("header"));
+        auto *label = qvariant_cast<QQuickItem *>(header->property("labelItem"));
+        const QRectF both = header->mapRectToScene(QRectF(0, 0, header->width(), header->height()))
+                                .intersected(label->mapRectToScene(QRectF(0, 0, label->width(), label->height())));
+        return both.center().toPoint();
+    }
+
+    bool valueSheetShown() const
+    {
+        return qvariant_cast<QObject *>(page()->property("sheet"))->property("shown").toBool();
     }
 
 private slots:
@@ -795,6 +865,104 @@ private slots:
         emit m_overlay->menuToast(u"switch failed"_s);
         QTRY_COMPARE(toast->property("title").toString(), u"switch failed"_s);
         QCOMPARE(toast->property("artist").toString(), QString());
+    }
+
+    void touchRowOpensSheet()
+    {
+        openAt(u"audio"_s, u"audio.volume_step"_s);
+        tap(centerOf(rowItem(u"audio.volume_step"_s)));
+        QTRY_VERIFY(valueSheetShown());
+        QVERIFY(page()->property("valueOpen").toBool());
+    }
+
+    void touchRowOpensSheetTurned_data()
+    {
+        QTest::addColumn<QString>("rotation");
+        QTest::newRow("portrait") << u"portrait"_s;
+        QTest::newRow("landscape") << u"landscape"_s;
+        QTest::newRow("portrait-flipped") << u"portrait-flipped"_s;
+        QTest::newRow("landscape-flipped") << u"landscape-flipped"_s;
+    }
+
+    void touchRowOpensSheetTurned()
+    {
+        QFETCH(QString, rotation);
+        QObject *ui = m_engine->singletonInstance<QObject *>("MicroSet", "Ui");
+        QVERIFY(ui);
+        const int landscape = ui->property("landscapeTurn").toInt();
+        const QHash<QString, int> turns{{u"portrait"_s, 0}, {u"landscape"_s, landscape},
+                                        {u"portrait-flipped"_s, 2}, {u"landscape-flipped"_s, (landscape + 2) % 4}};
+        m_model->setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {{u"display.rotation"_s, rotation}}, {});
+        m_window->setProperty("shotWidth", 640);
+        m_window->setProperty("shotHeight", 960);
+        QTRY_COMPARE(m_window->height(), 960);
+        QTRY_COMPARE(ui->property("turn").toInt(), turns.value(rotation));
+        QTRY_COMPARE(ui->property("windowH").toReal(), turns.value(rotation) % 2 == 1 ? 640.0 : 960.0);
+        openAt(u"audio"_s, u"audio.volume_step"_s);
+        QQuickItem *row = rowItem(u"audio.volume_step"_s);
+        QVERIFY(row);
+        tap(centerOf(row));
+        QTRY_VERIFY(valueSheetShown());
+        QCOMPARE(page()->property("focusedRow").toMap().value(u"key"_s).toString(), u"audio.volume_step"_s);
+    }
+
+    void touchOffWhileHintBusyOrHidden()
+    {
+        openAt(u"audio"_s, u"audio.volume_step"_s);
+        const QPoint at = centerOf(rowItem(u"audio.volume_step"_s));
+        m_overlay->setHint(true);
+        tap(at);
+        QTest::qWait(100);
+        QVERIFY(!valueSheetShown());
+        m_overlay->setHint(false);
+        m_overlay->setShown(false);
+        tap(at);
+        QTest::qWait(100);
+        QVERIFY(!valueSheetShown());
+        m_overlay->setShown(true);
+        m_overlay->openMenu({u"Steam OS"_s, u"Micro DAP"_s}, 0, {QString(), QString()});
+        QObject *menu = m_window->findChild<QObject *>(u"menuSheet"_s);
+        QTRY_VERIFY(menu->property("shown").toBool());
+        m_overlay->setMenuBusy(true);
+        laidOut(menu);
+        tap(settledPoint(menu, 1));
+        QTest::qWait(100);
+        QCOMPARE(m_overlay->accepts, 0);
+        m_overlay->setMenuBusy(false);
+        laidOut(menu);
+        tap(settledPoint(menu, 1));
+        QTRY_COMPARE(m_overlay->accepts, 1);
+        QCOMPARE(m_overlay->accepted, 1);
+    }
+
+    void touchMenuSheet()
+    {
+        m_overlay->openMenu({u"Steam OS"_s, u"Micro DAP"_s}, 0, {QString(), QString()});
+        QObject *menu = m_window->findChild<QObject *>(u"menuSheet"_s);
+        QTRY_VERIFY(menu->property("shown").toBool());
+        laidOut(menu);
+        tap(settledPoint(menu, 1));
+        QTRY_COMPARE(m_overlay->accepts, 1);
+        QCOMPARE(m_overlay->accepted, 1);
+        QCOMPARE(m_overlay->closes, 0);
+        auto *root = qobject_cast<QQuickItem *>(menu);
+        tap(root->mapToScene(QPointF(root->width() / 2, menu->property("statusClear").toReal() / 2)).toPoint());
+        QTRY_COMPARE(m_overlay->closes, 1);
+        QCOMPARE(m_overlay->accepts, 1);
+    }
+
+    void touchHeaderHidesOnFirstPage()
+    {
+        QObject *stack = qvariant_cast<QObject *>(m_view->property("stack"));
+        QVERIFY(QMetaObject::invokeMethod(m_view, "open", Q_ARG(QString, u"audio"_s)));
+        QCOMPARE(stack->property("depth").toInt(), 2);
+        tap(headerPoint());
+        QTRY_COMPARE(stack->property("depth").toInt(), 1);
+        QTest::qWait(100);
+        QCOMPARE(m_overlay->hides, 0);
+        tap(headerPoint());
+        QTRY_COMPARE(m_overlay->hides, 1);
+        QCOMPARE(stack->property("depth").toInt(), 1);
     }
 };
 

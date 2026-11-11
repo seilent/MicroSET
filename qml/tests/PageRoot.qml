@@ -274,4 +274,10 @@ Window {
         stack: view.stack
         focus: true
     }
+
+    TouchLayer {
+        anchors.fill: parent
+        dialogs: view.touchDialogs
+        router: router
+    }
 }

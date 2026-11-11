@@ -30,4 +30,11 @@ SettingsPage {
         if (armed && groups.overlay && !groups.editing)
             groups.hideRequested()
     }
+
+    function touchTap(kind: string, index: int, hit: Item) {
+        if (kind === "header" && groups.overlay && !groups.editing)
+            groups.hideRequested()
+        else if (!groups.editing && kind === "row")
+            groups.ensureVisible(Motion.scroll)
+    }
 }

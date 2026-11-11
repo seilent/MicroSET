@@ -73,10 +73,12 @@ read, change and watch them over D-Bus.
   and recovery, and is white while `microdap.accent_off` is on. The page (`SettingsView`) lists the schema groups and
   edits their keys over `net.seilent.MicroSet`: A on a list, number or on/off row opens a value sheet, on a balance row
   or a range over 64 values the adjust overlay (left and right step, up and down too on a single number, A keeps, B
-  restores), on a hue row a swatch sheet. The accent sheet starts with a white OFF swatch when the schema has
-  `microdap.accent_off` and applies on A only: OFF sets `microdap.accent_off` and keeps the hue, a hue clears it. The
-  LED hue sheet draws the hues at the stored saturation and previews each step. The Stick LED rows are read only while
-  `rgb.enabled` is off and follow it as it changes; the hue row's swatch shows the hue at the stored saturation (white
+  restores), on a hue row a swatch sheet. By touch a row tap focuses the row and acts as A, a sheet or dialog item tap
+  picks the item, a drag scrolls and picks nothing, a scrim or header word tap is B, and a header word tap on the first
+  page closes the overlay. The accent sheet starts with a white OFF swatch when the schema has `microdap.accent_off` and
+  applies on A only: OFF sets `microdap.accent_off` and keeps the hue, a hue clears it. The LED hue sheet draws the hues
+  at the stored saturation and previews each step. The Stick LED rows are read only while `rgb.enabled` is off and
+  follow it as it changes; the hue row's swatch shows the hue at the stored saturation (white
   at 0). The `games` group holds `fex.preset`, `wine.sync` and `proton.profiles`, then under a `games` label the games
   that hold a value of their own and, while `proton.profiles` is `on`, the installed games with an image profile, in
   library order (`#`, `a` to `z`, the kana rows, kanji), then `Add game`. A row shows the values in force from the game

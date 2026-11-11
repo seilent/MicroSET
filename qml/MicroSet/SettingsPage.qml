@@ -40,6 +40,7 @@ Page {
     property alias gameSheet: gameSheet
     property alias confirm: confirm
     property alias adjust: adjust
+    readonly property var touchDialogs: [confirm, adjust, gameSheet, rowSheet, swatchSheet, sheet]
 
     signal opened(string group)
     signal acted(string key)

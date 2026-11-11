@@ -186,6 +186,98 @@ class PageTest : public QObject
         QVERIFY(view);
     }
 
+    QQuickItem *rowItem(const QString &key) const
+    {
+        int index = -1;
+        QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, key));
+        QQuickItem *item = nullptr;
+        QMetaObject::invokeMethod(qvariant_cast<QObject *>(page()->property("repeater")), "itemAt",
+                                  Q_RETURN_ARG(QQuickItem *, item), Q_ARG(int, index));
+        return item;
+    }
+
+    static QPoint centerOf(QQuickItem *item)
+    {
+        return item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint();
+    }
+
+    static QQuickItem *sheetItem(QObject *sheet, int index)
+    {
+        for (QQuickItem *row : qvariant_cast<QQuickItem *>(sheet->property("list"))->childItems())
+            if (row->property("touchIndex").isValid() && row->property("touchIndex").toInt() == index)
+                return row;
+        return nullptr;
+    }
+
+    static QPoint settledPoint(QObject *sheet, int index)
+    {
+        auto *root = qobject_cast<QQuickItem *>(sheet);
+        auto *panel = qvariant_cast<QQuickItem *>(sheet->property("panel"));
+        auto *list = qvariant_cast<QQuickItem *>(sheet->property("window"));
+        const qreal y = root->height() - panel->height() + list->y()
+            + (index + 0.5) * sheet->property("pitch").toReal() - list->property("contentY").toReal();
+        return root->mapToScene(QPointF(root->width() / 2, y)).toPoint();
+    }
+
+    static void rising(QObject *sheet)
+    {
+        for (int i = 0; i < 2000 && !sheet->property("animating").toBool(); ++i)
+            QTest::qWait(1);
+        QVERIFY(sheet->property("animating").toBool());
+    }
+
+    static bool laidOutNow(QObject *sheet)
+    {
+        const qreal pitch = sheet->property("pitch").toReal();
+        for (QQuickItem *row : qvariant_cast<QQuickItem *>(sheet->property("list"))->childItems())
+            if (row->property("touchIndex").isValid() && qAbs(row->y() - row->property("touchIndex").toInt() * pitch) > 0.5)
+                return false;
+        return true;
+    }
+
+    static void laidOut(QObject *sheet)
+    {
+        for (int i = 0; i < 2000 && !laidOutNow(sheet); ++i)
+            QTest::qWait(1);
+        QVERIFY(laidOutNow(sheet));
+    }
+
+    void tap(const QPoint &at)
+    {
+        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, at);
+    }
+
+    void tapRow(const QString &key)
+    {
+        QQuickItem *item = rowItem(key);
+        QVERIFY2(item, qPrintable(key));
+        tap(centerOf(item));
+    }
+
+    void show(const QString &key, const QString &focused)
+    {
+        focus(key);
+        QVERIFY(QMetaObject::invokeMethod(page(), "keepFocusVisible"));
+        focus(focused);
+    }
+
+    QPoint headerPoint() const
+    {
+        auto *header = qvariant_cast<QQuickItem *>(page()->property("header"));
+        auto *label = qvariant_cast<QQuickItem *>(header->property("labelItem"));
+        const QRectF both = header->mapRectToScene(QRectF(0, 0, header->width(), header->height()))
+                                .intersected(label->mapRectToScene(QRectF(0, 0, label->width(), label->height())));
+        return both.center().toPoint();
+    }
+
+    void drag(const QPoint &from, const QPoint &by, int steps)
+    {
+        QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, from);
+        for (int i = 1; i <= steps; ++i)
+            QTest::mouseMove(window, from + by * i / steps, 8);
+        QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, from + by);
+    }
+
     QString focusedKey() const
     {
         return page()->property("focusedRow").toMap().value(u"key"_s).toString();
@@ -1725,6 +1817,271 @@ private slots:
         QVERIFY(discard);
         QVERIFY(discard->property("shown").toBool());
         QCOMPARE(discard->property("focusIndex").toInt(), 1);
+    }
+
+    void touchOpensGroupPage()
+    {
+        tapRow(u"group-audio"_s);
+        QTRY_COMPARE(page()->property("group").toString(), u"audio"_s);
+        QCOMPARE(qvariant_cast<QObject *>(view->property("stack"))->property("depth").toInt(), 2);
+    }
+
+    void touchDuringPushOpensNothing()
+    {
+        QObject *stack = qvariant_cast<QObject *>(view->property("stack"));
+        stack->setProperty("animate", true);
+        const QPoint at = centerOf(rowItem(u"group-display"_s));
+        tapRow(u"group-audio"_s);
+        QTRY_COMPARE(stack->property("depth").toInt(), 2);
+        QVERIFY(stack->property("inputLocked").toBool());
+        tap(at);
+        QTRY_VERIFY(!stack->property("inputLocked").toBool());
+        QTest::qWait(100);
+        QCOMPARE(stack->property("depth").toInt(), 2);
+        QCOMPARE(page()->property("group").toString(), u"audio"_s);
+        QVERIFY(!sheetShown());
+        QVERIFY(!page()->property("valueOpen").toBool());
+    }
+
+    void touchRowOpensItsSheet()
+    {
+        open(u"audio"_s);
+        show(u"audio.volume_step"_s, u"audio.output"_s);
+        tapRow(u"audio.volume_step"_s);
+        QTRY_VERIFY(sheetShown());
+        QCOMPARE(focusedKey(), u"audio.volume_step"_s);
+        QCOMPARE(sheet()->property("title").toString(), u"Volume step"_s);
+        QCOMPARE(sheetFocus(), 1);
+    }
+
+    void touchReadOnlyRowFocuses()
+    {
+        open(u"display"_s);
+        QVERIFY(row(u"display.orientation"_s).value(u"readOnly"_s).toBool());
+        show(u"display.orientation"_s, u"display.brightness"_s);
+        tapRow(u"display.orientation"_s);
+        QTRY_COMPARE(focusedKey(), u"display.orientation"_s);
+        QTest::qWait(100);
+        QVERIFY(!sheetShown());
+        QVERIFY(!page()->property("valueOpen").toBool());
+    }
+
+    void touchItemApplies()
+    {
+        open(u"audio"_s);
+        show(u"audio.volume_step"_s, u"audio.output"_s);
+        tapRow(u"audio.volume_step"_s);
+        QTRY_VERIFY(sheetShown());
+        laidOut(sheet());
+        tap(settledPoint(sheet(), 2));
+        QTRY_VERIFY(!sheetShown());
+        QTRY_COMPARE(fake->stored().value(u"audio.volume_step"_s), QVariant(2u));
+        QTRY_VERIFY(!model->busy(u"audio.volume_step"_s));
+        show(u"audio.max_volume"_s, u"audio.output"_s);
+        tapRow(u"audio.max_volume"_s);
+        QTRY_VERIFY(sheetShown());
+        QCOMPARE(sheetFocus(), 0);
+        laidOut(sheet());
+        tap(settledPoint(sheet(), 2));
+        QTRY_VERIFY(!sheetShown());
+        QTRY_COMPARE(fake->stored().value(u"audio.max_volume"_s), QVariant(90u));
+        QCOMPARE(fake->calls().last(), u"Set audio.max_volume 90"_s);
+    }
+
+    void touchDragScrollsSheet()
+    {
+        ledsOn();
+        open(u"stick leds"_s);
+        show(u"rgb.brightness"_s, u"rgb.brightness"_s);
+        key(Qt::Key_Return);
+        QVERIFY(sheetShown());
+        auto *list = qvariant_cast<QQuickItem *>(sheet()->property("window"));
+        QVERIFY(list->property("touchScrollEnabled").toBool());
+        const qreal before = list->property("contentY").toReal();
+        const int pitch = int(sheet()->property("pitch").toReal());
+        laidOut(sheet());
+        drag(settledPoint(sheet(), sheetFocus()), QPoint(0, -2 * pitch), 10);
+        QTRY_VERIFY(list->property("contentY").toReal() > before);
+        QTest::qWait(100);
+        QVERIFY(sheetShown());
+        QVERIFY(fake->calls().isEmpty());
+        QVERIFY(fake->stored().value(u"rgb.brightness"_s).isNull());
+    }
+
+    void touchScrimRestores()
+    {
+        open(u"audio"_s);
+        show(u"audio.volume_step"_s, u"audio.volume_step"_s);
+        key(Qt::Key_Return);
+        key(Qt::Key_Down);
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set audio.volume_step 2"_s});
+        auto *root = qobject_cast<QQuickItem *>(sheet());
+        tap(root->mapToScene(QPointF(root->width() / 2, sheet()->property("statusClear").toReal() / 2)).toPoint());
+        QTRY_VERIFY(!sheetShown());
+        QTRY_COMPARE(fake->calls(), (QStringList{u"Set audio.volume_step 2"_s, u"Set audio.volume_step 5"_s}));
+        QTRY_COMPARE(value(u"audio.volume_step"_s), u"5%"_s);
+    }
+
+    void touchSheetTitleTakesNothing()
+    {
+        open(u"audio"_s);
+        show(u"audio.volume_step"_s, u"audio.volume_step"_s);
+        key(Qt::Key_Return);
+        QVERIFY(sheetShown());
+        auto *panel = qvariant_cast<QQuickItem *>(sheet()->property("panel"));
+        tap(panel->mapToScene(QPointF(panel->width() / 2, sheet()->property("edge").toReal() / 2)).toPoint());
+        QTest::qWait(100);
+        QVERIFY(sheetShown());
+        QVERIFY(page()->property("valueOpen").toBool());
+        QCOMPARE(focusedKey(), u"audio.volume_step"_s);
+        QVERIFY(fake->calls().isEmpty());
+    }
+
+    void touchDuringRiseApplies()
+    {
+        open(u"audio"_s);
+        page()->setProperty("animated", true);
+        show(u"audio.volume_step"_s, u"audio.volume_step"_s);
+        key(Qt::Key_Return);
+        rising(sheet());
+        laidOut(sheet());
+        tap(settledPoint(sheet(), 0));
+        QTRY_VERIFY(!sheetShown());
+        QTRY_COMPARE(fake->stored().value(u"audio.volume_step"_s), QVariant(10u));
+    }
+
+    void touchConfirmDialog()
+    {
+        open(u"display"_s);
+        const QVariantMap ask{{u"kind"_s, u"row"_s}, {u"value"_s, QString()}, {u"readOnly"_s, true},
+                              {u"widget"_s, QString()}, {u"swatch"_s, QString()}, {u"hue"_s, -1},
+                              {u"confirm"_s, false}, {u"pick"_s, QString()}, {u"bounded"_s, false},
+                              {u"key"_s, u"test-ask"_s}, {u"title"_s, u"Ask first"_s}, {u"action"_s, u"test-ask"_s},
+                              {u"ask"_s, u"ask first"_s}, {u"accept"_s, u"go"_s}};
+        page()->setProperty("modelRows", page()->property("modelRows").toList() << ask);
+        auto *dialog = qvariant_cast<QQuickItem *>(page()->property("confirm"));
+        QSignalSpy acted(page(), SIGNAL(acted(QString)));
+        show(u"test-ask"_s, u"display.brightness"_s);
+        tapRow(u"test-ask"_s);
+        QTRY_VERIFY(dialog->property("shown").toBool());
+        QTRY_VERIFY(!dialog->property("animating").toBool());
+        tap(dialog->mapToScene(QPointF(dialog->width() / 2, dialog->height() - 2)).toPoint());
+        QTRY_VERIFY(!dialog->property("shown").toBool());
+        QTest::qWait(100);
+        QCOMPARE(acted.count(), 0);
+        QTRY_VERIFY(!dialog->property("animating").toBool());
+        tapRow(u"test-ask"_s);
+        QTRY_VERIFY(dialog->property("shown").toBool());
+        QTRY_VERIFY(!dialog->property("animating").toBool());
+        tap(centerOf(sheetItem(dialog, 0)));
+        QTRY_COMPARE(acted.count(), 1);
+        QCOMPARE(acted.takeFirst().value(0).toString(), u"test-ask"_s);
+        QVERIFY(!dialog->property("shown").toBool());
+    }
+
+    void touchGamesSheet()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s}});
+        fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
+        fake->setValues({{u"app.292120.lsfg.state"_s, u"off"_s}});
+        fake->setStored({{u"app.292120.lsfg.state"_s, u"off"_s}});
+        model->load();
+        QTRY_COMPARE(model->value(u"app.292120.lsfg.state"_s, model->revision()).toString(), u"off"_s);
+        writeLsfg(R"({"version": 1, "owned": "yes", "install": "installed"})");
+        openLsfg();
+        QTRY_COMPARE(value(u"lsfg-games"_s), u"0 on"_s);
+        show(u"lsfg-games"_s, u"lsfg-status"_s);
+        tapRow(u"lsfg-games"_s);
+        QTRY_VERIFY(rowSheet()->property("shown").toBool());
+        QTRY_COMPARE(entryKeys(), (QStringList{u"lsfg-game-292120"_s, u"lsfg-add"_s}));
+        laidOut(rowSheet());
+        tap(settledPoint(rowSheet(), 0));
+        QTRY_VERIFY(gameSheet()->property("shown").toBool());
+        QCOMPARE(gameSheet()->property("title").toString(), u"FINAL FANTASY XIII"_s);
+        laidOut(gameSheet());
+        tap(settledPoint(gameSheet(), 1));
+        QTRY_COMPARE(fake->calls(), QStringList{u"Set app.292120.lsfg.state on"_s});
+        QVERIFY(!gameSheet()->property("shown").toBool());
+        QVERIFY(rowSheet()->property("shown").toBool());
+        auto *root = qobject_cast<QQuickItem *>(rowSheet());
+        tap(root->mapToScene(QPointF(root->width() / 2, rowSheet()->property("statusClear").toReal() / 2)).toPoint());
+        QTRY_VERIFY(!rowSheet()->property("shown").toBool());
+        QCOMPARE(page()->property("group").toString(), Lsfg);
+        QCOMPARE(fake->calls().size(), 1);
+        qunsetenv("MICROSET_STEAM_DIR");
+    }
+
+    void touchHeaderGoesBack()
+    {
+        QSignalSpy hide(view, SIGNAL(hideRequested()));
+        QObject *stack = qvariant_cast<QObject *>(view->property("stack"));
+        open(u"audio"_s);
+        QCOMPARE(stack->property("depth").toInt(), 2);
+        tap(headerPoint());
+        QTRY_COMPARE(stack->property("depth").toInt(), 1);
+        QCOMPARE(page()->property("title").toString(), u"settings"_s);
+        tap(headerPoint());
+        QTest::qWait(100);
+        QCOMPARE(stack->property("depth").toInt(), 1);
+        QCOMPARE(hide.count(), 0);
+    }
+
+    void touchEventOpensSheet()
+    {
+        static QPointingDevice *device = QTest::createTouchDevice();
+        open(u"audio"_s);
+        show(u"audio.volume_step"_s, u"audio.output"_s);
+        const QPoint at = centerOf(rowItem(u"audio.volume_step"_s));
+        QTest::touchEvent(window, device).press(0, at, window);
+        QTest::touchEvent(window, device).release(0, at, window);
+        QTRY_VERIFY(sheetShown());
+        QCOMPARE(sheet()->property("title").toString(), u"Volume step"_s);
+    }
+
+    void touchCountsAsAFocusMove()
+    {
+        engine.reset();
+        model = std::make_unique<SettingsModel>(h->client());
+        model->lsfg()->setFixture({}, true, u"android"_s);
+        model->load();
+        startPage();
+        QVERIFY(window && view);
+        window->requestActivate();
+        QVERIFY(QTest::qWaitForWindowActive(window));
+        QTRY_VERIFY(model->available());
+        QTRY_VERIFY(!row(u"perf.android_overlay"_s).isEmpty());
+        atTop(u"perf.android_overlay"_s);
+        tapRow(u"group-audio"_s);
+        QTRY_COMPARE(page()->property("group").toString(), u"audio"_s);
+        key(Qt::Key_Escape);
+        QTRY_COMPARE(page()->property("title").toString(), u"settings"_s);
+        QCOMPARE(focusedKey(), u"group-audio"_s);
+        model->setAndroidApp(u"com.example.game"_s);
+        QTRY_VERIFY(!row(u"android-app"_s).isEmpty());
+        QCOMPARE(focusedKey(), u"group-audio"_s);
+    }
+
+    void touchFlingKeepsFocusInView()
+    {
+        open(u"audio"_s);
+        auto *flick = qvariant_cast<QQuickItem *>(page()->property("flick"));
+        QObject *scroller = qvariant_cast<QObject *>(flick->property("touch"));
+        const QPoint from = flick->mapToScene(QPointF(flick->width() / 2, flick->height() * 3 / 4)).toPoint();
+        drag(from, QPoint(0, -int(flick->height() / 2)), 8);
+        const qreal released = flick->property("contentY").toReal();
+        QVERIFY(released > 0);
+        QTRY_VERIFY(flick->property("contentY").toReal() > released);
+        QTRY_VERIFY(!scroller->property("flinging").toBool());
+        const int index = page()->property("focusIndex").toInt();
+        qreal top = 0;
+        qreal height = 0;
+        QVERIFY(QMetaObject::invokeMethod(page(), "rowTopOf", Q_RETURN_ARG(qreal, top), Q_ARG(int, index)));
+        QVERIFY(QMetaObject::invokeMethod(page(), "rowHeightOf", Q_RETURN_ARG(qreal, height),
+                                          Q_ARG(QVariant, page()->property("focusedRow"))));
+        const qreal y = flick->property("contentY").toReal();
+        QVERIFY(top >= y - 0.5 && top + height <= y + flick->height() + 0.5);
     }
 };
 
