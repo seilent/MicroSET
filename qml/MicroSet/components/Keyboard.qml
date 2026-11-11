@@ -450,7 +450,7 @@ Item {
             y: root.edge
             width: field.width
             text: entry.title
-            elide: Text.ElideRight
+            clip: true
             color: Ui.white(Ui.dialogTitle.alpha)
             font: Ui.font(Ui.dialogTitle)
             visible: !root.bare && !root.toastCovers

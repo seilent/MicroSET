@@ -112,7 +112,7 @@ Item {
             height: root.leadHeight
             visible: root.lead !== ""
             verticalAlignment: Text.AlignVCenter
-            elide: Text.ElideRight
+            clip: true
             text: root.lead
             color: Ui.white(Ui.settingsValue.alpha)
             font: Ui.font(Ui.settingsValue)
