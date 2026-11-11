@@ -75,7 +75,7 @@ foreach(size 960x640 640x960)
         set_tests_properties(page-shot-${state}-${size} PROPERTIES
             ENVIRONMENT "QT_QPA_PLATFORM=offscreen;MICROSET_FONT_DIR=${MICROSET_TEST_FONT_DIR}")
     endforeach()
-    foreach(state sheet-motion lsfg-games-motion lsfg-dialog-motion)
+    foreach(state sheet-motion lsfg-games-motion lsfg-dialog-motion press-row-motion)
         add_test(NAME page-frames-${state}-${size}
             COMMAND microset-pageshot --frames ${CMAKE_CURRENT_BINARY_DIR}/shots/${state}-${size} --size ${size}
                 --state ${state})

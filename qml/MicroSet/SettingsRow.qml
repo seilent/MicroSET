@@ -14,6 +14,8 @@ Item {
     readonly property bool hasSwatch: item.modelData.widget === "hue"
     readonly property string touchKind: item.label || item.info ? "" : "row"
     readonly property int touchIndex: item.index
+    readonly property bool pressTarget: item.page.pressedIndex === item.index && item.touchKind === "row"
+        && item.modelData.readOnly !== true
     readonly property var titleRole: item.label ? Ui.sectionLabel : item.info ? Ui.settingsValue : Ui.settingsItem
     readonly property real titleAlpha: item.label ? Ui.sectionLabel.alpha
         : item.isFocused ? Ui.settingsItem.alpha : Ui.settingsItem.alphaDim
@@ -127,11 +129,11 @@ Item {
                 : (item.height - titleText.height) / 2
             text: item.modelData.title
             textFormat: Text.PlainText
-            color: Ui.white(item.titleAlpha)
+            color: Ui.white(item.page.pressed && item.pressTarget ? Ui.alphaFull : item.titleAlpha)
             font: Ui.font(item.titleRole)
 
             Behavior on color {
-                enabled: item.page.live
+                enabled: item.page.live && !item.pressTarget
                 ColorAnimation {
                     duration: Motion.focusAlpha
                 }

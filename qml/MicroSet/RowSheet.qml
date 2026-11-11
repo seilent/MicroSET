@@ -6,6 +6,8 @@ Sheet {
 
     property var rows: []
     property bool covered: false
+    property bool pressed: false
+    property int pressedIndex: -1
     readonly property var leadRows: root.rows.filter((r) => r.kind === "info")
     readonly property var entries: root.rows.filter((r) => r.kind !== "info")
     property alias cells: cells
@@ -14,6 +16,36 @@ Sheet {
     items: root.entries.map(() => "")
     keepLead: root.leadRows.length > 0
     opacity: root.covered ? 0 : 1
+
+    function touchPress(kind: string, index: int, x: real, hit: Item): string {
+        if (!root.shown)
+            return ""
+        switch (kind) {
+        case "item":
+            root.pressedIndex = index
+            root.focusIndex = index
+            return "a"
+        case "scrim":
+            return "b"
+        default:
+            return ""
+        }
+    }
+
+    function press(name: string) {
+        if (name === "a")
+            root.pressed = true
+    }
+
+    function release(name: string) {
+        if (name === "a")
+            root.pressed = false
+    }
+
+    onPressedChanged: {
+        if (!root.pressed)
+            root.pressedIndex = -1
+    }
 
     Text {
         id: leadLine
@@ -44,6 +76,7 @@ Sheet {
             required property int index
             required property var modelData
             readonly property bool focused: cell.index === root.focusIndex
+            readonly property bool pressTarget: cell.index === root.pressedIndex && cell.modelData.installed !== undefined
             readonly property Item titleItem: title
             readonly property Item valueItem: value
 
@@ -80,11 +113,12 @@ Sheet {
                 clip: true
                 text: cell.modelData.title
                 textFormat: Text.PlainText
-                color: Ui.white(cell.focused ? Ui.dialogItem.alpha : Ui.dialogItem.alphaDim)
+                color: Ui.white(root.pressed && cell.pressTarget ? Ui.alphaFull
+                    : cell.focused ? Ui.dialogItem.alpha : Ui.dialogItem.alphaDim)
                 font: root.plainFont
 
                 Behavior on color {
-                    enabled: root.animated
+                    enabled: root.animated && !cell.pressTarget
                     ColorAnimation {
                         duration: Motion.focusAlpha
                     }

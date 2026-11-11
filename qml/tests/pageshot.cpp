@@ -58,7 +58,7 @@ const QStringList &states()
         u"game-lsfg-blacklist"_s, u"game-lsfg-disabled"_s, u"game-lsfg-cap-off"_s, u"sheet-game-lsfg-multiplier"_s,
         u"sheet-game-lsfg-cap"_s, u"lsfg-games-motion"_s, u"lsfg-dialog-motion"_s, u"lsfg-sheet-game"_s,
         u"android-app"_s, u"sheet-android-limit"_s, u"android-app-lsfg-off"_s, u"android-perf"_s, u"android-perf-app"_s,
-        u"sheet-android-perf"_s,
+        u"sheet-android-perf"_s, u"press-row-motion"_s,
     };
     return names;
 }

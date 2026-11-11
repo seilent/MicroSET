@@ -15,6 +15,7 @@ Page {
     property var draft: null
     property var shownValues: ({})
     property string focusKey: ""
+    property int pressedIndex: -1
     property var modelRows: page.model === null ? [] : page.model.rows(page.group, page.model.revision)
     readonly property bool valueOpen: d.valueKey !== ""
     readonly property bool pickerOpen: page.valueOpen || page.editing || rowSheet.shown || gameSheet.shown
@@ -520,6 +521,7 @@ Page {
     function touchPress(kind: string, index: int, x: real, hit: Item): string {
         switch (kind) {
         case "row":
+            page.pressedIndex = index
             page.focusIndex = index
             return "a"
         case "header":
@@ -570,6 +572,11 @@ Page {
     }
 
     onFocusIndexChanged: page.focusKey = page.keyToKeep()
+
+    onPressedChanged: {
+        if (!page.pressed)
+            page.pressedIndex = -1
+    }
 
     onRowsChanged: {
         page.rowTops = Qt.binding(() => page.buildTops(page.rows))

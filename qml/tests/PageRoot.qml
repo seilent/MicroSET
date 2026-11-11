@@ -230,6 +230,13 @@ Window {
                 if (root.shotState === "sheet-android-perf")
                     page.activate()
             })
+        } else if (root.shotState === "press-row-motion") {
+            view.open("audio")
+            const page = view.stack.currentItem
+            Qt.callLater(() => {
+                page.animated = true
+                pressLater.start()
+            })
         } else if (root.shotState === "sheet-bool") {
             view.open("display")
             const page = view.stack.currentItem
@@ -258,6 +265,25 @@ Window {
 
         interval: Motion.listChange
         onTriggered: view.stack.currentItem.activate()
+    }
+
+    Timer {
+        id: pressLater
+
+        interval: Motion.listChange
+        onTriggered: {
+            const page = view.stack.currentItem
+            page.touchPress("row", page.nearestFocusable(2, 1), 0, null)
+            page.press("a")
+            releaseLater.start()
+        }
+    }
+
+    Timer {
+        id: releaseLater
+
+        interval: Motion.listChange
+        onTriggered: view.stack.currentItem.release("a")
     }
 
     Timer {

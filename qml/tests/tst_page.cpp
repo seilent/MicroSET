@@ -278,6 +278,29 @@ class PageTest : public QObject
         QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, from + by);
     }
 
+    static qreal alphaOf(QQuickItem *text)
+    {
+        return text->property("color").value<QColor>().alphaF();
+    }
+
+    static bool near(qreal a, qreal b)
+    {
+        return qAbs(a - b) < 0.001;
+    }
+
+    qreal titleAlpha(const QString &key) const
+    {
+        return alphaOf(qvariant_cast<QQuickItem *>(rowItem(key)->property("titleItem")));
+    }
+
+    QQuickItem *cellTitle(int index) const
+    {
+        QQuickItem *cell = nullptr;
+        QMetaObject::invokeMethod(qvariant_cast<QObject *>(rowSheet()->property("cells")), "itemAt",
+                                  Q_RETURN_ARG(QQuickItem *, cell), Q_ARG(int, index));
+        return cell ? qvariant_cast<QQuickItem *>(cell->property("titleItem")) : nullptr;
+    }
+
     QString focusedKey() const
     {
         return page()->property("focusedRow").toMap().value(u"key"_s).toString();
@@ -2218,6 +2241,78 @@ private slots:
         QVERIFY(!rowSheet()->property("shown").toBool());
         QCOMPARE(fake->calls(), QStringList{u"Set microemu.retroarch.savestate_max_keep 11"_s});
         QTRY_COMPARE(value(u"microemu.retroarch.savestate_max_keep"_s), u"11"_s);
+    }
+
+    void touchPressCutsTitle()
+    {
+        open(u"audio"_s);
+        page()->setProperty("animated", true);
+        show(u"audio.volume_step"_s, u"audio.output"_s);
+        QTRY_VERIFY(near(titleAlpha(u"audio.volume_step"_s), 0.6));
+        QTRY_COMPARE(titleAlpha(u"audio.output"_s), 1.0);
+        const QPoint at = centerOf(rowItem(u"audio.volume_step"_s));
+        QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, at);
+        QCOMPARE(focusedKey(), u"audio.volume_step"_s);
+        QCOMPARE(titleAlpha(u"audio.volume_step"_s), 1.0);
+        QVERIFY(titleAlpha(u"audio.output"_s) > 0.6);
+        QTRY_VERIFY(titleAlpha(u"audio.output"_s) < 1.0);
+        QCOMPARE(titleAlpha(u"audio.volume_step"_s), 1.0);
+        const QPoint by(2 * int(sheet()->property("pitch").toReal()), 0);
+        QTest::mouseMove(window, at + by / 2, 8);
+        QTest::mouseMove(window, at + by, 8);
+        QCOMPARE(titleAlpha(u"audio.volume_step"_s), 1.0);
+        QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, at + by);
+        QTest::qWait(300);
+        QCOMPARE(titleAlpha(u"audio.volume_step"_s), 1.0);
+        QTRY_VERIFY(near(titleAlpha(u"audio.output"_s), 0.6));
+        QVERIFY(!sheetShown());
+    }
+
+    void touchPressCutsRowSheetEntry()
+    {
+        QTemporaryDir steam;
+        qputenv("MICROSET_STEAM_DIR", steam.path().toUtf8());
+        FakeMicroSetd::writeSteam(steam.path(), {{u"292120"_s, u"FINAL FANTASY XIII"_s}, {u"2238900"_s, u"SO2R"_s}});
+        fake->setProton({FakeMicroSetd::shipped()}, FakeMicroSetd::Profiles);
+        fake->setValues({{u"app.292120.lsfg.state"_s, u"off"_s}});
+        fake->setStored({{u"app.292120.lsfg.state"_s, u"off"_s}});
+        model->load();
+        QTRY_COMPARE(model->value(u"app.292120.lsfg.state"_s, model->revision()).toString(), u"off"_s);
+        writeLsfg(R"({"version": 1, "owned": "yes", "install": "installed"})");
+        openLsfg();
+        QTRY_COMPARE(value(u"lsfg-games"_s), u"0 on"_s);
+        page()->setProperty("animated", true);
+        show(u"lsfg-games"_s, u"lsfg-games"_s);
+        key(Qt::Key_Return);
+        QVERIFY(rowSheet()->property("shown").toBool());
+        QTRY_COMPARE(entryKeys(), (QStringList{u"lsfg-game-292120"_s, u"lsfg-add"_s}));
+        QTRY_VERIFY(!rowSheet()->property("animating").toBool());
+        key(Qt::Key_Down);
+        QCOMPARE(rowSheet()->property("focusIndex").toInt(), 1);
+        QTRY_VERIFY(near(alphaOf(cellTitle(0)), 0.6));
+        const QPoint at = settledPoint(rowSheet(), 0);
+        QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, at);
+        QCOMPARE(rowSheet()->property("focusIndex").toInt(), 0);
+        QCOMPARE(alphaOf(cellTitle(0)), 1.0);
+        QVERIFY(alphaOf(cellTitle(1)) > 0.6);
+        const QPoint by(2 * int(rowSheet()->property("pitch").toReal()), 0);
+        QTest::mouseMove(window, at + by / 2, 8);
+        QTest::mouseMove(window, at + by, 8);
+        QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, at + by);
+        QTRY_VERIFY(near(alphaOf(cellTitle(1)), 0.6));
+        QCOMPARE(alphaOf(cellTitle(0)), 1.0);
+        QVERIFY(!gameSheet()->property("shown").toBool());
+        auto *lead = qvariant_cast<QQuickItem *>(rowSheet()->property("leadLine"));
+        QVERIFY(lead->isVisible());
+        const QList<qreal> before{alphaOf(cellTitle(0)), alphaOf(cellTitle(1))};
+        QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, centerOf(lead));
+        QTest::qWait(50);
+        QCOMPARE((QList<qreal>{alphaOf(cellTitle(0)), alphaOf(cellTitle(1))}), before);
+        QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, centerOf(lead));
+        QTest::qWait(100);
+        QCOMPARE(rowSheet()->property("focusIndex").toInt(), 0);
+        QVERIFY(!gameSheet()->property("shown").toBool());
+        qunsetenv("MICROSET_STEAM_DIR");
     }
 };
 
