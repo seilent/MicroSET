@@ -82,8 +82,8 @@ QtObject {
     readonly property var homeSubtitle: ({ name: "homeSubtitle", size: 8, style: "Regular", caps: Font.AllUppercase, alpha: 0.6, tracking: -0.5, sample: "artists albums songs" })
     readonly property var quickplayHeader: ({ name: "quickplayHeader", size: 34, style: "Light", caps: Font.MixedCase, alpha: 0.6, tracking: -0.5, sample: "Pins" })
     readonly property var quickplayHint: ({ name: "quickplayHint", size: 11, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5, sample: "press x on an item" })
-    readonly property var pivotActive: ({ name: "pivotActive", size: 22, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5, sample: "albums" })
-    readonly property var pivotInactive: ({ name: "pivotInactive", size: 22, style: "Light", caps: Font.AllUppercase, alpha: 0.4, tracking: -0.5, sample: "songs" })
+    readonly property var pivotActive: ({ name: "pivotActive", size: 24.7 * ui.kScale, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, tracking: -0.5, sample: "albums" })
+    readonly property var pivotInactive: ({ name: "pivotInactive", size: 24.7 * ui.kScale, style: "Regular", caps: Font.AllUppercase, alpha: 0.28, tracking: -0.5, sample: "songs" })
     readonly property var sectionLabel: ({ name: "sectionLabel", size: 8, style: "Regular", caps: Font.AllUppercase, alpha: 0.6, tracking: -0.5, sample: "in collection" })
     readonly property var listPrimary: ({ name: "listPrimary", size: 14, style: "Regular", caps: Font.MixedCase, alpha: 1.0, alphaDim: 0.85, tracking: -0.5, sample: "Harmonics vol.2" })
     readonly property var listPlaylist: ({ name: "listPlaylist", size: 14, style: "Bold", caps: Font.AllUppercase, alpha: 1.0, alphaDim: 0.85, tracking: -0.5, sample: "now playing" })
@@ -285,7 +285,8 @@ QtObject {
     readonly property real pagePivotBaseline: ui.landscape ? 79 : 85.5 * ui.kScale
     readonly property real pageContentTop: ui.landscape ? 98 : 120 * ui.kScale
     readonly property real pageCountBaseline: ui.pagePivotBaseline
-    readonly property real pivotGap: 16
+    readonly property real pivotGap: 6.6 * ui.kScale
+    readonly property real pivotActiveGap: 7.7 * ui.kScale
     readonly property real pivotLeadGap: ui.hubEdge + 2
     readonly property real contentTop: ui.landscape ? 98 : 128
     readonly property real tileS: ui.landscape ? 60 : Math.round(60 * ui.canvasW / 272)
