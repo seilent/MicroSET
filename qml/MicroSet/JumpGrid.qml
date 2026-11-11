@@ -17,8 +17,8 @@ Item {
     readonly property int offset: Ui.jumpExitCells
     readonly property real tile: Ui.px(Ui.jumpTile)
     readonly property real gap: Ui.px(Ui.jumpGap)
-    readonly property real pitch: root.tile + root.gap
-    readonly property real gridX: Ui.px(Ui.edge)
+    readonly property real pitch: Ui.px(Ui.jumpPitch)
+    readonly property real gridX: Ui.px(Ui.jumpLeft)
     readonly property real gridY: Ui.px(Ui.jumpTop)
     readonly property bool animating: progressAnim.running
     readonly property int openDuration: Motion.jumpIn
@@ -26,8 +26,9 @@ Item {
     readonly property real visualOpacity: root.progress
     readonly property string focusLetter: root.letters[root.focusIndex] === undefined ? "" : root.letters[root.focusIndex]
     readonly property int exitIndex: -1
-    readonly property bool exitFocused: root.shown && root.focusIndex === root.exitIndex
+    readonly property bool exitFocused: root.focusIndex === root.exitIndex
     property alias exitText: exitText
+    property alias exitCell: exitCell
     property alias cells: cells
     property alias face: face
     property alias fade: progressAnim
@@ -73,7 +74,7 @@ Item {
     }
 
     function cellAt(index: int): Item {
-        return cells.itemAt(index)
+        return cells.itemAt(index)?.tile ?? null
     }
 
     function firstAvailable(): int {
@@ -223,16 +224,25 @@ Item {
             color: Ui.bg
         }
 
-        Text {
-            id: exitText
+        Item {
+            id: exitCell
 
             readonly property string touchKind: root.shown ? "exit" : ""
 
-            x: root.gridX
-            y: root.gridY + (root.tile - exitText.height) / 2
-            text: "exit"
-            color: Ui.white(root.exitFocused ? Ui.alphaFull : Ui.overlayLabel.alpha)
-            font: Ui.font(Ui.overlayLabel)
+            x: root.gridX - root.gap / 2
+            y: root.gridY - root.gap / 2
+            width: root.pitch
+            height: root.pitch
+
+            Text {
+                id: exitText
+
+                x: Ui.px(Ui.jumpExitCx) - exitCell.x - exitText.width / 2
+                y: Ui.px(Ui.jumpExitTop + Ui.capHeight * Ui.jumpExit.size) - exitCell.y - exitText.baselineOffset
+                text: "exit"
+                color: Ui.white(root.exitFocused ? Ui.jumpExit.alpha : Ui.jumpExit.alphaDim)
+                font: Ui.font(Ui.jumpExit)
+            }
         }
 
         Repeater {
@@ -240,7 +250,7 @@ Item {
 
             model: root.letters
 
-            delegate: LetterTile {
+            delegate: Item {
                 id: cell
 
                 required property int index
@@ -248,15 +258,29 @@ Item {
                 readonly property bool available: root.has(cell.modelData)
                 readonly property string touchKind: root.shown && cell.available ? "letter" : ""
                 readonly property int touchIndex: cell.index
+                property alias tile: tile
 
-                x: root.cellX(cell.index)
-                y: root.cellY(cell.index)
-                size: Ui.jumpTile
-                letter: cell.modelData
-                empty: !cell.available
-                focused: root.shown && cell.available && root.focusIndex === cell.index
-                pressed: cell.focused && root.pressed
-                animated: !root.screenOff
+                x: root.cellX(cell.index) - root.gap / 2
+                y: root.cellY(cell.index) - root.gap / 2
+                width: root.pitch
+                height: root.pitch
+
+                LetterTile {
+                    id: tile
+
+                    readonly property real snapX: Math.round(root.cellX(cell.index))
+                    readonly property real snapY: Math.round(root.cellY(cell.index))
+
+                    x: tile.snapX - cell.x
+                    y: tile.snapY - cell.y
+                    width: Math.round(root.tile)
+                    height: Math.round(root.tile)
+                    letter: cell.modelData
+                    empty: !cell.available
+                    focused: cell.available && root.focusIndex === cell.index
+                    pressed: tile.focused && root.pressed
+                    animated: !root.screenOff
+                }
             }
         }
     }

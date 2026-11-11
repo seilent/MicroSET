@@ -415,16 +415,18 @@ QtObject {
     readonly property real toastHeight: 40
     readonly property real toastArtistBaseline: 16
     readonly property real toastTitleBaseline: 34
-    readonly property int jumpCols: ui.landscape ? 9 : 5
-    readonly property real jumpGap: 8
-    readonly property real jumpTile: Math.min(
-        (ui.canvasW - 2 * ui.edge - (ui.jumpCols - 1) * ui.jumpGap) / ui.jumpCols,
-        (ui.canvasH - 2 * ui.edge - (ui.jumpRows - 1) * ui.jumpGap) / ui.jumpRows)
-    readonly property int jumpExitCells: 2
+    readonly property int jumpCols: Math.floor((ui.canvasW - 2 * ui.jumpLeft + ui.jumpGap) / ui.jumpPitch)
+    readonly property real jumpLeft: 10.01 * ui.kScale
+    readonly property real jumpPitch: 56.03 * ui.kScale
+    readonly property real jumpGap: 4.24 * ui.kScale
+    readonly property real jumpTile: ui.jumpPitch - ui.jumpGap
+    readonly property real jumpTop: 19.54 * ui.kScale
+    readonly property real jumpExitCx: 23.3 * ui.kScale
+    readonly property real jumpExitTop: 21.1 * ui.kScale
+    readonly property int jumpExitCells: 1
     readonly property int jumpCells: 38
     readonly property int jumpRows: Math.ceil((ui.jumpExitCells + ui.jumpCells) / ui.jumpCols)
-    readonly property real jumpGridH: ui.jumpRows * ui.jumpTile + (ui.jumpRows - 1) * ui.jumpGap
-    readonly property real jumpTop: Math.max(ui.edge, (ui.canvasH - ui.jumpGridH) / 2)
+    readonly property real jumpContentH: ui.jumpTop + (ui.jumpRows - 1) * ui.jumpPitch + ui.jumpTile + ui.edge
     readonly property real stickDeadzone: 0.5
     readonly property int stickRepeatFirst: 300
     readonly property int stickRepeat: 80
