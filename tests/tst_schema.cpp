@@ -3,6 +3,8 @@
 
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QProcess>
+#include <QRegularExpression>
 #include <QTest>
 
 using namespace Qt::StringLiterals;
@@ -956,6 +958,37 @@ private slots:
         QCOMPARE(schema.describe({}).size(), 82);
         QCOMPARE(schema.describe(u"audio"_s).size(), 27);
         QVERIFY(schema.describe(u"meta"_s).value("meta.imported_power"_L1).toObject().value("group"_L1).isNull());
+    }
+
+    void droppedKeys()
+    {
+        Harness h;
+        const QString source = QStringLiteral(MICROSET_SOURCE_DIR);
+        QProcess cmake;
+        cmake.setProcessChannelMode(QProcess::ForwardedChannels);
+        cmake.start(QStringLiteral(CMAKE_COMMAND),
+                    {u"-DINPUT="_s + source + u"/schema/10-microset.json"_s,
+                     u"-DOUTPUT="_s + h.path(u"s/10-microset.json"_s),
+                     u"-DDROP=power.*;rgb.*;audio.hp_gain;audio.hp_amp;audio.speaker_gain"_s, u"-P"_s,
+                     source + u"/cmake/schemadrop.cmake"_s});
+        QVERIFY(cmake.waitForFinished());
+        QCOMPARE(cmake.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(cmake.exitCode(), 0);
+        const Schema shipped = make(source + u"/schema"_s);
+        QTest::failOnWarning(QRegularExpression(u"."_s));
+        const Schema schema = make(h.path(u"s"_s));
+        const QStringList dropped = {u"audio.hp_amp"_s, u"audio.hp_gain"_s, u"audio.speaker_gain"_s};
+        QJsonObject described = shipped.describe({});
+        for (const QString &name : shipped.keys({}))
+            if (name.startsWith("power."_L1) || name.startsWith("rgb."_L1) || dropped.contains(name))
+                described.remove(name);
+        QCOMPARE(described.size(), 64);
+        QCOMPARE(schema.describe({}), described);
+        QVERIFY(!schema.group(u"power"_s));
+        QVERIFY(!schema.group(u"rgb"_s));
+        for (const QString &name : {u"audio"_s, u"display"_s, u"games"_s, u"lsfg"_s, u"system"_s})
+            QCOMPARE(schema.group(name)->label, shipped.group(name)->label);
+        QCOMPARE(*schema.preset(u"compatibility"_s), *shipped.preset(u"compatibility"_s));
     }
 };
 

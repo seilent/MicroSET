@@ -231,9 +231,10 @@ with `-DMICROSET_UI=OFF -DMICROSET_RECOVERY=OFF`), alsa-lib, CMake 3.22, a C++20
 `microset-store` also need layer-shell-qt, Qt WaylandClient with its private headers, glib2, wayland-client and
 `wayland-scanner` (`-DMICROSET_LAUNCHER=OFF` leaves both out). The store in `store/` needs flatpak and appstream and is
 left out when they are missing (`-DMICROSET_STORE=OFF` leaves it out too).
-`-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik faces adds the screenshot tests; the recovery shots must match
-`recovery/tests/shots.sha256`, made on the MicroOS package build (Fedora 44, aarch64), and a mismatch prints the hash of
-every shot.
+`-DMICROSET_SCHEMA_DROP=<globs>` (a CMake list, `*` matches any run of characters) leaves the matching keys out of the
+installed `10-microset.json`, and the groups left with no key. `-DMICROSET_TEST_FONT_DIR=<dir>` with the Selawik faces
+adds the screenshot tests; the recovery shots must match `recovery/tests/shots.sha256`, made on the MicroOS package
+build (Fedora 44, aarch64), and a mismatch prints the hash of every shot.
 
 ```
 cmake -B build -DCMAKE_INSTALL_PREFIX=/usr

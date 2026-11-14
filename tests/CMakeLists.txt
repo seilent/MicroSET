@@ -19,6 +19,7 @@ foreach(name store schema settings sessions import bus client alsa ssc rgb backl
     target_link_libraries(tst_${name} PRIVATE microset_harness libmicroset)
     add_test(NAME ${name} COMMAND tst_${name})
 endforeach()
+target_compile_definitions(tst_schema PRIVATE CMAKE_COMMAND="${CMAKE_COMMAND}")
 
 add_test(NAME copies COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/check-copies.sh
     ${PROJECT_SOURCE_DIR}/qml/MicroSet ${CMAKE_CURRENT_SOURCE_DIR}/copies.sha256)

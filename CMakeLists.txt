@@ -19,6 +19,7 @@ set(MICROSET_DBUS_INTERFACES_DIR "${CMAKE_INSTALL_FULL_DATADIR}/dbus-1/interface
 set(MICROSET_SCHEMA_DIR "${CMAKE_INSTALL_FULL_DATADIR}/microset/schema.d" CACHE PATH "schema.d dir")
 set(MICROSET_SYSTEMD_USER_DIR "${CMAKE_INSTALL_PREFIX}/lib/systemd/user" CACHE PATH "systemd user unit dir")
 set(MICROSET_HOTKEYS_DIR "${CMAKE_INSTALL_PREFIX}/lib/microos/hotkeys.d" CACHE PATH "MicroOS hotkeyd table dir")
+set(MICROSET_SCHEMA_DROP "" CACHE STRING "Key globs left out of the installed 10-microset.json")
 
 add_library(microset_common STATIC daemon/auth.cpp daemon/auth.h daemon/sleepinhibitor.cpp daemon/sleepinhibitor.h)
 target_include_directories(microset_common PUBLIC daemon)
@@ -90,7 +91,20 @@ install(FILES
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MicroSet
 )
 
-install(FILES schema/10-microset.json DESTINATION ${MICROSET_SCHEMA_DIR})
+if(MICROSET_SCHEMA_DROP)
+    string(REPLACE ";" "$<SEMICOLON>" drop "${MICROSET_SCHEMA_DROP}")
+    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/schema/10-microset.json
+        COMMAND ${CMAKE_COMMAND} -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/schema/10-microset.json
+            -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/schema/10-microset.json "-DDROP=${drop}"
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/schemadrop.cmake
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/schema/10-microset.json ${CMAKE_CURRENT_SOURCE_DIR}/cmake/schemadrop.cmake
+        VERBATIM
+    )
+    add_custom_target(microset_schema ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/schema/10-microset.json)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/schema/10-microset.json DESTINATION ${MICROSET_SCHEMA_DIR})
+else()
+    install(FILES schema/10-microset.json DESTINATION ${MICROSET_SCHEMA_DIR})
+endif()
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/microsetd.service DESTINATION ${MICROSET_SYSTEMD_UNIT_DIR})
 install(FILES data/net.seilent.MicroSet.conf DESTINATION ${MICROSET_DBUS_POLICY_DIR})
 install(FILES data/net.seilent.MicroSet1.xml DESTINATION ${MICROSET_DBUS_INTERFACES_DIR})
