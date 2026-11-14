@@ -708,6 +708,21 @@ private slots:
         QVERIFY(!h->readState().contains("display.rotation"));
     }
 
+    void emptyDevicesLeaveAppliersOff()
+    {
+        h->setEnvironment(u"MICROSET_ALSA_CARD"_s, QString());
+        h->setEnvironment(u"MICROSET_RGB_DEVICE"_s, QString());
+        QVERIFY(up());
+        QCOMPARE(set(u"audio.hp_gain"_s, u"low"_s), QString());
+        QCOMPARE(set(u"rgb.hue"_s, 30u), QString());
+        QCOMPARE(get(u"rgb.hue"_s), QVariant(30u));
+        QVERIFY(h->readState().contains("\"audio.hp_gain\": \"low\""));
+        QTest::qWait(300);
+        const QString log = h->daemonLog();
+        QVERIFY2(!log.contains("alsa"_L1), qPrintable(log));
+        QVERIFY2(!log.contains("rgb:"_L1), qPrintable(log));
+    }
+
     void auth()
     {
         QVERIFY(up());

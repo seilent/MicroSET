@@ -203,9 +203,9 @@ next boot. A GPU hang, a GMU fault or timeout runs the GPU stock for the rest of
 `power.gpu_tuning_trip` holds the reason until the next boot. powerd turns the preset off after two boots in a row with
 one, or after a boot that ended without a clean shutdown, and `power.gpu_tuning_fallback` holds the reason.
 
-Headphone gain, headphone amp mode and speaker gain go straight to the ALSA controls of card `PocketMICRO2`.
-`microsetd` writes them at start, on every change and 5 s after the card appears, and writes them again when a readback
-differs.
+Headphone gain, headphone amp mode and speaker gain go straight to the ALSA controls of the card in
+`MICROSET_ALSA_CARD` (default `PocketMICRO2`). `microsetd` writes them at start, on every change and 5 s after the
+card appears, and writes them again when a readback differs. An empty `MICROSET_ALSA_CARD` leaves them unapplied.
 
 `display.rotation` is live. While a caller holds it with `Subscribe` and `display.auto_rotate` is on, `microsetd`
 streams the SSC `device_orient` sensor over QRTR and follows it; otherwise it equals `display.orientation`. The stream
@@ -217,7 +217,8 @@ node first and is stored only if the write works. A level another process writes
 with the current level. At boot a stored level under the `floor` (10 %) is written and stored as the floor; a restart
 (marker in `RUNTIME_DIRECTORY`) writes the stored level as is. With nothing stored the current level is recorded.
 
-`rgb.enabled`, `rgb.hue`, `rgb.saturation` and `rgb.brightness` go to the stick LED MCU on `/dev/ttyHS2`.
+`rgb.enabled`, `rgb.hue`, `rgb.saturation` and `rgb.brightness` go to the stick LED MCU on the device in
+`MICROSET_RGB_DEVICE` (default `/dev/ttyHS2`); an empty one leaves them unapplied.
 `rgb.saturation` is 0 to 100, default 100. A store that holds `rgb.saturation` 0 and no `meta.moved_rgb_saturation`
 gets it moved to 100 once at start, in one write with the marker. The LED level is the screen brightness as a fraction
 of its maximum times the `rgb.brightness` cap: a 50 % screen under a 50 % cap gives 25 %. The LEDs are off during

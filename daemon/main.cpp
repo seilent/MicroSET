@@ -126,11 +126,15 @@ int main(int argc, char **argv)
         return 1;
     }
     bridge.start();
-    AlsaLibControl control(qEnvironmentVariable("MICROSET_ALSA_CARD", u"PocketMICRO2"_s));
+    const QString card = qEnvironmentVariable("MICROSET_ALSA_CARD", u"PocketMICRO2"_s);
+    AlsaLibControl control(card);
     AlsaApplier alsa(bus, settings, control, qEnvironmentVariable("MICROSET_ALSA_DEVICES", u"/dev/snd"_s));
-    alsa.start();
-    RgbApplier rgb(settings, &sleep, qEnvironmentVariable("MICROSET_RGB_DEVICE", u"/dev/ttyHS2"_s), backlight);
-    rgb.start();
+    if (!card.isEmpty())
+        alsa.start();
+    const QString leds = qEnvironmentVariable("MICROSET_RGB_DEVICE", u"/dev/ttyHS2"_s);
+    RgbApplier rgb(settings, &sleep, leds, backlight);
+    if (!leds.isEmpty())
+        rgb.start();
     QObject::connect(&sleep, &SleepInhibitor::prepareForSleep, &settings, [&settings](bool start) {
         if (start)
             settings.flush();
