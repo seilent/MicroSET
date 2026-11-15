@@ -7,6 +7,9 @@ add_library(microset_overlay_core STATIC
     src/overlay.h
     src/overlayservice.cpp
     src/overlayservice.h
+    src/quickaccess.cpp
+    src/quickaccess.h
+    src/quickaccessbind.h
     src/runninggame.cpp
     src/runninggame.h
     src/sessionmenu.cpp

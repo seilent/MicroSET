@@ -1075,6 +1075,34 @@ private slots:
         qunsetenv("MICROSET_STEAM_DIR");
     }
 
+    void quickAccessRow()
+    {
+        SettingsModel fixture;
+        fixture.setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {});
+        QSignalSpy requested(&fixture, &SettingsModel::quickAccessRequested);
+        QVERIFY(!keysOf(fixture.groups(0)).contains(u"steam-quick-access"_s));
+        fixture.act(u"steam-quick-access"_s);
+        QCOMPARE(requested.size(), 0);
+        fixture.setQuickAccess(true);
+        QVariantList rows = fixture.groups(0);
+        QCOMPARE(keysOf(rows).mid(0, 3), (QStringList{u"label-steam"_s, u"steam-quick-access"_s, u"label-microset"_s}));
+        const QVariantMap row = rowOf(rows, u"steam-quick-access"_s);
+        QCOMPARE(row.value(u"title"_s).toString(), u"Quick access menu"_s);
+        QCOMPARE(row.value(u"kind"_s).toString(), u"row"_s);
+        QCOMPARE(row.value(u"action"_s).toString(), u"steam-quick-access"_s);
+        QVERIFY(!row.contains(u"ask"_s));
+        fixture.act(u"steam-quick-access"_s);
+        QCOMPARE(requested.size(), 1);
+        fixture.lsfg()->setFixture({}, true, u"android"_s);
+        fixture.setAndroidApp(u"com.example.game"_s);
+        QCOMPARE(keysOf(fixture.groups(0)).mid(0, 3),
+                 (QStringList{u"label-steam"_s, u"steam-quick-access"_s, u"label-this app"_s}));
+        fixture.setQuickAccess(false);
+        QVERIFY(!keysOf(fixture.groups(0)).contains(u"label-steam"_s));
+        fixture.act(u"steam-quick-access"_s);
+        QCOMPARE(requested.size(), 1);
+    }
+
     void androidApp()
     {
         SettingsModel fixture;

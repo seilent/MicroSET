@@ -6,6 +6,8 @@
 #include "holdhint.h"
 #include "overlay.h"
 #include "overlayservice.h"
+#include "quickaccess.h"
+#include "quickaccessbind.h"
 #include "runninggame.h"
 #include "sessionmenu.h"
 #include "settingsmodel.h"
@@ -125,6 +127,7 @@ int main(int argc, char *argv[])
     game.skip(SteamLibrary::excluded());
     std::unique_ptr<SettingsModel> model;
     std::unique_ptr<QQmlApplicationEngine> engine;
+    QuickAccess quick(session, qEnvironmentVariable("MICROSET_OVERLAY_SESSION"));
     const auto pushGame = [&model, &game, &frameLimit] {
         if (model)
             model->setGame(withFrameLimit(game.info(), frameLimit.limit(), frameLimit.refresh()));
@@ -166,6 +169,7 @@ int main(int argc, char *argv[])
             return;
         model = std::make_unique<SettingsModel>(system);
         model->load();
+        bindQuickAccess(quick, *model, overlay);
         pushGame();
         pushApp();
         QObject::connect(&game, &RunningGame::changed, model.get(), pushGame);

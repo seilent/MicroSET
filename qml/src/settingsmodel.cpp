@@ -37,6 +37,7 @@ const QString LsfgStateOption = u"lsfg.state"_s;
 const QString LsfgGamesKey = u"lsfg-games"_s;
 const QString LsfgGamePrefix = u"lsfg-game-"_s;
 const QString LsfgInstallKey = u"lsfg-install"_s;
+const QString QuickAccessKey = u"steam-quick-access"_s;
 const QString LsfgOffText = u"Frame generation is off"_s;
 const QString AndroidGroup = u"lsfg.android"_s;
 const QString AndroidAppKey = u"lsfg.android_app"_s;
@@ -215,6 +216,14 @@ void SettingsModel::setAndroidApp(const QString &package)
     if (package == m_androidApp)
         return;
     m_androidApp = package;
+    bump();
+}
+
+void SettingsModel::setQuickAccess(bool shown)
+{
+    if (shown == m_quickAccess)
+        return;
+    m_quickAccess = shown;
     bump();
 }
 
@@ -1037,6 +1046,15 @@ QVariantList SettingsModel::thisGame() const
     return out;
 }
 
+QVariantList SettingsModel::quickAccess() const
+{
+    if (!m_quickAccess)
+        return {};
+    QVariantMap row = infoRow(QuickAccessKey, u"Quick access menu"_s, QString());
+    row.insert({{u"kind"_s, u"row"_s}, {u"action"_s, QuickAccessKey}});
+    return {label(u"steam"_s), row};
+}
+
 QVariantList SettingsModel::thisApp() const
 {
     const auto state = m_entries.constFind(AndroidStateKey);
@@ -1236,6 +1254,8 @@ void SettingsModel::act(const QString &key)
 {
     if (key == LsfgInstallKey && installShown())
         m_lsfg.install();
+    else if (key == QuickAccessKey && m_quickAccess)
+        emit quickAccessRequested();
 }
 
 void SettingsModel::toggle(const QString &key)
@@ -1375,7 +1395,7 @@ QVariantList SettingsModel::groups(int) const
             return b.title == UpdatesGroup;
         return a.order != b.order ? a.order < b.order : a.title < b.title;
     });
-    QVariantList out = thisApp() + androidPerf() + thisGame();
+    QVariantList out = quickAccess() + thisApp() + androidPerf() + thisGame();
     QString section;
     for (const Item &item : std::as_const(items)) {
         if (out.isEmpty() || item.owner != section) {

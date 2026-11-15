@@ -1,7 +1,9 @@
 #include "dbuspad.h"
 #include "fakemicrosetd.h"
+#include "fakepowerkey.h"
 #include "harness.h"
 #include "overlay.h"
+#include "quickaccessbind.h"
 #include "settingsmodel.h"
 #include "uirelease.h"
 
@@ -346,6 +348,34 @@ private slots:
         m_pad.reset();
         m_overlay.reset();
         m_model.reset();
+    }
+
+    void quickAccessRowHidesOrToasts()
+    {
+        Harness h;
+        QVERIFY(h.startBus());
+        const auto buses = qScopeGuard([] {
+            QDBusConnection::disconnectFromBus(u"helper"_s);
+            QDBusConnection::disconnectFromBus(u"overlay"_s);
+        });
+        FakePowerKey helper;
+        QVERIFY(helper.publish(QDBusConnection::connectToBus(h.address(), u"helper"_s)));
+        QuickAccess quick(QDBusConnection::connectToBus(h.address(), u"overlay"_s), u"steam"_s);
+        bindQuickAccess(quick, *m_model, *m_overlay);
+        int index = -1;
+        QTRY_VERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index),
+                                              Q_ARG(QString, u"steam-quick-access"_s))
+                    && index >= 0);
+        page()->setProperty("focusIndex", index);
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QTRY_COMPARE(m_overlay->hides, 1);
+        QCOMPARE(helper.calls, 1);
+        QCOMPARE(toast()->property("phase").toString(), u"hidden"_s);
+        helper.fail = true;
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QTRY_COMPARE(toast()->property("title").toString(), u"not available"_s);
+        QCOMPARE(helper.calls, 2);
+        QCOMPARE(m_overlay->hides, 1);
     }
 
     void holdTextComesBackAfterAnotherToast()

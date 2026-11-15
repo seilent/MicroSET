@@ -55,6 +55,7 @@ Item {
 
         GroupsPage {
             onOpened: (group) => view.open(group)
+            onActed: (key) => view.model.act(key)
             onHideRequested: view.hideRequested()
         }
     }

@@ -41,6 +41,10 @@ read, change and watch them over D-Bus.
   writes `lsfg.android_app`, resets the other Android key to its default, then writes its key; a package over 128
   characters is refused (`set failed`) before any write. In the android session the first page has `android`
   (after `this app` when there is one): `Performance overlay` (`perf.android_overlay`), applied on accept.
+  In the steam session (`MICROSET_OVERLAY_SESSION`, the unit's instance), while `net.seilent.MicroOS.PowerKey` has an
+  owner on the session bus, the first page starts with `steam`: `Quick access menu` calls `OpenQuickAccess` of
+  `net.seilent.MicroOS.PowerKey1` (2 s timeout) and hides the overlay when it returns; a failed call keeps the overlay
+  shown with a `not available` toast.
   Row values are plain text.
   The overlay also owns `net.seilent.MicroOs.SessionMenu` (interface `SessionMenu1`, `Show(sessions, current, hints)`):
   a sheet listing the sessions MicroOS passes, current marked. A switches (`microos-session-switch@<name>.service`) or
