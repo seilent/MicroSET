@@ -45,6 +45,9 @@ BacklightApplier::BacklightApplier(Settings &settings, const QString &backlight,
     , m_backlight(backlight)
     , m_marker(runtime + u"/backlight"_s)
 {
+    m_quiet.setSingleShot(true);
+    m_quiet.setInterval(quietMs);
+    connect(&m_quiet, &QTimer::timeout, this, &BacklightApplier::settled);
 }
 
 BacklightApplier::~BacklightApplier()
@@ -174,10 +177,23 @@ void BacklightApplier::refresh()
         }
         return;
     }
-    qInfo("backlight: %llu written by another process, recorded", *now);
+    if (m_quiet.isActive())
+        ++m_more;
+    else
+        qInfo("backlight: %llu written by another process, recorded", *now);
+    m_quiet.start();
+    m_foreign = *now;
     m_last = *now;
     m_ok = true;
     m_settings.store(Name, basisPoints(*now, m_max));
+}
+
+void BacklightApplier::settled()
+{
+    if (m_more == 0)
+        return;
+    qInfo("backlight: %llu written by another process after %llu more writes, recorded", m_foreign, m_more);
+    m_more = 0;
 }
 
 void BacklightApplier::warn(bool &flag, const QString &line)

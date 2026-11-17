@@ -3,6 +3,7 @@
 #include "settings.h"
 
 #include <QObject>
+#include <QTimer>
 
 class QSocketNotifier;
 
@@ -12,6 +13,7 @@ class BacklightApplier : public QObject
 
 public:
     static inline const QString Name = QStringLiteral("display.brightness");
+    static constexpr int quietMs = 1000;
 
     BacklightApplier(Settings &settings, const QString &backlight = QStringLiteral("/sys/class/backlight/backlight"),
                      const QString &runtime = QStringLiteral("/run/microset"), QObject *parent = nullptr);
@@ -29,11 +31,15 @@ private:
     bool openWatch();
     uint floor() const;
     void warn(bool &flag, const QString &line);
+    void settled();
 
     Settings &m_settings;
     QString m_backlight;
     QString m_marker;
     QSocketNotifier *m_notifier = nullptr;
+    QTimer m_quiet;
+    quint64 m_more = 0;
+    quint64 m_foreign = 0;
     int m_watchFd = -1;
     quint64 m_max = 0;
     quint64 m_last = 0;
