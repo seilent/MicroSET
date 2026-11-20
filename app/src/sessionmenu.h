@@ -42,6 +42,7 @@ public:
     static constexpr int MaxRows = 64;
     static constexpr int MaxLabel = 256;
     static constexpr int MaxRemembered = 8;
+    static constexpr int ListSeconds = 5;
 
     SessionMenu(const Auth &auth, const QDBusConnection &session, const QDBusConnection &system,
                 QObject *parent = nullptr);
@@ -52,14 +53,17 @@ public:
     static void registerTypes();
 
     bool publish(QDBusConnection bus);
+    void open(const QString &current, bool inGame);
     void startSwitch(const QString &name);
     void startInstall(const QString &name);
 
 signals:
     void requested(const QList<SessionMenuEntry> &entries, const QString &current, bool inGame, bool switching);
+    void listed(const QList<SessionMenuEntry> &entries, const QString &current, bool inGame, bool switching);
     void switchReplied(bool ok);
     void switchJobRemoved(const QString &result);
     void installReplied(bool ok);
+    void openFailed();
 
 public slots:
     Q_SCRIPTABLE void Show(const QList<SessionMenuRow> &sessions, const QString &current, const QVariantMap &hints);
@@ -74,4 +78,5 @@ private:
     QString m_job;
     QList<QPair<QString, QString>> m_removed;
     bool m_waiting = false;
+    bool m_listing = false;
 };

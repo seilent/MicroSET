@@ -1103,6 +1103,58 @@ private slots:
         QCOMPARE(requested.size(), 1);
     }
 
+    void sessionSwitchRow()
+    {
+        SettingsModel fixture;
+        fixture.setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {});
+        QSignalSpy requested(&fixture, &SettingsModel::sessionSwitchRequested);
+        QVERIFY(!keysOf(fixture.groups(0)).contains(u"session-switch"_s));
+        fixture.act(u"session-switch"_s);
+        QCOMPARE(requested.size(), 0);
+        fixture.setSessionSwitch(u"steam"_s);
+        QVariantList rows = fixture.groups(0);
+        QCOMPARE(keysOf(rows).mid(0, 3), (QStringList{u"label-steam"_s, u"session-switch"_s, u"label-microset"_s}));
+        const QVariantMap row = rowOf(rows, u"session-switch"_s);
+        QCOMPARE(row.value(u"title"_s).toString(), u"Switch session"_s);
+        QCOMPARE(row.value(u"kind"_s).toString(), u"row"_s);
+        QCOMPARE(row.value(u"action"_s).toString(), u"session-switch"_s);
+        QCOMPARE(row.value(u"value"_s).toString(), QString());
+        QVERIFY(!row.contains(u"ask"_s));
+        fixture.setQuickAccess(true);
+        QCOMPARE(keysOf(fixture.groups(0)).mid(0, 4), (QStringList{u"label-steam"_s, u"steam-quick-access"_s,
+                                                                    u"session-switch"_s, u"label-microset"_s}));
+        fixture.act(u"session-switch"_s);
+        QCOMPARE(requested.size(), 1);
+        QCOMPARE(requested.at(0).at(0).toBool(), false);
+        fixture.setGame({{u"appid"_s, u"292120"_s}});
+        fixture.act(u"session-switch"_s);
+        QCOMPARE(requested.at(1).at(0).toBool(), true);
+        fixture.setGame({{u"appid"_s, u"292120"_s}, {u"gone"_s, true}});
+        fixture.act(u"session-switch"_s);
+        QCOMPARE(requested.at(2).at(0).toBool(), false);
+        fixture.setQuickAccess(false);
+        fixture.lsfg()->setFixture({}, true, u"android"_s);
+        fixture.setAndroidApp(u"com.example.game"_s);
+        fixture.setSessionSwitch(u"android"_s);
+        rows = fixture.groups(0);
+        QCOMPARE(keysOf(rows).mid(0, 4), (QStringList{u"label-android"_s, u"session-switch"_s,
+                                                       u"perf.android_overlay"_s, u"label-this app"_s}));
+        QCOMPARE(keysOf(rows).count(u"label-android"_s), 1);
+        fixture.setSessionSwitch({});
+        QCOMPARE(keysOf(fixture.groups(0)).count(u"label-android"_s), 1);
+        QVERIFY(keysOf(fixture.groups(0)).indexOf(u"label-android"_s)
+                > keysOf(fixture.groups(0)).indexOf(u"label-this app"_s));
+        fixture.setAndroidApp({});
+        fixture.lsfg()->setFixture({}, true, u"steam"_s);
+        fixture.setSessionSwitch(u"microdap"_s);
+        QCOMPARE(keysOf(fixture.groups(0)).mid(0, 2), (QStringList{u"label-microdap"_s, u"session-switch"_s}));
+        fixture.setSessionSwitch({});
+        QVERIFY(!keysOf(fixture.groups(0)).contains(u"session-switch"_s));
+        QVERIFY(!keysOf(fixture.groups(0)).contains(u"label-microdap"_s));
+        fixture.act(u"session-switch"_s);
+        QCOMPARE(requested.size(), 3);
+    }
+
     void androidApp()
     {
         SettingsModel fixture;

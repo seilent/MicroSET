@@ -39,16 +39,21 @@ read, change and watch them over D-Bus.
   `off` or `30`) and `Frame generation applies at next start`. The rows show the stored values while
   `lsfg.android_app` names that package, else `off`. Both sheets apply on accept. An accepted change for another app
   writes `lsfg.android_app`, resets the other Android key to its default, then writes its key; a package over 128
-  characters is refused (`set failed`) before any write. In the android session the first page has `android`
-  (after `this app` when there is one): `Performance overlay` (`perf.android_overlay`), applied on accept.
-  In the steam session (`MICROSET_OVERLAY_SESSION`, the unit's instance), while `net.seilent.MicroOS.PowerKey` has an
-  owner on the session bus, the first page starts with `steam`: `Quick access menu` calls `OpenQuickAccess` of
-  `net.seilent.MicroOS.PowerKey1` (2 s timeout) and hides the overlay when it returns; a failed call keeps the overlay
-  shown with a `not available` toast.
+  characters is refused (`set failed`) before any write. In the android session the first page has `Performance
+  overlay` (`perf.android_overlay`), applied on accept, in the session section below while it shows, else in
+  `android` after `this app` when there is one.
+  While `net.seilent.MicroOS.PowerKey` has an owner on the session bus, the first page starts with a section named
+  after the session (`MICROSET_OVERLAY_SESSION`, the unit's instance). In the steam session it has `Quick access menu`,
+  which calls `OpenQuickAccess` of `net.seilent.MicroOS.PowerKey1` (2 s timeout) and hides the overlay when it
+  returns; a failed call keeps the overlay shown with a `not available` toast. In every session it has `Switch
+  session`, which opens the session menu with the rows of `microos-session menu <session>` (5 s timeout), the other
+  sessions noted `closes the game` while a game scope runs; exit 3 (a switch runs) opens nothing, and no valid rows
+  keep the overlay shown with a `not available` toast. A reply that comes after the overlay hid opens no menu and no
+  toast.
   Row values are plain text.
   The overlay also owns `net.seilent.MicroOs.SessionMenu` (interface `SessionMenu1`, `Show(sessions, current, hints)`):
-  a sheet listing the sessions MicroOS passes, current marked. A switches (`microos-session-switch@<name>.service`) or
-  starts an install (`microos-session-install@<name>.service`), B closes.
+  a sheet listing the sessions MicroOS passes, current marked, the same sheet `Switch session` opens. A switches
+  (`microos-session-switch@<name>.service`) or starts an install (`microos-session-install@<name>.service`), B closes.
 - `microset-launcher`: the MicroOS desktop home, a background layer surface on DSI-1 (`microset-launcher.service`,
   bus name `net.seilent.MicroSet.Launcher`). `Show` and `ShowPower` enter the home workspace through
   `net.seilent.MicroOs.DesktopHome`, `ShowPower` opening the power page too; `Toggle` leaves it when shown. The home

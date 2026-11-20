@@ -18,10 +18,12 @@ public:
     QuickAccess(const QDBusConnection &bus, const QString &session, QObject *parent = nullptr);
 
     bool available() const;
+    bool owned() const;
+    QString session() const;
     void open();
 
 signals:
-    void availableChanged();
+    void ownedChanged();
     void opened();
     void failed();
 
@@ -30,7 +32,7 @@ private:
 
     QDBusConnection m_bus;
     QDBusServiceWatcher m_watcher;
-    bool m_steam;
+    QString m_session;
     bool m_owned = false;
     bool m_known = false;
     bool m_calling = false;

@@ -37,7 +37,7 @@ private slots:
     void followsTheHelperOnTheBus()
     {
         QuickAccess quick(bus(u"overlay"_s), u"steam"_s);
-        QSignalSpy changed(&quick, &QuickAccess::availableChanged);
+        QSignalSpy changed(&quick, &QuickAccess::ownedChanged);
         QVERIFY(!quick.available());
         FakePowerKey helper;
         QVERIFY(startHelper(&helper));
@@ -53,10 +53,25 @@ private slots:
         FakePowerKey helper;
         QVERIFY(startHelper(&helper));
         QuickAccess quick(bus(u"overlay"_s), u"steam"_s);
-        QSignalSpy changed(&quick, &QuickAccess::availableChanged);
+        QSignalSpy changed(&quick, &QuickAccess::ownedChanged);
         QVERIFY(!quick.available());
         QTRY_VERIFY(quick.available());
         QCOMPARE(changed.size(), 1);
+    }
+
+    void ownedInEverySession()
+    {
+        QuickAccess quick(bus(u"overlay"_s), u"microdap"_s);
+        QSignalSpy changed(&quick, &QuickAccess::ownedChanged);
+        QCOMPARE(quick.session(), u"microdap"_s);
+        FakePowerKey helper;
+        QVERIFY(startHelper(&helper));
+        QTRY_VERIFY(quick.owned());
+        QVERIFY(!quick.available());
+        QCOMPARE(changed.size(), 1);
+        stopHelper();
+        QTRY_VERIFY(!quick.owned());
+        QCOMPARE(changed.size(), 2);
     }
 
     void onlyInTheSteamSession()

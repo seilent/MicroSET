@@ -9,7 +9,7 @@ QuickAccess::QuickAccess(const QDBusConnection &bus, const QString &session, QOb
     : QObject(parent)
     , m_bus(bus)
     , m_watcher(Service, bus, QDBusServiceWatcher::WatchForOwnerChange)
-    , m_steam(session == "steam"_L1)
+    , m_session(session)
 {
     connect(&m_watcher, &QDBusServiceWatcher::serviceOwnerChanged, this,
             [this](const QString &, const QString &, const QString &owner) {
@@ -30,7 +30,17 @@ QuickAccess::QuickAccess(const QDBusConnection &bus, const QString &session, QOb
 
 bool QuickAccess::available() const
 {
-    return m_steam && m_owned;
+    return m_session == "steam"_L1 && m_owned;
+}
+
+bool QuickAccess::owned() const
+{
+    return m_owned;
+}
+
+QString QuickAccess::session() const
+{
+    return m_session;
 }
 
 void QuickAccess::open()
@@ -59,8 +69,6 @@ void QuickAccess::setOwned(bool owned)
 {
     if (owned == m_owned)
         return;
-    const bool was = available();
     m_owned = owned;
-    if (available() != was)
-        emit availableChanged();
+    emit ownedChanged();
 }

@@ -8,7 +8,9 @@
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusPendingCall>
+#include <QFile>
 #include <QRegularExpression>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QTest>
 
@@ -52,8 +54,22 @@ class SessionMenuTest : public QObject
         return call(u"Show"_s, {QVariant::fromValue(rows), current, hints});
     }
 
+    void fakeMenu(const QByteArray &out, int rc)
+    {
+        m_h.writeFile(u"menu.out"_s, out);
+        m_h.writeFile(u"menu.rc"_s, QByteArray::number(rc));
+    }
+
 private slots:
-    void initTestCase() { QVERIFY(m_h.startBus()); }
+    void initTestCase()
+    {
+        QVERIFY(m_h.startBus());
+        m_h.writeFile(u"bin/microos-session"_s, "#!/bin/sh\nd=${0%/bin/*}\nprintf '%s\\n' \"$*\" > \"$d/menu.args\"\n"
+                                                "cat \"$d/menu.out\"\nexit \"$(cat \"$d/menu.rc\")\"\n");
+        QVERIFY(QFile::setPermissions(m_h.path(u"bin/microos-session"_s),
+                                      QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        qputenv("PATH", m_h.path(u"bin"_s).toUtf8() + ':' + qgetenv("PATH"));
+    }
 
     void init() { m_h.writeCgroup(QCoreApplication::applicationPid(), Harness::UserCgroup); }
 
@@ -291,6 +307,127 @@ private slots:
         QCOMPARE(session->modes, QStringList{u"replace"_s});
         QTRY_COMPARE(replied.count(), 1);
         QVERIFY(replied.at(0).at(0).toBool());
+    }
+
+    void openListsTheSessionsOfTheCurrentOne()
+    {
+        fakeMenu("desktop\tDesktop\tavailable\tno\nbroken row\nsteam\tSteam OS\tavailable\tno\n"
+                 "android\tAndroid\tnot-installed\tyes\n",
+                 0);
+        Auth auth(bus(u"other"_s), m_h.path(u"proc"_s));
+        SessionMenu menu(auth, bus(u"session"_s), bus(u"system"_s));
+        QSignalSpy listed(&menu, &SessionMenu::listed);
+        QSignalSpy failed(&menu, &SessionMenu::openFailed);
+        QTest::ignoreMessage(QtInfoMsg, "microset overlay: session menu: row ignored: broken row");
+        menu.open(u"steam"_s, true);
+        QTRY_COMPARE(listed.count(), 1);
+        QCOMPARE(failed.count(), 0);
+        QFile args(m_h.path(u"menu.args"_s));
+        QVERIFY(args.open(QIODevice::ReadOnly));
+        QCOMPARE(args.readAll(), QByteArray("menu steam\n"));
+        const QList<SessionMenuEntry> entries = listed.at(0).at(0).value<QList<SessionMenuEntry>>();
+        QCOMPARE(entries.size(), 3);
+        QCOMPARE(entries.at(0).name, u"desktop"_s);
+        QCOMPARE(entries.at(0).label, u"Desktop"_s);
+        QCOMPARE(entries.at(0).state, u"available"_s);
+        QVERIFY(!entries.at(0).install);
+        QCOMPARE(entries.at(1).name, u"steam"_s);
+        QCOMPARE(entries.at(1).label, u"Steam OS"_s);
+        QCOMPARE(entries.at(2).state, u"not-installed"_s);
+        QVERIFY(entries.at(2).install);
+        QCOMPARE(listed.at(0).at(1).toString(), u"steam"_s);
+        QCOMPARE(listed.at(0).at(2).toBool(), true);
+        QCOMPARE(listed.at(0).at(3).toBool(), false);
+    }
+
+    void openMarksNoCurrentWhenItIsNotListed()
+    {
+        fakeMenu("desktop\tDesktop\tavailable\tno\n", 0);
+        Auth auth(bus(u"other"_s), m_h.path(u"proc"_s));
+        SessionMenu menu(auth, bus(u"session"_s), bus(u"system"_s));
+        QSignalSpy listed(&menu, &SessionMenu::listed);
+        menu.open(u"steam"_s, false);
+        QTRY_COMPARE(listed.count(), 1);
+        QCOMPARE(listed.at(0).at(0).value<QList<SessionMenuEntry>>().size(), 1);
+        QCOMPARE(listed.at(0).at(1).toString(), QString());
+        QCOMPARE(listed.at(0).at(2).toBool(), false);
+    }
+
+    void openWhileSwitching()
+    {
+        fakeMenu({}, 3);
+        Auth auth(bus(u"other"_s), m_h.path(u"proc"_s));
+        SessionMenu menu(auth, bus(u"session"_s), bus(u"system"_s));
+        QSignalSpy listed(&menu, &SessionMenu::listed);
+        menu.open(u"steam"_s, true);
+        QTRY_COMPARE(listed.count(), 1);
+        QVERIFY(listed.at(0).at(0).value<QList<SessionMenuEntry>>().isEmpty());
+        QCOMPARE(listed.at(0).at(1).toString(), QString());
+        QCOMPARE(listed.at(0).at(2).toBool(), false);
+        QCOMPARE(listed.at(0).at(3).toBool(), true);
+    }
+
+    void openRefused_data()
+    {
+        QTest::addColumn<QByteArray>("out");
+        QTest::addColumn<int>("rc");
+        QTest::addColumn<QString>("why");
+        QTest::newRow("exit") << QByteArray("steam\tSteam OS\tavailable\tno\n") << 2 << u"no rows (exit 2)"_s;
+        QTest::newRow("empty") << QByteArray() << 0 << u"no rows (exit 0)"_s;
+        QTest::newRow("label") << QByteArray("steam\t\tavailable\tno\n") << 0 << u"bad label for: steam"_s;
+        QTest::newRow("name") << QByteArray("Steam\tSteam OS\tavailable\tno\n") << 0 << u"bad session name: Steam"_s;
+    }
+
+    void openRefused()
+    {
+        QFETCH(QByteArray, out);
+        QFETCH(int, rc);
+        QFETCH(QString, why);
+        fakeMenu(out, rc);
+        Auth auth(bus(u"other"_s), m_h.path(u"proc"_s));
+        SessionMenu menu(auth, bus(u"session"_s), bus(u"system"_s));
+        QSignalSpy listed(&menu, &SessionMenu::listed);
+        QSignalSpy failed(&menu, &SessionMenu::openFailed);
+        QTest::ignoreMessage(QtInfoMsg, qPrintable(u"microset overlay: session menu: "_s + why));
+        menu.open(u"steam"_s, false);
+        QTRY_COMPARE(failed.count(), 1);
+        QCOMPARE(listed.count(), 0);
+    }
+
+    void openRunsAgainAfterAFailedStart()
+    {
+        fakeMenu("steam\tSteam OS\tavailable\tno\n", 0);
+        Auth auth(bus(u"other"_s), m_h.path(u"proc"_s));
+        SessionMenu menu(auth, bus(u"session"_s), bus(u"system"_s));
+        QSignalSpy listed(&menu, &SessionMenu::listed);
+        QSignalSpy failed(&menu, &SessionMenu::openFailed);
+        const QByteArray path = qgetenv("PATH");
+        const auto restore = qScopeGuard([path] { qputenv("PATH", path); });
+        qputenv("PATH", m_h.path(u"bin"_s).toUtf8());
+        QTest::ignoreMessage(QtInfoMsg,
+                             QRegularExpression(u"^microset overlay: session menu: microos-session menu failed: "_s));
+        menu.open(u"steam"_s, false);
+        QTRY_COMPARE(failed.count(), 1);
+        QCOMPARE(listed.count(), 0);
+        qputenv("PATH", path);
+        menu.open(u"steam"_s, false);
+        QTRY_COMPARE(listed.count(), 1);
+        QCOMPARE(failed.count(), 1);
+    }
+
+    void openOnceAtATime()
+    {
+        fakeMenu("steam\tSteam OS\tavailable\tno\n", 0);
+        Auth auth(bus(u"other"_s), m_h.path(u"proc"_s));
+        SessionMenu menu(auth, bus(u"session"_s), bus(u"system"_s));
+        QSignalSpy listed(&menu, &SessionMenu::listed);
+        menu.open(u"steam"_s, false);
+        menu.open(u"steam"_s, false);
+        QTRY_COMPARE(listed.count(), 1);
+        QTest::qWait(200);
+        QCOMPARE(listed.count(), 1);
+        menu.open(u"steam"_s, false);
+        QTRY_COMPARE(listed.count(), 2);
     }
 };
 

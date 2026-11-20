@@ -128,6 +128,8 @@ int main(int argc, char *argv[])
     std::unique_ptr<SettingsModel> model;
     std::unique_ptr<QQmlApplicationEngine> engine;
     QuickAccess quick(session, qEnvironmentVariable("MICROSET_OVERLAY_SESSION"));
+    Auth auth(session, u"/proc"_s);
+    SessionMenu menu(auth, session, system);
     const auto pushGame = [&model, &game, &frameLimit] {
         if (model)
             model->setGame(withFrameLimit(game.info(), frameLimit.limit(), frameLimit.refresh()));
@@ -169,7 +171,7 @@ int main(int argc, char *argv[])
             return;
         model = std::make_unique<SettingsModel>(system);
         model->load();
-        bindQuickAccess(quick, *model, overlay);
+        bindQuickAccess(quick, *model, overlay, menu);
         pushGame();
         pushApp();
         QObject::connect(&game, &RunningGame::changed, model.get(), pushGame);
@@ -202,13 +204,11 @@ int main(int argc, char *argv[])
         overlay.setHint(hint.active(), hint.device(), hint.kind());
     });
 
-    Auth auth(session, u"/proc"_s);
     OverlayService service(&overlay, auth);
     if (!service.publish(session)) {
         fail(u"cannot own %1 on the session bus"_s.arg(OverlayService::service()));
         return 1;
     }
-    SessionMenu menu(auth, session, system);
     QObject::connect(&menu, &SessionMenu::requested, &overlay, &Overlay::showMenu);
     overlay.setSessionMenu(&menu);
     if (!menu.publish(session)) {

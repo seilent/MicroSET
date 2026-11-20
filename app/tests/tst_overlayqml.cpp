@@ -1,3 +1,4 @@
+#include "auth.h"
 #include "dbuspad.h"
 #include "fakemicrosetd.h"
 #include "fakepowerkey.h"
@@ -8,6 +9,7 @@
 #include "uirelease.h"
 
 #include <QElapsedTimer>
+#include <QFile>
 #include <QHash>
 #include <QJsonObject>
 #include <QGuiApplication>
@@ -15,6 +17,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QScopeGuard>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QRegularExpression>
 #include <QTest>
@@ -113,9 +116,11 @@ public:
         emit menuStateChanged();
     }
     Q_INVOKABLE void hide() { ++hides; }
+    void showMenu(const QList<SessionMenuEntry> &, const QString &, bool, bool) { ++menus; }
     Q_INVOKABLE void hintDone() {}
 
     int hides = 0;
+    int menus = 0;
     int accepts = 0;
     int accepted = -1;
     int closes = 0;
@@ -360,8 +365,11 @@ private slots:
         });
         FakePowerKey helper;
         QVERIFY(helper.publish(QDBusConnection::connectToBus(h.address(), u"helper"_s)));
-        QuickAccess quick(QDBusConnection::connectToBus(h.address(), u"overlay"_s), u"steam"_s);
-        bindQuickAccess(quick, *m_model, *m_overlay);
+        const QDBusConnection bus = QDBusConnection::connectToBus(h.address(), u"overlay"_s);
+        QuickAccess quick(bus, u"steam"_s);
+        Auth auth(bus, h.path(u"proc"_s));
+        SessionMenu menu(auth, bus, bus);
+        bindQuickAccess(quick, *m_model, *m_overlay, menu);
         int index = -1;
         QTRY_VERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index),
                                               Q_ARG(QString, u"steam-quick-access"_s))
@@ -376,6 +384,115 @@ private slots:
         QTRY_COMPARE(toast()->property("title").toString(), u"not available"_s);
         QCOMPARE(helper.calls, 2);
         QCOMPARE(m_overlay->hides, 1);
+    }
+
+    void sessionSwitchRowOpensTheSessionMenu()
+    {
+        Harness h;
+        QVERIFY(h.startBus());
+        h.writeFile(u"bin/microos-session"_s, "#!/bin/sh\nd=${0%/bin/*}\nprintf '%s\\n' \"$*\" > \"$d/menu.args\"\n"
+                                              "cat \"$d/menu.out\"\nexit \"$(cat \"$d/menu.rc\")\"\n");
+        QVERIFY(QFile::setPermissions(h.path(u"bin/microos-session"_s),
+                                      QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        h.writeFile(u"menu.out"_s, "desktop\tDesktop\tavailable\tno\nsteam\tSteam OS\tavailable\tno\n");
+        h.writeFile(u"menu.rc"_s, "0");
+        const QByteArray path = qgetenv("PATH");
+        qputenv("PATH", h.path(u"bin"_s).toUtf8() + ':' + path);
+        const auto restore = qScopeGuard([path] {
+            qputenv("PATH", path);
+            QDBusConnection::disconnectFromBus(u"helper"_s);
+            QDBusConnection::disconnectFromBus(u"overlay"_s);
+        });
+        const QDBusConnection bus = QDBusConnection::connectToBus(h.address(), u"overlay"_s);
+        QuickAccess quick(bus, u"steam"_s);
+        Auth auth(bus, h.path(u"proc"_s));
+        SessionMenu menu(auth, bus, bus);
+        QSignalSpy listed(&menu, &SessionMenu::listed);
+        bindQuickAccess(quick, *m_model, *m_overlay, menu);
+        const auto indexOf = [this] {
+            int index = -1;
+            QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, u"session-switch"_s));
+            return index;
+        };
+        QTest::qWait(200);
+        QCOMPARE(indexOf(), -1);
+        FakePowerKey helper;
+        QVERIFY(helper.publish(QDBusConnection::connectToBus(h.address(), u"helper"_s)));
+        QTRY_VERIFY(indexOf() >= 0);
+        page()->setProperty("focusIndex", indexOf());
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QTRY_COMPARE(listed.count(), 1);
+        QFile args(h.path(u"menu.args"_s));
+        QVERIFY(args.open(QIODevice::ReadOnly));
+        QCOMPARE(args.readAll(), QByteArray("menu steam\n"));
+        const QList<SessionMenuEntry> entries = listed.at(0).at(0).value<QList<SessionMenuEntry>>();
+        QCOMPARE(entries.size(), 2);
+        QCOMPARE(entries.at(0).label, u"Desktop"_s);
+        QCOMPARE(entries.at(1).label, u"Steam OS"_s);
+        QCOMPARE(listed.at(0).at(1).toString(), u"steam"_s);
+        QCOMPARE(listed.at(0).at(2).toBool(), false);
+        QCOMPARE(listed.at(0).at(3).toBool(), false);
+        QCOMPARE(m_overlay->menus, 1);
+        QCOMPARE(m_overlay->hides, 0);
+        h.writeFile(u"menu.rc"_s, "1");
+        QTest::ignoreMessage(QtInfoMsg, "microset overlay: session menu: no rows (exit 1)");
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QTRY_COMPARE(toast()->property("title").toString(), u"not available"_s);
+        QCOMPARE(listed.count(), 1);
+        QCOMPARE(m_overlay->menus, 1);
+        QDBusConnection::connectToBus(h.address(), u"helper"_s).interface()->unregisterService(QuickAccess::Service);
+        QTRY_COMPARE(indexOf(), -1);
+    }
+
+    void sessionSwitchReplyAfterHideIsDropped()
+    {
+        Harness h;
+        QVERIFY(h.startBus());
+        h.writeFile(u"bin/microos-session"_s, "#!/bin/sh\nd=${0%/bin/*}\nprintf '%s\\n' \"$*\" > \"$d/menu.args\"\n"
+                                              "cat \"$d/menu.out\"\nexit \"$(cat \"$d/menu.rc\")\"\n");
+        QVERIFY(QFile::setPermissions(h.path(u"bin/microos-session"_s),
+                                      QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        h.writeFile(u"menu.out"_s, "steam\tSteam OS\tavailable\tno\n");
+        h.writeFile(u"menu.rc"_s, "0");
+        const QByteArray path = qgetenv("PATH");
+        qputenv("PATH", h.path(u"bin"_s).toUtf8() + ':' + path);
+        const auto restore = qScopeGuard([path] {
+            qputenv("PATH", path);
+            QDBusConnection::disconnectFromBus(u"helper"_s);
+            QDBusConnection::disconnectFromBus(u"overlay"_s);
+        });
+        FakePowerKey helper;
+        QVERIFY(helper.publish(QDBusConnection::connectToBus(h.address(), u"helper"_s)));
+        const QDBusConnection bus = QDBusConnection::connectToBus(h.address(), u"overlay"_s);
+        QuickAccess quick(bus, u"steam"_s);
+        Auth auth(bus, h.path(u"proc"_s));
+        SessionMenu menu(auth, bus, bus);
+        QSignalSpy listed(&menu, &SessionMenu::listed);
+        QSignalSpy failed(&menu, &SessionMenu::openFailed);
+        QSignalSpy refused(m_model.get(), &SettingsModel::refused);
+        bindQuickAccess(quick, *m_model, *m_overlay, menu);
+        int index = -1;
+        QTRY_VERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index),
+                                              Q_ARG(QString, u"session-switch"_s))
+                    && index >= 0);
+        page()->setProperty("focusIndex", index);
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        m_overlay->setShown(false);
+        QTRY_COMPARE(listed.count(), 1);
+        QCOMPARE(m_overlay->menus, 0);
+        m_overlay->setShown(true);
+        h.writeFile(u"menu.rc"_s, "1");
+        QTRY_VERIFY(QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index),
+                                              Q_ARG(QString, u"session-switch"_s))
+                    && index >= 0);
+        page()->setProperty("focusIndex", index);
+        QTest::ignoreMessage(QtInfoMsg, "microset overlay: session menu: no rows (exit 1)");
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        m_overlay->setShown(false);
+        QTRY_COMPARE(failed.count(), 1);
+        QCOMPARE(refused.count(), 0);
+        QCOMPARE(toast()->property("phase").toString(), u"hidden"_s);
+        QCOMPARE(m_overlay->menus, 0);
     }
 
     void holdTextComesBackAfterAnotherToast()

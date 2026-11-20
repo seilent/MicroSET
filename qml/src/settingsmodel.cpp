@@ -38,6 +38,7 @@ const QString LsfgGamesKey = u"lsfg-games"_s;
 const QString LsfgGamePrefix = u"lsfg-game-"_s;
 const QString LsfgInstallKey = u"lsfg-install"_s;
 const QString QuickAccessKey = u"steam-quick-access"_s;
+const QString SessionSwitchKey = u"session-switch"_s;
 const QString LsfgOffText = u"Frame generation is off"_s;
 const QString AndroidGroup = u"lsfg.android"_s;
 const QString AndroidAppKey = u"lsfg.android_app"_s;
@@ -224,6 +225,14 @@ void SettingsModel::setQuickAccess(bool shown)
     if (shown == m_quickAccess)
         return;
     m_quickAccess = shown;
+    bump();
+}
+
+void SettingsModel::setSessionSwitch(const QString &session)
+{
+    if (session == m_sessionSwitch)
+        return;
+    m_sessionSwitch = session;
     bump();
 }
 
@@ -1048,11 +1057,21 @@ QVariantList SettingsModel::thisGame() const
 
 QVariantList SettingsModel::quickAccess() const
 {
-    if (!m_quickAccess)
+    QVariantList out;
+    if (m_quickAccess) {
+        QVariantMap row = infoRow(QuickAccessKey, u"Quick access menu"_s, QString());
+        row.insert({{u"kind"_s, u"row"_s}, {u"action"_s, QuickAccessKey}});
+        out << row;
+    }
+    if (!m_sessionSwitch.isEmpty()) {
+        QVariantMap row = infoRow(SessionSwitchKey, u"Switch session"_s, QString());
+        row.insert({{u"kind"_s, u"row"_s}, {u"action"_s, SessionSwitchKey}});
+        out << row;
+    }
+    if (out.isEmpty())
         return {};
-    QVariantMap row = infoRow(QuickAccessKey, u"Quick access menu"_s, QString());
-    row.insert({{u"kind"_s, u"row"_s}, {u"action"_s, QuickAccessKey}});
-    return {label(u"steam"_s), row};
+    out.prepend(label(m_sessionSwitch.isEmpty() ? u"steam"_s : m_sessionSwitch));
+    return out;
 }
 
 QVariantList SettingsModel::thisApp() const
@@ -1256,6 +1275,9 @@ void SettingsModel::act(const QString &key)
         m_lsfg.install();
     else if (key == QuickAccessKey && m_quickAccess)
         emit quickAccessRequested();
+    else if (key == SessionSwitchKey && !m_sessionSwitch.isEmpty())
+        emit sessionSwitchRequested(!m_game.value(u"appid"_s).toString().isEmpty()
+                                    && !m_game.value(u"gone"_s).toBool());
 }
 
 void SettingsModel::toggle(const QString &key)
@@ -1395,7 +1417,14 @@ QVariantList SettingsModel::groups(int) const
             return b.title == UpdatesGroup;
         return a.order != b.order ? a.order < b.order : a.title < b.title;
     });
-    QVariantList out = quickAccess() + thisApp() + androidPerf() + thisGame();
+    QVariantList top = quickAccess();
+    QVariantList perf = androidPerf();
+    if (!top.isEmpty() && !perf.isEmpty()
+        && top.constFirst().toMap().value(u"key"_s) == perf.constFirst().toMap().value(u"key"_s)) {
+        top << perf.mid(1);
+        perf.clear();
+    }
+    QVariantList out = top + thisApp() + perf + thisGame();
     QString section;
     for (const Item &item : std::as_const(items)) {
         if (out.isEmpty() || item.owner != section) {

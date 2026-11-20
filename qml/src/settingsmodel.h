@@ -61,6 +61,7 @@ public:
     void setGame(const QVariantMap &game);
     void setAndroidApp(const QString &package);
     void setQuickAccess(bool shown);
+    void setSessionSwitch(const QString &session);
     UpdateInfo *updates();
     LsfgState *lsfg();
 
@@ -108,6 +109,7 @@ signals:
     void refused(const QString &title, const QString &text);
     void previewEnded(const QString &key);
     void quickAccessRequested();
+    void sessionSwitchRequested(bool inGame);
 
 private:
     struct Entry
@@ -247,6 +249,7 @@ private:
     QVariantMap m_game;
     QString m_androidApp;
     bool m_quickAccess = false;
+    QString m_sessionSwitch;
     QList<SteamLibrary::Game> m_library;
     QList<SteamLibrary::Game> m_libraryDropped;
     QSet<QString> m_present;
