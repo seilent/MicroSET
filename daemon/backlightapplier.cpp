@@ -177,23 +177,33 @@ void BacklightApplier::refresh()
         }
         return;
     }
-    if (m_quiet.isActive())
+    if (m_quiet.isActive()) {
         ++m_more;
-    else
-        qInfo("backlight: %llu written by another process, recorded", *now);
+    } else {
+        m_burstStored = m_settings.stored(Name);
+        qInfo("backlight: %llu written by another process", *now);
+    }
     m_quiet.start();
     m_foreign = *now;
     m_last = *now;
     m_ok = true;
-    m_settings.store(Name, basisPoints(*now, m_max));
 }
 
 void BacklightApplier::settled()
 {
-    if (m_more == 0)
-        return;
-    qInfo("backlight: %llu written by another process after %llu more writes, recorded", m_foreign, m_more);
+    const quint64 more = m_more;
     m_more = 0;
+    QString result;
+    if (m_last != m_foreign || m_settings.stored(Name) != m_burstStored) {
+        result = u"changed since, not recorded"_s;
+    } else if (basisPoints(m_foreign, m_max) < floor()) {
+        result = u"under the floor %1, not recorded"_s.arg(raw(floor(), m_max));
+    } else {
+        m_settings.store(Name, basisPoints(m_foreign, m_max));
+        result = u"recorded"_s;
+    }
+    const QString after = more ? u" after %1 more writes"_s.arg(more) : QString();
+    qInfo("backlight: %llu written by another process%s, %s", m_foreign, qPrintable(after), qPrintable(result));
 }
 
 void BacklightApplier::warn(bool &flag, const QString &line)

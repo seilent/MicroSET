@@ -40,6 +40,7 @@ private:
     QTimer m_quiet;
     quint64 m_more = 0;
     quint64 m_foreign = 0;
+    QVariant m_burstStored;
     int m_watchFd = -1;
     quint64 m_max = 0;
     quint64 m_last = 0;

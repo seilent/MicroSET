@@ -192,8 +192,11 @@ private slots:
         f.screen(2048);
         QCOMPARE(f.stored(), QVariant(5000u));
         f.screen(3000);
-        QCOMPARE(f.stored(), QVariant(BacklightApplier::basisPoints(3000, 4095)));
+        QCOMPARE(f.stored(), QVariant(5000u));
+        QTRY_COMPARE_WITH_TIMEOUT(f.stored(), QVariant(BacklightApplier::basisPoints(3000, 4095)), BacklightApplier::quietMs * 3);
         QCOMPARE(f.node(), QByteArray("2048\n"));
+        QCOMPARE(foreignLines(), (QStringList{u"backlight: 3000 written by another process"_s,
+                                              u"backlight: 3000 written by another process, recorded"_s}));
     }
 
     void foreignBurstLogsFirstAndLast()
@@ -202,17 +205,104 @@ private slots:
         f.h.writeState(R"({"display.brightness": 5000})");
         f.start();
         f.screen(2048);
-        for (int raw : {1000, 900, 800, 61})
+        for (int raw : {1000, 900, 800, 1500})
             f.screen(raw);
-        QCOMPARE(foreignLines(), QStringList{u"backlight: 1000 written by another process, recorded"_s});
-        QCOMPARE(f.stored(), QVariant(BacklightApplier::basisPoints(61, 4095)));
+        QCOMPARE(foreignLines(), QStringList{u"backlight: 1000 written by another process"_s});
+        QCOMPARE(f.stored(), QVariant(5000u));
         QTRY_COMPARE_WITH_TIMEOUT(foreignLines().size(), 2, BacklightApplier::quietMs * 3);
-        QCOMPARE(foreignLines().last(), u"backlight: 61 written by another process after 3 more writes, recorded"_s);
-        f.screen(1500);
+        QCOMPARE(foreignLines().last(), u"backlight: 1500 written by another process after 3 more writes, recorded"_s);
+        QCOMPARE(f.stored(), QVariant(BacklightApplier::basisPoints(1500, 4095)));
+        f.screen(1800);
         QCOMPARE(foreignLines().size(), 3);
-        QCOMPARE(foreignLines().last(), u"backlight: 1500 written by another process, recorded"_s);
+        QCOMPARE(foreignLines().last(), u"backlight: 1800 written by another process"_s);
+        QTRY_COMPARE_WITH_TIMEOUT(f.stored(), QVariant(BacklightApplier::basisPoints(1800, 4095)), BacklightApplier::quietMs * 3);
+        QCOMPARE(foreignLines().size(), 4);
+        QCOMPARE(foreignLines().last(), u"backlight: 1800 written by another process, recorded"_s);
         QTest::qWait(BacklightApplier::quietMs + 200);
-        QCOMPARE(foreignLines().size(), 3);
+        QCOMPARE(foreignLines().size(), 4);
+    }
+
+    void dimFadeNotRecorded()
+    {
+        Fixture f;
+        f.h.writeState(R"({"display.brightness": 5000})");
+        f.start();
+        for (int raw = 2040; raw >= 61; raw -= 33)
+            f.screen(raw);
+        f.screen(61);
+        QTRY_COMPARE_WITH_TIMEOUT(m_log.filter(u"under the floor 410, not recorded"_s).size(), 1, BacklightApplier::quietMs * 3);
+        QCOMPARE(f.stored(), QVariant(5000u));
+        QVERIFY(f.settings.flush());
+        QCOMPARE(f.onDisk(), 5000);
+        f.screen(2048);
+        QTRY_COMPARE_WITH_TIMEOUT(f.stored(), QVariant(BacklightApplier::basisPoints(2048, 4095)), BacklightApplier::quietMs * 3);
+    }
+
+    void singleWriteUnderFloorNotRecorded()
+    {
+        Fixture f;
+        f.h.writeState(R"({"display.brightness": 5000})");
+        f.start();
+        f.screen(100);
+        QTRY_COMPARE_WITH_TIMEOUT(foreignLines().size(), 2, BacklightApplier::quietMs * 3);
+        QCOMPARE(foreignLines().last(), u"backlight: 100 written by another process, under the floor 410, not recorded"_s);
+        QCOMPARE(f.stored(), QVariant(5000u));
+        QCOMPARE(f.node(), QByteArray("2048\n"));
+    }
+
+    void floorItselfRecorded()
+    {
+        Fixture f;
+        f.h.writeFile(u"backlight/max_brightness"_s, "10000\n");
+        f.h.writeState(R"({"display.brightness": 5000})");
+        f.start();
+        f.screen(999);
+        QTRY_COMPARE_WITH_TIMEOUT(foreignLines().size(), 2, BacklightApplier::quietMs * 3);
+        QCOMPARE(f.stored(), QVariant(5000u));
+        f.screen(1000);
+        QTRY_COMPARE_WITH_TIMEOUT(f.stored(), QVariant(1000u), BacklightApplier::quietMs * 3);
+    }
+
+    void setDuringBurstWins()
+    {
+        Fixture f;
+        f.h.writeState(R"({"display.brightness": 5000})");
+        f.start();
+        f.screen(3000);
+        QVERIFY(f.applier->apply(7000u));
+        QCOMPARE(f.settings.store(BacklightApplier::Name, 7000u), Settings::Changed);
+        f.screen(2867);
+        QTRY_COMPARE_WITH_TIMEOUT(foreignLines().size(), 2, BacklightApplier::quietMs * 3);
+        QCOMPARE(foreignLines().last(), u"backlight: 3000 written by another process, changed since, not recorded"_s);
+        QCOMPARE(f.stored(), QVariant(7000u));
+        QCOMPARE(f.node(), QByteArray("2867\n"));
+    }
+
+    void sameLevelSetDuringBurstWins()
+    {
+        Fixture f;
+        f.h.writeState(R"({"display.brightness": 5000})");
+        f.start();
+        f.screen(3000);
+        QVERIFY(f.applier->apply(5000u));
+        QCOMPARE(f.settings.store(BacklightApplier::Name, 5000u), Settings::Unchanged);
+        f.screen(2048);
+        QTRY_COMPARE_WITH_TIMEOUT(foreignLines().size(), 2, BacklightApplier::quietMs * 3);
+        QCOMPARE(foreignLines().last(), u"backlight: 3000 written by another process, changed since, not recorded"_s);
+        QCOMPARE(f.stored(), QVariant(5000u));
+        QCOMPARE(f.node(), QByteArray("2048\n"));
+    }
+
+    void overrideSetDuringBurstWins()
+    {
+        Fixture f;
+        f.h.writeState(R"({"display.brightness": 5000})");
+        f.start();
+        f.settings.setOverride(BacklightApplier::Name, u":1.9"_s, 9000u);
+        f.screen(3000);
+        QCOMPARE(f.settings.store(BacklightApplier::Name, 7000u), Settings::Changed);
+        QTRY_COMPARE_WITH_TIMEOUT(foreignLines().size(), 2, BacklightApplier::quietMs * 3);
+        QCOMPARE(f.stored(), QVariant(7000u));
     }
 
     void foreignBurstWindowRestarts()
@@ -224,7 +314,7 @@ private slots:
             f.screen(raw);
             QTest::qWait(BacklightApplier::quietMs * 6 / 10);
         }
-        QCOMPARE(foreignLines(), QStringList{u"backlight: 1000 written by another process, recorded"_s});
+        QCOMPARE(foreignLines(), QStringList{u"backlight: 1000 written by another process"_s});
         QTRY_COMPARE_WITH_TIMEOUT(foreignLines().size(), 2, BacklightApplier::quietMs * 3);
         QCOMPARE(foreignLines().last(), u"backlight: 800 written by another process after 2 more writes, recorded"_s);
     }
@@ -237,6 +327,8 @@ private slots:
         f.h.writeFile(u"backlight/brightness"_s, "0\n");
         f.screen(0);
         QCOMPARE(f.node(), QByteArray("2048\n"));
+        QTest::qWait(BacklightApplier::quietMs + 200);
+        QCOMPARE(foreignLines(), QStringList{u"backlight: 0 written by another process, 2048 written back"_s});
         QCOMPARE(f.stored(), QVariant(5000u));
     }
 
@@ -254,6 +346,8 @@ private slots:
         f.h.writeFile(u"backlight/brightness"_s, Untouched);
         f.screen(2000);
         QCOMPARE(f.node(), QByteArray("2048\n"));
+        QTest::qWait(BacklightApplier::quietMs + 200);
+        QVERIFY(foreignLines().isEmpty());
         QCOMPARE(f.stored(), QVariant(5000u));
     }
 
@@ -271,6 +365,8 @@ private slots:
         f.h.writeFile(u"backlight/brightness"_s, Untouched);
         f.screen(2000);
         QCOMPARE(f.node(), QByteArray("2048\n"));
+        QTest::qWait(BacklightApplier::quietMs + 200);
+        QVERIFY(foreignLines().isEmpty());
         QCOMPARE(f.stored(), QVariant(5000u));
     }
 
@@ -282,7 +378,7 @@ private slots:
         f.h.writeState(R"({"display.brightness": 5000})");
         f.start();
         f.screen(3000);
-        QCOMPARE(f.stored(), QVariant(BacklightApplier::basisPoints(3000, 4095)));
+        QTRY_COMPARE_WITH_TIMEOUT(f.stored(), QVariant(BacklightApplier::basisPoints(3000, 4095)), BacklightApplier::quietMs * 3);
     }
 
     void overrideLandsAndClears()

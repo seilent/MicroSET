@@ -222,9 +222,11 @@ stops before suspend and starts again after.
 
 `display.brightness` is basis points of the panel's `max_brightness` (1 to 10000, shown as %); `microsetd` writes it
 to `brightness` in `MICROSET_BACKLIGHT` (`/sys/class/backlight/backlight`). A `Set` with no override held writes the
-node first and is stored only if the write works. A level another process writes is recorded, a 0 is written over
-with the current level. At boot a stored level under the `floor` (10 %) is written and stored as the floor; a restart
-(marker in `RUNTIME_DIRECTORY`) writes the stored level as is. With nothing stored the current level is recorded.
+node first and is stored only if the write works. A level another process writes is recorded once it holds for 1 s,
+only at or above the `floor` (10 %) and only if `microsetd` did not write or store a level meanwhile; a 0 is written
+over with the stored level, or the override. At boot a stored level under the `floor` is written and stored as the
+floor; a restart (marker in `RUNTIME_DIRECTORY`) writes the stored level as is. With nothing stored the current level
+is recorded.
 
 `rgb.enabled`, `rgb.hue`, `rgb.saturation` and `rgb.brightness` go to the stick LED MCU on the device in
 `MICROSET_RGB_DEVICE` (default `/dev/ttyHS2`); an empty one leaves them unapplied.
