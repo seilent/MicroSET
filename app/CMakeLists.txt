@@ -1,6 +1,9 @@
 find_package(Qt6 6.11 REQUIRED COMPONENTS Gui Qml Quick)
 
 add_library(microset_overlay_core STATIC
+    src/androidbind.h
+    src/androidstatus.cpp
+    src/androidstatus.h
     src/holdhint.cpp
     src/holdhint.h
     src/overlay.cpp

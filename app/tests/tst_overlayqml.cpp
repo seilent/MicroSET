@@ -1,5 +1,9 @@
+#include "androidbind.h"
+#include "androidstatus.h"
 #include "auth.h"
 #include "dbuspad.h"
+#include "fakeandroid.h"
+#include "fakemanager.h"
 #include "fakemicrosetd.h"
 #include "fakepowerkey.h"
 #include "harness.h"
@@ -493,6 +497,81 @@ private slots:
         QCOMPARE(refused.count(), 0);
         QCOMPARE(toast()->property("phase").toString(), u"hidden"_s);
         QCOMPARE(m_overlay->menus, 0);
+    }
+
+    void androidGroupInstallsGooglePlay()
+    {
+        Harness h;
+        QVERIFY(h.startBus());
+        const auto buses = qScopeGuard([] {
+            QDBusConnection::disconnectFromBus(u"android"_s);
+            QDBusConnection::disconnectFromBus(u"userd"_s);
+            QDBusConnection::disconnectFromBus(u"overlay"_s);
+        });
+        QDBusConnection userd = QDBusConnection::connectToBus(h.address(), u"userd"_s);
+        FakeManager manager(userd);
+        QVERIFY(userd.registerVirtualObject(FakeManager::Path, &manager, QDBusConnection::SubPath));
+        QVERIFY(userd.registerService(FakeManager::Service));
+        AndroidStatus android(QDBusConnection::connectToBus(h.address(), u"overlay"_s));
+        bindAndroid(android, *m_model);
+        const auto indexOf = [this](const QString &key) {
+            int index = -1;
+            QMetaObject::invokeMethod(page(), "indexOfKey", Q_RETURN_ARG(int, index), Q_ARG(QString, key));
+            return index;
+        };
+        QTest::qWait(200);
+        QCOMPARE(indexOf(u"group-Android"_s), -1);
+        FakeAndroid service;
+        service.status = {{u"Lepton"_s, u"ready"_s}, {u"LeptonBuild"_s, u"25772114"_s}, {u"GooglePlay"_s, u"off"_s},
+                          {u"GsfId"_s, QString()}, {u"Storage"_s, u"card"_s}};
+        QVERIFY(service.publish(QDBusConnection::connectToBus(h.address(), u"android"_s)));
+        QTRY_VERIFY(indexOf(u"group-Android"_s) >= 0);
+        QCOMPARE(indexOf(u"group-updates"_s), indexOf(u"group-Android"_s) + 1);
+        page()->setProperty("focusIndex", indexOf(u"group-Android"_s));
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QTRY_COMPARE(title(), u"Android"_s);
+        QTRY_VERIFY(indexOf(u"android-google-play-install"_s) >= 0);
+        auto *dialog = qvariant_cast<QObject *>(page()->property("confirm"));
+        page()->setProperty("focusIndex", indexOf(u"android-google-play-install"_s));
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QVERIFY(dialog->property("shown").toBool());
+        QCOMPARE(dialog->property("title").toString(), u"google play"_s);
+        QCOMPARE(dialog->property("items").toStringList(), (QStringList{u"install"_s, u"cancel"_s}));
+        QCOMPARE(dialog->property("focusIndex").toInt(), 1);
+        QTest::keyClick(m_window, Qt::Key_Return);
+        QVERIFY(!dialog->property("shown").toBool());
+        QTest::qWait(200);
+        QVERIFY(manager.calls.isEmpty());
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QTest::keyClick(m_window, Qt::Key_Up);
+        QTest::keyClick(m_window, Qt::Key_Return);
+        QVERIFY(!dialog->property("shown").toBool());
+        QTRY_COMPARE(manager.units, QStringList{u"microos-android-gapps.service"_s});
+        QCOMPARE(manager.modes, QStringList{u"replace"_s});
+        QCOMPARE(toast()->property("phase").toString(), u"hidden"_s);
+        manager.fail = true;
+        QTest::ignoreMessage(QtInfoMsg,
+                             "microset overlay: start of microos-android-gapps.service failed: org.freedesktop.DBus.Error.Failed failed");
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QTest::keyClick(m_window, Qt::Key_Up);
+        QTest::keyClick(m_window, Qt::Key_Return);
+        QTRY_COMPARE(toast()->property("title").toString(), u"not available"_s);
+        QCOMPARE(toast()->property("artist").toString(), u"Install Google Play"_s);
+        QCOMPARE(manager.units.size(), 2);
+        QVERIFY(QMetaObject::invokeMethod(page(), "activate"));
+        QVERIFY(dialog->property("shown").toBool());
+        service.change({{u"GooglePlay"_s, u"updating"_s}});
+        QTRY_VERIFY(!dialog->property("shown").toBool());
+        QCOMPARE(indexOf(u"android-google-play-install"_s), -1);
+        QTRY_VERIFY(indexOf(u"android-google-play"_s) >= 0);
+        QCOMPARE(page()->property("rows").toList().at(indexOf(u"android-google-play"_s)).toMap().value(u"value"_s).toString(),
+                 u"updating"_s);
+        QDBusConnection::connectToBus(h.address(), u"android"_s).interface()->unregisterService(AndroidStatus::Service);
+        QTRY_VERIFY(page()->property("rows").toList().isEmpty());
+        QTest::keyClick(m_window, Qt::Key_Escape);
+        QTRY_COMPARE(title(), u"settings"_s);
+        QTRY_COMPARE(indexOf(u"group-Android"_s), -1);
+        QCOMPARE(manager.units.size(), 2);
     }
 
     void holdTextComesBackAfterAnotherToast()

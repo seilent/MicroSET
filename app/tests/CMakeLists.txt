@@ -15,6 +15,10 @@ add_executable(tst_quickaccess tst_quickaccess.cpp)
 target_link_libraries(tst_quickaccess PRIVATE microset_overlay_core microset_harness Qt6::Test)
 add_test(NAME quick-access COMMAND tst_quickaccess)
 
+add_executable(tst_androidstatus tst_androidstatus.cpp)
+target_link_libraries(tst_androidstatus PRIVATE microset_overlay_core microset_harness Qt6::Test)
+add_test(NAME android-status COMMAND tst_androidstatus)
+
 add_executable(tst_overlayqml tst_overlayqml.cpp)
 target_link_libraries(tst_overlayqml PRIVATE microset_overlay_core microset_harness microset_page_fixtures
     microset_overlay_uiplugin microset_uiplugin microset_ui Qt6::Quick Qt6::Test PkgConfig::XCB)

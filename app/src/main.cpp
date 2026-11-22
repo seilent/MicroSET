@@ -1,3 +1,5 @@
+#include "androidbind.h"
+#include "androidstatus.h"
 #include "auth.h"
 #include "dbuspad.h"
 #include "framelimit.h"
@@ -132,6 +134,7 @@ int main(int argc, char *argv[])
     std::unique_ptr<SettingsModel> model;
     std::unique_ptr<QQmlApplicationEngine> engine;
     QuickAccess quick(session, qEnvironmentVariable("MICROSET_OVERLAY_SESSION"));
+    AndroidStatus android(session);
     Auth auth(session, u"/proc"_s);
     SessionMenu menu(auth, session, system);
     const auto pushGame = [&model, &game, &frameLimit] {
@@ -147,9 +150,8 @@ int main(int argc, char *argv[])
             model->setAndroidApp({});
             return;
         }
-        const QDBusMessage message = QDBusMessage::createMethodCall(u"net.seilent.MicroOs.Android1"_s,
-                                                                    u"/net/seilent/MicroOs/Android"_s,
-                                                                    u"net.seilent.MicroOs.Android1"_s, u"Foreground"_s);
+        const QDBusMessage message = QDBusMessage::createMethodCall(AndroidStatus::Service, AndroidStatus::Path,
+                                                                    AndroidStatus::Interface, u"Foreground"_s);
         auto *watcher = new QDBusPendingCallWatcher(session.asyncCall(message, foregroundMs), model.get());
         QObject::connect(watcher, &QDBusPendingCallWatcher::finished, model.get(), [&model, &appAsk, watcher, ask] {
             watcher->deleteLater();
@@ -176,6 +178,7 @@ int main(int argc, char *argv[])
         model = std::make_unique<SettingsModel>(system);
         model->load();
         bindQuickAccess(quick, *model, overlay, menu);
+        bindAndroid(android, *model);
         pushGame();
         pushApp();
         QObject::connect(&game, &RunningGame::changed, model.get(), pushGame);
