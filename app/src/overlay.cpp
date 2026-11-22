@@ -32,6 +32,7 @@ Overlay::Overlay(DbusPad *pad, SleepInhibitor *sleep, QObject *parent)
     , m_prepare([](QWindow *window) { window->create(); })
     , m_prepareToast([](QWindow *window) { window->create(); })
     , m_lower([](QWindow *window) { window->lower(); })
+    , m_input([](QWindow *, bool) {})
 {
     m_fade.setStartValue(0.0);
     m_fade.setEndValue(0.0);
@@ -95,6 +96,11 @@ void Overlay::setHooks(WindowHook prepare, WindowHook prepareToast, WindowHook l
     m_prepare = std::move(prepare);
     m_prepareToast = std::move(prepareToast);
     m_lower = std::move(lower);
+}
+
+void Overlay::setInputHook(InputHook input)
+{
+    m_input = std::move(input);
 }
 
 void Overlay::setSessionMenu(SessionMenu *menu)
@@ -680,6 +686,7 @@ void Overlay::mapWindow()
         m_prepare(m_window);
         ++m_created;
         step("created");
+        syncInput();
     }
     if (m_window->isVisible())
         return;
@@ -765,11 +772,18 @@ void Overlay::dropToast()
     setHintShown(false);
 }
 
+void Overlay::syncInput()
+{
+    if (m_window && m_window->handle())
+        m_input(m_window, m_shown);
+}
+
 void Overlay::setShown(bool shown)
 {
     if (m_shown == shown)
         return;
     m_shown = shown;
+    syncInput();
     emit shownChanged();
 }
 

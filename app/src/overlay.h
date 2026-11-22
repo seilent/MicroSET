@@ -42,6 +42,7 @@ public:
     static constexpr int MenuToastMs = 3500;
 
     using WindowHook = std::function<void(QWindow *)>;
+    using InputHook = std::function<void(QWindow *, bool)>;
 
     Overlay(DbusPad *pad, SleepInhibitor *sleep, QObject *parent = nullptr);
 
@@ -49,6 +50,7 @@ public:
     void setWindow(QWindow *window);
     void setToastWindow(QWindow *window);
     void setHooks(WindowHook prepare, WindowHook prepareToast, WindowHook lower);
+    void setInputHook(InputHook input);
     void setSessionMenu(SessionMenu *menu);
     void setMenuTimeouts(int switchMs, int toastMs);
 
@@ -123,6 +125,7 @@ private:
     void destroyWindow();
     void dropToast();
     void syncHint();
+    void syncInput();
     void checkUnused();
     void setShown(bool shown);
     void setMapped(bool mapped);
@@ -150,6 +153,7 @@ private:
     WindowHook m_prepare;
     WindowHook m_prepareToast;
     WindowHook m_lower;
+    InputHook m_input;
     QVariantAnimation m_fade;
     QTimer m_release;
     QTimer m_menuSwitch;

@@ -122,6 +122,10 @@ int main(int argc, char *argv[])
                 fail(u"cannot set STEAM_OVERLAY on the hint"_s);
         },
         [](QWindow *window) { window->lower(); });
+    overlay.setInputHook([](QWindow *window, bool input) {
+        if (!microset::setOverlayInput(window, input))
+            fail(u"cannot set STEAM_INPUT_FOCUS"_s);
+    });
 
     RunningGame game(session, u"/proc"_s);
     game.skip(SteamLibrary::excluded());

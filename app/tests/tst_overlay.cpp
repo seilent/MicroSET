@@ -183,6 +183,9 @@ class OverlayTest : public QObject
     std::unique_ptr<QQuickWindow> m_window;
     std::unique_ptr<QQuickWindow> m_toast;
     QStringList m_events;
+    QStringList m_inputs;
+    WId m_inputId = 0;
+    bool m_input = false;
     std::unique_ptr<Harness> m_sys;
     std::unique_ptr<Auth> m_auth;
     std::unique_ptr<SessionMenu> m_menu;
@@ -249,6 +252,7 @@ class OverlayTest : public QObject
     }
     QString ours() { return m_pad->name(); }
     bool windowUp() { return m_window->handle() && m_window->isVisible(); }
+    bool takesInput() { return windowUp() && m_input && m_inputId == m_window->winId(); }
 
     void showSettled()
     {
@@ -353,6 +357,9 @@ private slots:
         QVERIFY(m_logind->start());
         m_h.writeCgroup(QCoreApplication::applicationPid(), Harness::UserCgroup);
         m_events.clear();
+        m_inputs.clear();
+        m_input = false;
+        m_inputId = 0;
         m_window = std::make_unique<QQuickWindow>();
         m_window->resize(960, 640);
         m_toast = std::make_unique<QQuickWindow>();
@@ -374,6 +381,11 @@ private slots:
                 w->create();
             },
             [this](QWindow *w) { m_events << (w->isVisible() ? u"lower"_s : u"lower unmapped"_s); });
+        m_overlay->setInputHook([this](QWindow *w, bool input) {
+            m_inputs << (w != m_window.get() ? u"other window"_s : input ? u"input"_s : u"no input"_s);
+            m_input = input;
+            m_inputId = w->winId();
+        });
     }
 
     void cleanup()
@@ -557,6 +569,87 @@ private slots:
         startArbiter();
     }
 
+    void inputOnlyWhileShown()
+    {
+        QVERIFY(m_inputs.isEmpty());
+        showSettled();
+        QVERIFY(takesInput());
+        QCOMPARE(m_inputs, QStringList{u"input"_s});
+        m_overlay->hide();
+        QVERIFY(windowUp());
+        QVERIFY(!takesInput());
+        QCOMPARE(m_inputs, (QStringList{u"input"_s, u"no input"_s}));
+        QTRY_VERIFY(!m_window->handle());
+        QCOMPARE(m_inputs, (QStringList{u"input"_s, u"no input"_s}));
+        showSettled();
+        QVERIFY(takesInput());
+        QCOMPARE(m_inputs, (QStringList{u"input"_s, u"no input"_s, u"input"_s}));
+    }
+
+    void inputBackWhenShownDuringTheFade()
+    {
+        showSettled();
+        m_overlay->hide();
+        QVERIFY(!takesInput());
+        m_overlay->show();
+        QVERIFY(takesInput());
+        QTRY_COMPARE(m_overlay->opacity(), 1.0);
+        QTest::qWait(Overlay::HideMs + Overlay::ReleaseFrameMs + 100);
+        QVERIFY(takesInput());
+        QCOMPARE(m_overlay->created(), 1);
+        QCOMPARE(m_inputs, (QStringList{u"input"_s, u"no input"_s, u"input"_s}));
+    }
+
+    void buriedTakesNoInput()
+    {
+        showSettled();
+        call(u"other"_s, u"Acquire"_s);
+        QTRY_VERIFY(m_overlay->buried());
+        QTRY_VERIFY(!m_window->handle());
+        QVERIFY(!takesInput());
+        call(u"other"_s, u"Release"_s);
+        QTRY_COMPARE(m_pad->holder(), ours());
+        QTRY_VERIFY(windowUp());
+        QVERIFY(takesInput());
+        QCOMPARE(m_overlay->created(), 2);
+        QCOMPARE(m_inputs, (QStringList{u"input"_s, u"input"_s}));
+        call(u"other"_s, u"Acquire"_s);
+        QTRY_VERIFY(m_overlay->buried());
+        m_overlay->hide();
+        QVERIFY(!m_window->handle());
+        QVERIFY(!takesInput());
+        call(u"other"_s, u"Release"_s);
+        QTest::qWait(100);
+        QVERIFY(!takesInput());
+        QCOMPARE(m_inputs, (QStringList{u"input"_s, u"input"_s}));
+    }
+
+    void inputWithoutTheArbiter()
+    {
+        stopArbiter();
+        m_overlay->show();
+        QVERIFY(takesInput());
+        QTest::qWait(200);
+        QVERIFY(takesInput());
+        m_overlay->toggle();
+        QVERIFY(!takesInput());
+        QTRY_VERIFY(!m_window->handle());
+        QCOMPARE(m_inputs, (QStringList{u"input"_s, u"no input"_s}));
+        startArbiter();
+    }
+
+    void sleepTakesTheInputBack()
+    {
+        showSettled();
+        m_logind->prepareForSleep(true);
+        QTRY_VERIFY(!m_overlay->shown());
+        QVERIFY(!m_window->handle());
+        QVERIFY(!takesInput());
+        QCOMPARE(m_inputs, (QStringList{u"input"_s, u"no input"_s}));
+        m_logind->prepareForSleep(false);
+        QTRY_COMPARE(m_logind->open(), 1);
+    }
+
     void releaseFailureRetries()
     {
         showSettled();
@@ -645,6 +738,7 @@ private slots:
         QVERIFY(m_overlay->hintShown());
         QVERIFY(m_toast->isVisible());
         QCOMPARE(page.count(), 1);
+        QVERIFY(!m_inputs.contains(u"other window"_s));
     }
 
     void hintInPageWhileShown()

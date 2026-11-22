@@ -17,9 +17,11 @@ read, change and watch them over D-Bus.
   sessions (`microset-overlay@<session>.service`). RC toggles it (`hotkeys.d/<session>.conf.d/60-microset.conf` rows for
   MicroOS hotkeyd), B on the first page closes it. D-Bus `net.seilent.MicroSet.Overlay` on the session bus, object
   `/net/seilent/MicroSet/Overlay`, interface `net.seilent.MicroSet.Overlay1` with `Toggle`, `Show`, `Hide` and the
-  `Shown` property; refused from a game. While shown it holds the pad through the MicroOS intercept arbiter, and it
-  gives way to another overlay that takes the arbiter until it is on top again. Shows "Hold A to format" while
-  `microos-storage format` waits for the hold. Each time it shows it looks for the newest active
+  `Shown` property; refused from a game. While shown its window carries `STEAM_INPUT_FOCUS` 2, so gamescope sends it
+  pointer and touch and leaves the keyboard with the app (the touch map is in the `MicroSet` bullet); a hide clears it
+  at once and the window goes after the fade, and buried the overlay has no window. While shown it holds the pad through the MicroOS intercept
+  arbiter, and it gives way to another overlay that takes the arbiter until it is on top again. Shows "Hold A to
+  format" while `microos-storage format` waits for the hold. Each time it shows it looks for the newest active
   `app-steam-app<appid>-*.scope` in `game.slice` of the user manager; while one runs the first page starts with `this
   game`: the game's row, which opens its page, and info rows read from the environ of the scope's processes:
   `settings not reaching the game` with the `MICROOS_PROTON_HOOK` state when it is not `ok` (`unknown` once the scope

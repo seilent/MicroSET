@@ -59,6 +59,24 @@ bool markOverlay(QWindow *window)
     return true;
 }
 
+bool setOverlayInput(QWindow *window, bool input)
+{
+    auto *x11 = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
+    if (!x11 || !x11->connection() || !window || !window->handle())
+        return false;
+    xcb_connection_t *connection = x11->connection();
+    const auto id = static_cast<xcb_window_t>(window->winId());
+    const xcb_atom_t focus = atom(connection, "STEAM_INPUT_FOCUS");
+    if (focus == XCB_ATOM_NONE)
+        return false;
+    if (input)
+        setCardinal(connection, id, focus, 2);
+    else
+        xcb_delete_property(connection, id, focus);
+    xcb_flush(connection);
+    return true;
+}
+
 bool displayGone()
 {
     return watched && xcb_connection_has_error(watched);
