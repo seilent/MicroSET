@@ -1249,6 +1249,154 @@ private slots:
         }
     }
 
+    void androidGroup()
+    {
+        const QString android = u"Android"_s;
+        const QString install = u"android-google-play-install"_s;
+        SettingsModel fixture;
+        fixture.setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {});
+        QSignalSpy requested(&fixture, &SettingsModel::googlePlayRequested);
+        QVERIFY(!keysOf(fixture.groups(0)).contains(u"group-Android"_s));
+        QVERIFY(fixture.rows(android, 0).isEmpty());
+        fixture.act(install);
+        QCOMPARE(requested.size(), 0);
+        QVariantMap status{{u"Lepton"_s, u"ready"_s}, {u"LeptonBuild"_s, u"25772114"_s}, {u"GooglePlay"_s, u"off"_s},
+                           {u"GsfId"_s, QString()}, {u"LastResult"_s, u"ready"_s}, {u"LastReason"_s, QString()},
+                           {u"Storage"_s, QString()}, {u"StorageCard"_s, QString()}};
+        fixture.setAndroid(status);
+        QVariantList groups = fixture.groups(0);
+        const QStringList keys = keysOf(groups);
+        QCOMPARE(keys.indexOf(u"group-Android"_s), keys.indexOf(u"group-system"_s) + 1);
+        QCOMPARE(keys.indexOf(u"group-updates"_s), keys.indexOf(u"group-Android"_s) + 1);
+        QCOMPARE(keys.count(u"label-microset"_s), 1);
+        const QVariantMap group = rowOf(groups, u"group-Android"_s);
+        QCOMPARE(group.value(u"title"_s).toString(), android);
+        QCOMPARE(group.value(u"group"_s).toString(), android);
+        QCOMPARE(group.value(u"kind"_s).toString(), u"row"_s);
+        QCOMPARE(fixture.pageTitle(android, 0), android);
+        QVariantList rows = fixture.rows(android, 0);
+        QCOMPARE(keysOf(rows), (QStringList{u"label-microset"_s, u"android-lepton"_s, install}));
+        QCOMPARE(rowOf(rows, u"android-lepton"_s).value(u"title"_s).toString(), u"Lepton"_s);
+        QCOMPARE(rowOf(rows, u"android-lepton"_s).value(u"kind"_s).toString(), u"info"_s);
+        QCOMPARE(value(rows, u"android-lepton"_s), u"build 25772114"_s);
+        const QVariantMap action = rowOf(rows, install);
+        QCOMPARE(action.value(u"title"_s).toString(), u"Install Google Play"_s);
+        QCOMPARE(action.value(u"kind"_s).toString(), u"row"_s);
+        QCOMPARE(action.value(u"value"_s).toString(), QString());
+        QCOMPARE(action.value(u"action"_s).toString(), install);
+        QCOMPARE(action.value(u"ask"_s).toString(), u"google play"_s);
+        QCOMPARE(action.value(u"accept"_s).toString(), u"install"_s);
+        fixture.act(install);
+        QCOMPARE(requested.size(), 1);
+        status.insert(u"GooglePlay"_s, u"failed"_s);
+        fixture.setAndroid(status);
+        rows = fixture.rows(android, 0);
+        QCOMPARE(keysOf(rows), (QStringList{u"label-microset"_s, u"android-lepton"_s, install}));
+        QCOMPARE(rowOf(rows, install).value(u"title"_s).toString(), u"Install Google Play"_s);
+        QCOMPARE(rowOf(rows, install).value(u"kind"_s).toString(), u"row"_s);
+        QCOMPARE(value(rows, install), u"failed"_s);
+        QCOMPARE(rowOf(rows, install).value(u"action"_s).toString(), install);
+        QCOMPARE(rowOf(rows, install).value(u"ask"_s).toString(), u"google play"_s);
+        QCOMPARE(rowOf(rows, install).value(u"accept"_s).toString(), u"install"_s);
+        fixture.act(install);
+        QCOMPARE(requested.size(), 2);
+        const QMap<QString, QString> leptons{{u"not-installed"_s, u"not installed"_s},
+                                             {u"not-reviewed"_s, u"not reviewed 25772114"_s},
+                                             {u"other"_s, u"other"_s}};
+        for (auto it = leptons.cbegin(); it != leptons.cend(); ++it) {
+            status.insert(u"Lepton"_s, it.key());
+            fixture.setAndroid(status);
+            QCOMPARE(value(fixture.rows(android, 0), u"android-lepton"_s), it.value());
+        }
+        status.insert({{u"Lepton"_s, u"not-reviewed"_s}, {u"LeptonBuild"_s, QString()}});
+        fixture.setAndroid(status);
+        QCOMPARE(value(fixture.rows(android, 0), u"android-lepton"_s), u"not reviewed"_s);
+        status.insert({{u"Lepton"_s, u"ready"_s}, {u"LeptonBuild"_s, u"25772114"_s}, {u"GooglePlay"_s, u"updating"_s},
+                       {u"GsfId"_s, u"4214478130512345678"_s}, {u"Storage"_s, u"card"_s}});
+        fixture.setAndroid(status);
+        rows = fixture.rows(android, 0);
+        QCOMPARE(keysOf(rows), (QStringList{u"label-microset"_s, u"android-lepton"_s, u"android-google-play"_s,
+                                            u"android-gsf-id"_s, u"android-storage"_s}));
+        QCOMPARE(rowOf(rows, u"android-google-play"_s).value(u"title"_s).toString(), u"Google Play"_s);
+        QCOMPARE(rowOf(rows, u"android-google-play"_s).value(u"kind"_s).toString(), u"info"_s);
+        QCOMPARE(value(rows, u"android-google-play"_s), u"updating"_s);
+        QCOMPARE(rowOf(rows, u"android-gsf-id"_s).value(u"title"_s).toString(), u"GSF ID"_s);
+        QCOMPARE(rowOf(rows, u"android-gsf-id"_s).value(u"kind"_s).toString(), u"info"_s);
+        QCOMPARE(value(rows, u"android-gsf-id"_s), u"4214478130512345678"_s);
+        QCOMPARE(rowOf(rows, u"android-storage"_s).value(u"title"_s).toString(), u"Storage"_s);
+        QCOMPARE(rowOf(rows, u"android-storage"_s).value(u"kind"_s).toString(), u"info"_s);
+        fixture.act(install);
+        QCOMPARE(requested.size(), 2);
+        status.insert(u"GooglePlay"_s, u"on"_s);
+        fixture.setAndroid(status);
+        QCOMPARE(value(fixture.rows(android, 0), u"android-google-play"_s), u"on"_s);
+        fixture.act(install);
+        QCOMPARE(requested.size(), 2);
+        const QMap<QString, QString> storage{
+            {u"card"_s, u"card"_s},
+            {u"on-os-card"_s, u"on system card"_s},
+            {u"no-card"_s, u"no card"_s},
+            {u"not-ext4"_s, u"card not ext4"_s},
+            {u"read-only"_s, u"card read only"_s},
+            {u"other-card"_s, u"other card"_s},
+            {u"folder-missing"_s, u"folder missing"_s},
+            {u"folder-unusable"_s, u"folder unusable"_s},
+            {u"on-internal"_s, u"on internal"_s},
+            {u"moving"_s, u"moving"_s},
+            {u"something-new"_s, u"something-new"_s},
+        };
+        for (auto it = storage.cbegin(); it != storage.cend(); ++it) {
+            status.insert(u"Storage"_s, it.key());
+            fixture.setAndroid(status);
+            QCOMPARE(value(fixture.rows(android, 0), u"android-storage"_s), it.value());
+        }
+        status.insert({{u"GooglePlay"_s, QString()}, {u"GsfId"_s, QString()}, {u"Storage"_s, QString()}});
+        fixture.setAndroid(status);
+        QCOMPARE(keysOf(fixture.rows(android, 0)), (QStringList{u"label-microset"_s, u"android-lepton"_s}));
+        status.insert(u"Lepton"_s, QString());
+        fixture.setAndroid(status);
+        QVERIFY(fixture.rows(android, 0).isEmpty());
+        QVERIFY(!keysOf(fixture.groups(0)).contains(u"group-Android"_s));
+        status.insert(u"Storage"_s, u"card"_s);
+        fixture.setAndroid(status);
+        QCOMPARE(keysOf(fixture.rows(android, 0)), (QStringList{u"label-microset"_s, u"android-storage"_s}));
+        QVERIFY(keysOf(fixture.groups(0)).contains(u"group-Android"_s));
+        fixture.setAndroid({});
+        QVERIFY(!keysOf(fixture.groups(0)).contains(u"group-Android"_s));
+        QVERIFY(fixture.rows(android, 0).isEmpty());
+        fixture.act(install);
+        QCOMPARE(requested.size(), 2);
+    }
+
+    void androidGroupBesideASchemaGroup()
+    {
+        const QString android = u"Android"_s;
+        QJsonObject schema = FakeMicroSetd::describe({FakeMicroSetd::shipped()});
+        schema.insert(u"fixture.android"_s,
+                      QJsonObject{{u"type"_s, u"b"_s}, {u"default"_s, false}, {u"owner"_s, u"fixture"_s},
+                                  {u"group"_s, u"fixture_android"_s},
+                                  {u"group_ui"_s, QJsonObject{{u"label"_s, android}, {u"order"_s, 0}}},
+                                  {u"label"_s, u"Fixture flag"_s}});
+        SettingsModel fixture;
+        fixture.setFixture(schema, {}, {});
+        QVariantList groups = fixture.groups(0);
+        QCOMPARE(keysOf(groups).count(u"group-Android"_s), 1);
+        QVERIFY(keysOf(groups).indexOf(u"group-Android"_s) > keysOf(groups).indexOf(u"label-fixture"_s));
+        QCOMPARE(keysOf(fixture.rows(android, 0)), (QStringList{u"label-fixture"_s, u"fixture.android"_s}));
+        fixture.setAndroid({{u"Lepton"_s, u"ready"_s}, {u"LeptonBuild"_s, u"25772114"_s}, {u"GooglePlay"_s, u"off"_s}});
+        groups = fixture.groups(0);
+        const QStringList keys = keysOf(groups);
+        QCOMPARE(keys.count(u"group-Android"_s), 1);
+        QCOMPARE(keys.indexOf(u"group-updates"_s), keys.indexOf(u"group-Android"_s) + 1);
+        QVERIFY(!keys.contains(u"label-fixture"_s));
+        QCOMPARE(keysOf(fixture.rows(android, 0)),
+                 (QStringList{u"label-microset"_s, u"android-lepton"_s, u"android-google-play-install"_s, u"label-fixture"_s,
+                              u"fixture.android"_s}));
+        fixture.setAndroid({});
+        QCOMPARE(keysOf(fixture.groups(0)).count(u"group-Android"_s), 1);
+        QCOMPARE(keysOf(fixture.rows(android, 0)), (QStringList{u"label-fixture"_s, u"fixture.android"_s}));
+    }
+
     void androidPerfWrites()
     {
         writeSession("android\n");

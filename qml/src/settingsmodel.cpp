@@ -46,6 +46,8 @@ const QString AndroidStateKey = u"lsfg.android_state"_s;
 const QString AndroidFpsKey = u"lsfg.android_fps"_s;
 constexpr qsizetype AndroidAppMax = 128;
 const QString PerfOverlayKey = u"perf.android_overlay"_s;
+const QString AndroidPage = u"Android"_s;
+const QString GooglePlayInstallKey = u"android-google-play-install"_s;
 const QString ProfilesKey = u"proton.profiles"_s;
 const QString ProfileOption = u"profile"_s;
 constexpr qsizetype MaxGames = 512;
@@ -217,6 +219,14 @@ void SettingsModel::setAndroidApp(const QString &package)
     if (package == m_androidApp)
         return;
     m_androidApp = package;
+    bump();
+}
+
+void SettingsModel::setAndroid(const QVariantMap &status)
+{
+    if (status == m_android)
+        return;
+    m_android = status;
     bump();
 }
 
@@ -1098,6 +1108,51 @@ QVariantList SettingsModel::androidPerf() const
     return {label(u"android"_s), rowOf(*overlay)};
 }
 
+QVariantList SettingsModel::androidRows() const
+{
+    if (m_android.isEmpty())
+        return {};
+    const QString lepton = m_android.value(u"Lepton"_s).toString();
+    const QString build = m_android.value(u"LeptonBuild"_s).toString();
+    const QMap<QString, QString> leptons{{u"ready"_s, u"build %1"_s.arg(build)},
+                                         {u"not-installed"_s, u"not installed"_s},
+                                         {u"not-reviewed"_s, u"not reviewed %1"_s.arg(build)}};
+    const QString leptonText = leptons.value(lepton, lepton).trimmed();
+    QVariantList out;
+    if (!leptonText.isEmpty())
+        out << infoRow(u"android-lepton"_s, u"Lepton"_s, leptonText);
+    const QString play = m_android.value(u"GooglePlay"_s).toString();
+    if (googlePlayShown()) {
+        QVariantMap install = infoRow(GooglePlayInstallKey, u"Install Google Play"_s, play == "failed"_L1 ? play : QString());
+        install.insert({{u"kind"_s, u"row"_s}, {u"action"_s, GooglePlayInstallKey}, {u"ask"_s, u"google play"_s},
+                        {u"accept"_s, u"install"_s}});
+        out << install;
+    } else if (!play.isEmpty()) {
+        out << infoRow(u"android-google-play"_s, u"Google Play"_s, play);
+    }
+    const QString gsf = m_android.value(u"GsfId"_s).toString();
+    if (!gsf.isEmpty())
+        out << infoRow(u"android-gsf-id"_s, u"GSF ID"_s, gsf);
+    const QString storage = m_android.value(u"Storage"_s).toString();
+    const QMap<QString, QString> words{{u"on-os-card"_s, u"on system card"_s},
+                                       {u"no-card"_s, u"no card"_s},
+                                       {u"not-ext4"_s, u"card not ext4"_s},
+                                       {u"read-only"_s, u"card read only"_s},
+                                       {u"other-card"_s, u"other card"_s},
+                                       {u"folder-missing"_s, u"folder missing"_s},
+                                       {u"folder-unusable"_s, u"folder unusable"_s},
+                                       {u"on-internal"_s, u"on internal"_s}};
+    if (!storage.isEmpty())
+        out << infoRow(u"android-storage"_s, u"Storage"_s, words.value(storage, storage));
+    return out;
+}
+
+bool SettingsModel::googlePlayShown() const
+{
+    const QString play = m_android.value(u"GooglePlay"_s).toString();
+    return play == "off"_L1 || play == "failed"_L1;
+}
+
 bool SettingsModel::profilesOn() const
 {
     const auto shape = m_entries.constFind(ProfilesKey);
@@ -1273,6 +1328,8 @@ void SettingsModel::act(const QString &key)
 {
     if (key == LsfgInstallKey && installShown())
         m_lsfg.install();
+    else if (key == GooglePlayInstallKey && googlePlayShown())
+        emit googlePlayRequested();
     else if (key == QuickAccessKey && m_quickAccess)
         emit quickAccessRequested();
     else if (key == SessionSwitchKey && !m_sessionSwitch.isEmpty())
@@ -1348,11 +1405,12 @@ QVariantList SettingsModel::rows(const QString &group, int) const
         return {};
     QVariantList out;
     QString owner;
-    bool placed = group != UpdatesGroup;
+    const QVariantList own = group == UpdatesGroup ? updateRows() : group == AndroidPage ? androidRows() : QVariantList();
+    bool placed = own.isEmpty();
     const auto place = [&] {
         if (owner != PrivilegedOwner)
             out << label(PrivilegedOwner);
-        out << updateRows();
+        out << own;
         owner = PrivilegedOwner;
         placed = true;
     };
@@ -1407,8 +1465,12 @@ QVariantList SettingsModel::groups(int) const
     }
     QList<Item> items;
     for (const Item &item : std::as_const(found))
-        if (item.title != UpdatesGroup && !visible(item.title).isEmpty())
+        if (item.title != UpdatesGroup && item.title != AndroidPage && !visible(item.title).isEmpty())
             items << item;
+    if (!androidRows().isEmpty())
+        items << Item{AndroidPage, PrivilegedOwner, Last};
+    else if (!visible(AndroidPage).isEmpty())
+        items << found.value(AndroidPage);
     items << Item{UpdatesGroup, PrivilegedOwner, Last};
     std::stable_sort(items.begin(), items.end(), [](const Item &a, const Item &b) {
         if (a.owner != b.owner)

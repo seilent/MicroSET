@@ -58,7 +58,9 @@ const QStringList &states()
         u"game-lsfg-blacklist"_s, u"game-lsfg-disabled"_s, u"game-lsfg-cap-off"_s, u"sheet-game-lsfg-multiplier"_s,
         u"sheet-game-lsfg-cap"_s, u"lsfg-games-motion"_s, u"lsfg-dialog-motion"_s, u"lsfg-sheet-game"_s,
         u"android-app"_s, u"sheet-android-limit"_s, u"android-app-lsfg-off"_s, u"android-perf"_s, u"android-perf-app"_s,
-        u"sheet-android-perf"_s, u"press-row-motion"_s, u"lift-end"_s, u"lift-tall"_s, u"rowsheet-low"_s,
+        u"sheet-android-perf"_s, u"top-android"_s, u"android-group"_s, u"android-group-dialog"_s, u"android-group-play"_s,
+        u"android-group-gone"_s, u"top-android-session"_s, u"top-steam-session"_s,
+        u"press-row-motion"_s, u"lift-end"_s, u"lift-tall"_s, u"rowsheet-low"_s,
         u"lift-motion"_s, u"lift-end-motion"_s,
     };
     return names;
@@ -220,7 +222,7 @@ int main(int argc, char *argv[])
     if (accentOff)
         values.insert(u"microdap.accent_off"_s, true);
     const bool android = state == "android-app"_L1 || state == "sheet-android-limit"_L1 || state == "android-app-lsfg-off"_L1
-        || state == "android-perf-app"_L1 || state == "sheet-android-perf"_L1;
+        || state == "android-perf-app"_L1 || state == "sheet-android-perf"_L1 || state == "top-android-session"_L1;
     if (android)
         values.insert({{u"lsfg.android_app"_s, AndroidApp}, {u"lsfg.android_state"_s, true}, {u"lsfg.android_fps"_s, 30u},
                        {u"lsfg.enabled"_s, state != "android-app-lsfg-off"_L1}});
@@ -255,6 +257,19 @@ int main(int argc, char *argv[])
         model.lsfg()->setFixture({}, true, u"android"_s);
     if (android)
         model.setAndroidApp(AndroidApp);
+    if (state == "top-android-session"_L1)
+        model.setSessionSwitch(u"android"_s);
+    if (state == "top-steam-session"_L1) {
+        model.lsfg()->setFixture({}, true, u"steam"_s);
+        model.setQuickAccess(true);
+        model.setSessionSwitch(u"steam"_s);
+    }
+    if (state.startsWith("top-android"_L1) || state.startsWith("android-group"_L1) || state == "top-steam-session"_L1) {
+        const bool play = state == "android-group-play"_L1;
+        model.setAndroid({{u"Lepton"_s, play ? u"not-reviewed"_s : u"ready"_s}, {u"LeptonBuild"_s, u"25772114"_s},
+                          {u"GooglePlay"_s, play ? u"on"_s : u"off"_s}, {u"GsfId"_s, play ? u"4214478130512345678"_s : QString()},
+                          {u"Storage"_s, play ? u"folder-unusable"_s : u"card"_s}});
+    }
     if (state == "lsfg-gone-long"_L1) {
         model.enter(u"app.251150"_s);
         model.leave(u"app.251150"_s);
@@ -280,6 +295,15 @@ int main(int argc, char *argv[])
     if (!window) {
         fail(u"MicroSetPageTest.PageRoot did not produce a window"_s);
         return 1;
+    }
+
+    if (state == "android-group-gone"_L1) {
+        QObject *view = window->findChild<QObject *>(u"settingsView"_s);
+        QObject::connect(window, &QQuickWindow::frameSwapped, &model, [&model, view] {
+            QObject *page = qvariant_cast<QObject *>(qvariant_cast<QObject *>(view->property("stack"))->property("currentItem"));
+            if (page && page->property("group").toString() == "Android"_L1)
+                model.setAndroid({});
+        });
     }
 
     if (parser.isSet(framesOption)) {

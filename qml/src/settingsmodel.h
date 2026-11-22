@@ -60,6 +60,7 @@ public:
     void setProtonFixture(const QMap<QString, QJsonObject> &effective, const QJsonObject &profiles);
     void setGame(const QVariantMap &game);
     void setAndroidApp(const QString &package);
+    void setAndroid(const QVariantMap &status);
     void setQuickAccess(bool shown);
     void setSessionSwitch(const QString &session);
     UpdateInfo *updates();
@@ -110,6 +111,7 @@ signals:
     void previewEnded(const QString &key);
     void quickAccessRequested();
     void sessionSwitchRequested(bool inGame);
+    void googlePlayRequested();
 
 private:
     struct Entry
@@ -215,6 +217,8 @@ private:
     QVariantList quickAccess() const;
     QVariantList thisApp() const;
     QVariantList androidPerf() const;
+    QVariantList androidRows() const;
+    bool googlePlayShown() const;
     bool profilesOn() const;
     bool lsfgOn() const;
     bool lsfgShown() const;
@@ -248,6 +252,7 @@ private:
     QMap<QString, QString> m_names;
     QVariantMap m_game;
     QString m_androidApp;
+    QVariantMap m_android;
     bool m_quickAccess = false;
     QString m_sessionSwitch;
     QList<SteamLibrary::Game> m_library;

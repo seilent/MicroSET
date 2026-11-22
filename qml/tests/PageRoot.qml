@@ -16,7 +16,8 @@ Window {
     readonly property var groupStates: ({
         audio: "audio", display: "display", rgb: "stick leds", "rgb-off": "stick leds", power: "power", system: "system",
         updates: "updates", games: "games", "games-empty": "games",
-        "long-label": "group with a long title", merged: "display"
+        "long-label": "group with a long title", merged: "display", "android-group": "Android",
+        "android-group-play": "Android", "android-group-gone": "Android"
     })
     readonly property var sheetStates: ({
         "sheet-volume-step": ["audio", "audio.volume_step", 0],
@@ -249,6 +250,20 @@ Window {
                 page.keepFocusVisible()
                 if (root.shotState === "sheet-android-perf")
                     page.activate()
+            })
+        } else if (root.shotState.startsWith("top-android") || root.shotState === "top-steam-session") {
+            const page = view.stack.currentItem
+            Qt.callLater(() => {
+                page.focusIndex = page.indexOfKey("group-Android")
+                page.keepFocusVisible()
+            })
+        } else if (root.shotState === "android-group-dialog") {
+            view.open("Android")
+            const page = view.stack.currentItem
+            Qt.callLater(() => {
+                page.focusIndex = page.indexOfKey("android-google-play-install")
+                page.activate()
+                page.confirm.complete()
             })
         } else if (root.shotState === "press-row-motion") {
             view.open("audio")

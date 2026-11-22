@@ -816,6 +816,72 @@ private slots:
         qputenv("PATH", path);
     }
 
+    void androidGooglePlayAsksFirst()
+    {
+        QSignalSpy requested(model.get(), &SettingsModel::googlePlayRequested);
+        QVariantMap status{{u"Lepton"_s, u"ready"_s}, {u"LeptonBuild"_s, u"25772114"_s}, {u"GooglePlay"_s, u"off"_s},
+                           {u"GsfId"_s, QString()}, {u"Storage"_s, u"card"_s}};
+        QVERIFY(row(u"group-Android"_s).isEmpty());
+        model->setAndroid(status);
+        QTRY_VERIFY(!row(u"group-Android"_s).isEmpty());
+        focus(u"group-Android"_s);
+        key(Qt::Key_Return);
+        QCOMPARE(page()->property("title").toString(), u"Android"_s);
+        QTRY_COMPARE(value(u"android-lepton"_s), u"build 25772114"_s);
+        QCOMPARE(value(u"android-storage"_s), u"card"_s);
+        auto *dialog = qvariant_cast<QObject *>(page()->property("confirm"));
+        focus(u"android-google-play-install"_s);
+        key(Qt::Key_Return);
+        QVERIFY(dialog->property("shown").toBool());
+        QCOMPARE(dialog->property("title").toString(), u"google play"_s);
+        QCOMPARE(dialog->property("items").toStringList(), (QStringList{u"install"_s, u"cancel"_s}));
+        QCOMPARE(dialog->property("focusIndex").toInt(), 1);
+        key(Qt::Key_Return);
+        QVERIFY(!dialog->property("shown").toBool());
+        QCOMPARE(requested.count(), 0);
+        key(Qt::Key_Return);
+        key(Qt::Key_Escape);
+        QVERIFY(!dialog->property("shown").toBool());
+        QCOMPARE(page()->property("group").toString(), u"Android"_s);
+        QCOMPARE(requested.count(), 0);
+        key(Qt::Key_Return);
+        key(Qt::Key_Up);
+        key(Qt::Key_Return);
+        QVERIFY(!dialog->property("shown").toBool());
+        QCOMPARE(requested.count(), 1);
+        QVERIFY(fake->calls().isEmpty());
+        status.insert(u"GooglePlay"_s, u"failed"_s);
+        model->setAndroid(status);
+        QTRY_COMPARE(value(u"android-google-play-install"_s), u"failed"_s);
+        focus(u"android-google-play-install"_s);
+        key(Qt::Key_Return);
+        QVERIFY(dialog->property("shown").toBool());
+        QCOMPARE(dialog->property("title").toString(), u"google play"_s);
+        QCOMPARE(dialog->property("items").toStringList(), (QStringList{u"install"_s, u"cancel"_s}));
+        QCOMPARE(dialog->property("focusIndex").toInt(), 1);
+        key(Qt::Key_Up);
+        key(Qt::Key_Return);
+        QVERIFY(!dialog->property("shown").toBool());
+        QCOMPARE(requested.count(), 2);
+        key(Qt::Key_Return);
+        QVERIFY(dialog->property("shown").toBool());
+        status.insert({{u"GooglePlay"_s, u"updating"_s}, {u"GsfId"_s, u"<b>4214478130512345678</b>"_s}});
+        model->setAndroid(status);
+        QTRY_VERIFY(!dialog->property("shown").toBool());
+        QVERIFY(row(u"android-google-play-install"_s).isEmpty());
+        QCOMPARE(value(u"android-google-play"_s), u"updating"_s);
+        QCOMPARE(requested.count(), 2);
+        QTRY_VERIFY(rowItem(u"android-gsf-id"_s));
+        QObject *shown = qvariant_cast<QObject *>(rowItem(u"android-gsf-id"_s)->property("valueItem"));
+        QCOMPARE(shown->property("text").toString(), u"<b>4214478130512345678</b>"_s);
+        QCOMPARE(shown->property("textFormat").toInt(), int(Qt::PlainText));
+        model->setAndroid({});
+        QTRY_VERIFY(page()->property("rows").toList().isEmpty());
+        key(Qt::Key_Escape);
+        QCOMPARE(page()->property("title").toString(), u"settings"_s);
+        QTRY_VERIFY(row(u"group-Android"_s).isEmpty());
+    }
+
     QObject *rowSheet() const
     {
         return qvariant_cast<QObject *>(page()->property("rowSheet"));

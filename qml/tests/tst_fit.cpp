@@ -299,6 +299,36 @@ private slots:
         qunsetenv("MICROSET_STEAM_DIR");
     }
 
+    void androidGroupFitsAt640()
+    {
+        QVERIFY(qEnvironmentVariableIsSet("MICROSET_FONT_DIR"));
+        SettingsModel model;
+        model.setFixture(FakeMicroSetd::describe({FakeMicroSetd::shipped()}), {}, {});
+        QQmlApplicationEngine engine;
+        QObject *view = viewOf(engine, model);
+        QVERIFY(view);
+        const QString android = u"Android"_s;
+        const QMap<QString, QStringList> extra{
+            {u"*"_s, {}},
+            {u"android-lepton"_s, {u"build 25772114"_s, u"not installed"_s, u"not reviewed 25772114"_s}},
+            {u"android-google-play"_s, {u"on"_s, u"updating"_s}},
+            {u"android-google-play-install"_s, {u"failed"_s}},
+            {u"android-storage"_s,
+             {u"card"_s, u"on system card"_s, u"no card"_s, u"card not ext4"_s, u"card read only"_s, u"other card"_s,
+              u"folder missing"_s, u"folder unusable"_s, u"on internal"_s, u"moving"_s}},
+        };
+        Count count;
+        model.setAndroid({{u"Lepton"_s, u"not-reviewed"_s}, {u"LeptonBuild"_s, u"25772114"_s}, {u"GooglePlay"_s, u"off"_s},
+                          {u"Storage"_s, u"folder-unusable"_s}});
+        checkRows(view, model, android, count, extra);
+        model.setAndroid({{u"Lepton"_s, u"ready"_s}, {u"LeptonBuild"_s, u"25772114"_s}, {u"GooglePlay"_s, u"updating"_s},
+                          {u"GsfId"_s, u"4214478130512345678"_s}, {u"Storage"_s, u"folder-unusable"_s}});
+        checkRows(view, model, android, count, extra);
+        QVERIFY(count.rows >= 30);
+        QVERIFY2(count.misses.isEmpty(),
+                 qPrintable(u"android row values wider than their room at 640 wide:\n"_s + count.misses.join(u'\n')));
+    }
+
     void androidAppFits_data()
     {
         QTest::addColumn<QSize>("size");
