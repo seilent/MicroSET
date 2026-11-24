@@ -54,10 +54,10 @@ read, change and watch them over D-Bus.
   toast.
   While `net.seilent.MicroOs.Android1` has an owner on the session bus, the first page has the `Android` group (in
   `microset`, before `updates`; a schema group titled `Android` shares it), read from the service's properties and
-  `PropertiesChanged`: `Lepton` (`build <id>`, `not installed`, `not reviewed <id>`), `Install Google Play` while
-  `GooglePlay` is `off` or `failed` (shown as its value; asks first, then starts `microos-android-gapps.service`
-  without waiting for it, a refused start toasting `not available`), else `Google Play` (`on`, `updating`), then
-  `GSF ID` and `Storage` when set.
+  `PropertiesChanged`: `Android image` from `Image` and `ImageSet` (the set id, `downloading`, `failed`, `not
+  installed`), `Install Google Play` while `GooglePlay` is `off` or `failed` (shown as its value; asks first, then
+  starts `microos-android-gapps.service` without waiting for it, a refused start toasting `not available`), else
+  `Google Play` (`on`, `updating`), then `GSF ID` and `Storage` when set.
   Row values are plain text.
   The overlay also owns `net.seilent.MicroOs.SessionMenu` (interface `SessionMenu1`, `Show(sessions, current, hints)`):
   a sheet listing the sessions MicroOS passes, current marked, the same sheet `Switch session` opens. A switches

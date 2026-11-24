@@ -1112,15 +1112,13 @@ QVariantList SettingsModel::androidRows() const
 {
     if (m_android.isEmpty())
         return {};
-    const QString lepton = m_android.value(u"Lepton"_s).toString();
-    const QString build = m_android.value(u"LeptonBuild"_s).toString();
-    const QMap<QString, QString> leptons{{u"ready"_s, u"build %1"_s.arg(build)},
-                                         {u"not-installed"_s, u"not installed"_s},
-                                         {u"not-reviewed"_s, u"not reviewed %1"_s.arg(build)}};
-    const QString leptonText = leptons.value(lepton, lepton).trimmed();
+    const QString image = m_android.value(u"Image"_s).toString();
+    const QString imageSet = m_android.value(u"ImageSet"_s).toString();
+    const QMap<QString, QString> images{{u"ready"_s, imageSet}, {u"not-installed"_s, u"not installed"_s}};
+    const QString imageText = images.value(image, image).trimmed();
     QVariantList out;
-    if (!leptonText.isEmpty())
-        out << infoRow(u"android-lepton"_s, u"Lepton"_s, leptonText);
+    if (!imageText.isEmpty())
+        out << infoRow(u"android-image"_s, u"Android image"_s, imageText);
     const QString play = m_android.value(u"GooglePlay"_s).toString();
     if (googlePlayShown()) {
         QVariantMap install = infoRow(GooglePlayInstallKey, u"Install Google Play"_s, play == "failed"_L1 ? play : QString());

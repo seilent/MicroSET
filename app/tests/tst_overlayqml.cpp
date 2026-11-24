@@ -522,7 +522,8 @@ private slots:
         QTest::qWait(200);
         QCOMPARE(indexOf(u"group-Android"_s), -1);
         FakeAndroid service;
-        service.status = {{u"Lepton"_s, u"ready"_s}, {u"LeptonBuild"_s, u"25772114"_s}, {u"GooglePlay"_s, u"off"_s},
+        service.status = {{u"Image"_s, u"ready"_s}, {u"ImageSet"_s, u"los20av-20260927-20261022"_s},
+                          {u"GooglePlay"_s, u"off"_s},
                           {u"GsfId"_s, QString()}, {u"Storage"_s, u"card"_s}};
         QVERIFY(service.publish(QDBusConnection::connectToBus(h.address(), u"android"_s)));
         QTRY_VERIFY(indexOf(u"group-Android"_s) >= 0);

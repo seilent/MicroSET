@@ -23,7 +23,7 @@ class AndroidStatusTest : public QObject
 
     static QVariantMap ready()
     {
-        return {{u"Lepton"_s, u"ready"_s}, {u"LeptonBuild"_s, u"25772114"_s}, {u"GooglePlay"_s, u"off"_s},
+        return {{u"Image"_s, u"ready"_s}, {u"ImageSet"_s, u"los20av-20260927-20261022"_s}, {u"GooglePlay"_s, u"off"_s},
                 {u"GsfId"_s, QString()}, {u"LastResult"_s, u"ready"_s}, {u"LastReason"_s, QString()},
                 {u"Storage"_s, u"card"_s}, {u"StorageCard"_s, u"0f6c5f0e-8a4e-4c0b-9d55-2f1d2c3b4a59"_s}};
     }
@@ -74,7 +74,7 @@ private slots:
         QVERIFY(startService(&service));
         QTRY_COMPARE(android.status(), ready());
         QCOMPARE(changed.size(), 1);
-        QCOMPARE(android.status().value(u"LeptonBuild"_s).toString(), u"25772114"_s);
+        QCOMPARE(android.status().value(u"ImageSet"_s).toString(), u"los20av-20260927-20261022"_s);
         stopService();
         QTRY_VERIFY(android.status().isEmpty());
         QCOMPARE(changed.size(), 2);
@@ -104,7 +104,7 @@ private slots:
         service.change({{u"GooglePlay"_s, u"updating"_s}, {u"GsfId"_s, u"4214478130512345678"_s}});
         QTRY_COMPARE(android.status().value(u"GooglePlay"_s).toString(), u"updating"_s);
         QCOMPARE(android.status().value(u"GsfId"_s).toString(), u"4214478130512345678"_s);
-        QCOMPARE(android.status().value(u"Lepton"_s).toString(), u"ready"_s);
+        QCOMPARE(android.status().value(u"Image"_s).toString(), u"ready"_s);
         QCOMPARE(changed.size(), 2);
         service.change({{u"GooglePlay"_s, u"on"_s}}, u"net.seilent.MicroOs.Other1"_s);
         QTest::qWait(200);

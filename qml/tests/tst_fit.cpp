@@ -310,7 +310,7 @@ private slots:
         const QString android = u"Android"_s;
         const QMap<QString, QStringList> extra{
             {u"*"_s, {}},
-            {u"android-lepton"_s, {u"build 25772114"_s, u"not installed"_s, u"not reviewed 25772114"_s}},
+            {u"android-image"_s, {u"los20av-20260927-20261022"_s, u"downloading"_s, u"failed"_s, u"not installed"_s}},
             {u"android-google-play"_s, {u"on"_s, u"updating"_s}},
             {u"android-google-play-install"_s, {u"failed"_s}},
             {u"android-storage"_s,
@@ -318,10 +318,12 @@ private slots:
               u"folder missing"_s, u"folder unusable"_s, u"on internal"_s, u"moving"_s}},
         };
         Count count;
-        model.setAndroid({{u"Lepton"_s, u"not-reviewed"_s}, {u"LeptonBuild"_s, u"25772114"_s}, {u"GooglePlay"_s, u"off"_s},
+        model.setAndroid({{u"Image"_s, u"downloading"_s}, {u"ImageSet"_s, u"los20av-20260927-20261022"_s},
+                          {u"GooglePlay"_s, u"off"_s},
                           {u"Storage"_s, u"folder-unusable"_s}});
         checkRows(view, model, android, count, extra);
-        model.setAndroid({{u"Lepton"_s, u"ready"_s}, {u"LeptonBuild"_s, u"25772114"_s}, {u"GooglePlay"_s, u"updating"_s},
+        model.setAndroid({{u"Image"_s, u"ready"_s}, {u"ImageSet"_s, u"los20av-20260927-20261022"_s},
+                          {u"GooglePlay"_s, u"updating"_s},
                           {u"GsfId"_s, u"4214478130512345678"_s}, {u"Storage"_s, u"folder-unusable"_s}});
         checkRows(view, model, android, count, extra);
         QVERIFY(count.rows >= 30);

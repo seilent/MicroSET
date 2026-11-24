@@ -266,7 +266,8 @@ int main(int argc, char *argv[])
     }
     if (state.startsWith("top-android"_L1) || state.startsWith("android-group"_L1) || state == "top-steam-session"_L1) {
         const bool play = state == "android-group-play"_L1;
-        model.setAndroid({{u"Lepton"_s, play ? u"not-reviewed"_s : u"ready"_s}, {u"LeptonBuild"_s, u"25772114"_s},
+        model.setAndroid({{u"Image"_s, play ? u"downloading"_s : u"ready"_s},
+                          {u"ImageSet"_s, u"los20av-20260927-20261022"_s},
                           {u"GooglePlay"_s, play ? u"on"_s : u"off"_s}, {u"GsfId"_s, play ? u"4214478130512345678"_s : QString()},
                           {u"Storage"_s, play ? u"folder-unusable"_s : u"card"_s}});
     }

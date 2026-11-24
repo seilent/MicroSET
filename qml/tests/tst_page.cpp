@@ -819,7 +819,8 @@ private slots:
     void androidGooglePlayAsksFirst()
     {
         QSignalSpy requested(model.get(), &SettingsModel::googlePlayRequested);
-        QVariantMap status{{u"Lepton"_s, u"ready"_s}, {u"LeptonBuild"_s, u"25772114"_s}, {u"GooglePlay"_s, u"off"_s},
+        QVariantMap status{{u"Image"_s, u"ready"_s}, {u"ImageSet"_s, u"los20av-20260927-20261022"_s},
+                           {u"GooglePlay"_s, u"off"_s},
                            {u"GsfId"_s, QString()}, {u"Storage"_s, u"card"_s}};
         QVERIFY(row(u"group-Android"_s).isEmpty());
         model->setAndroid(status);
@@ -827,7 +828,7 @@ private slots:
         focus(u"group-Android"_s);
         key(Qt::Key_Return);
         QCOMPARE(page()->property("title").toString(), u"Android"_s);
-        QTRY_COMPARE(value(u"android-lepton"_s), u"build 25772114"_s);
+        QTRY_COMPARE(value(u"android-image"_s), u"los20av-20260927-20261022"_s);
         QCOMPARE(value(u"android-storage"_s), u"card"_s);
         auto *dialog = qvariant_cast<QObject *>(page()->property("confirm"));
         focus(u"android-google-play-install"_s);
